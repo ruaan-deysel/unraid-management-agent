@@ -254,20 +254,20 @@ make package
 ./bin/unraid-management-agent --mock
 
 # Terminal 2: Test API endpoints
-curl http://localhost:8080/api/v1/health
-curl http://localhost:8080/api/v1/system
-curl http://localhost:8080/api/v1/array
-curl http://localhost:8080/api/v1/disks
-curl http://localhost:8080/api/v1/docker
-curl http://localhost:8080/api/v1/vm
+curl http://localhost:8043/api/v1/health
+curl http://localhost:8043/api/v1/system
+curl http://localhost:8043/api/v1/array
+curl http://localhost:8043/api/v1/disks
+curl http://localhost:8043/api/v1/docker
+curl http://localhost:8043/api/v1/vm
 
 # Test Docker control
-curl -X POST http://localhost:8080/api/v1/docker/control \
+curl -X POST http://localhost:8043/api/v1/docker/control \
   -H "Content-Type: application/json" \
   -d '{"container_id":"test123","operation":"start"}'
 
 # Test VM control
-curl -X POST http://localhost:8080/api/v1/vm/control \
+curl -X POST http://localhost:8043/api/v1/vm/control \
   -H "Content-Type: application/json" \
   -d '{"vm_name":"testvm","operation":"start"}'
 ```
@@ -278,7 +278,7 @@ curl -X POST http://localhost:8080/api/v1/vm/control \
 brew install websocat
 
 # Connect to WebSocket
-websocat ws://localhost:8080/ws
+websocat ws://localhost:8043/ws
 
 # Should receive events every 5 seconds
 ```

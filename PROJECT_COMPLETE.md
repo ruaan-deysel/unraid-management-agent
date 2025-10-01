@@ -308,8 +308,8 @@ make local
 ./unraid-management-agent --mock
 
 # Test API
-curl http://localhost:8080/api/v1/health
-curl http://localhost:8080/api/v1/system
+curl http://localhost:8043/api/v1/health
+curl http://localhost:8043/api/v1/system
 ```
 
 ### Build for Unraid

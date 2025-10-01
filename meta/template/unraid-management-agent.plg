@@ -51,7 +51,7 @@ Exposes comprehensive Unraid system monitoring and control via REST API and WebS
 SERVICE="enable"
 
 # API configuration
-PORT="8080"
+PORT="8043"
 ENABLE_CORS="yes"
 
 # Feature toggles

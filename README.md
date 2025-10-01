@@ -96,7 +96,7 @@ INTERVAL_SHARES="60"
 
 ### Base URL
 ```
-http://<unraid-ip>:8080/api/v1
+http://<unraid-ip>:8043/api/v1
 ```
 
 ### REST Endpoints
@@ -134,7 +134,7 @@ http://<unraid-ip>:8080/api/v1
 | `/vm/{id}/force-stop` | Force stop VM |
 
 ### WebSocket
-Connect to `ws://<unraid-ip>:8080/api/v1/ws` for real-time event updates.
+Connect to `ws://<unraid-ip>:8043/api/v1/ws` for real-time event updates.
 
 **Event Format:**
 ```json
@@ -155,14 +155,14 @@ Connect to `ws://<unraid-ip>:8080/api/v1/ws` for real-time event updates.
 sensor:
   - platform: rest
     name: "Unraid CPU Usage"
-    resource: "http://unraid-ip:8080/api/v1/system"
+    resource: "http://unraid-ip:8043/api/v1/system"
     value_template: "{{ value_json.cpu_usage_percent }}"
     unit_of_measurement: "%"
     scan_interval: 5
     
   - platform: rest
     name: "Unraid Array Status"
-    resource: "http://unraid-ip:8080/api/v1/array"
+    resource: "http://unraid-ip:8043/api/v1/array"
     value_template: "{{ value_json.state }}"
     scan_interval: 10
 ```
@@ -172,7 +172,7 @@ sensor:
 # configuration.yaml
 rest_command:
   unraid_restart_container:
-    url: "http://unraid-ip:8080/api/v1/docker/{{ container_id }}/restart"
+    url: "http://unraid-ip:8043/api/v1/docker/{{ container_id }}/restart"
     method: POST
 
 # scripts.yaml
