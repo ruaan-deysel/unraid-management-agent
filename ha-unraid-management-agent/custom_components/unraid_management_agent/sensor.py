@@ -45,6 +45,7 @@ from .const import (
     ICON_UPTIME,
     ICON_UPS,
     KEY_ARRAY,
+    KEY_DISKS,
     KEY_GPU,
     KEY_NETWORK,
     KEY_SYSTEM,
@@ -90,6 +91,17 @@ async def async_setup_entry(
         UnraidArrayUsageSensor(coordinator, entry),
         UnraidParityProgressSensor(coordinator, entry),
     ])
+
+    # Disk sensors (dynamic, one per disk)
+    disks = coordinator.data.get(KEY_DISKS, [])
+    for disk in disks:
+        disk_id = disk.get("id", disk.get("name", "unknown"))
+        disk_name = disk.get("name", disk_id)
+        # Create sensors for each disk
+        entities.extend([
+            UnraidDiskUsageSensor(coordinator, entry, disk_id, disk_name),
+            UnraidDiskTemperatureSensor(coordinator, entry, disk_id, disk_name),
+        ])
 
     # GPU sensors (if GPU available)
     if coordinator.data.get(KEY_GPU):
@@ -586,4 +598,117 @@ class UnraidNetworkTXSensor(UnraidSensorBase):
             if interface.get("name") == self._interface_name:
                 return interface.get("bytes_sent")
         return None
+
+
+class UnraidDiskUsageSensor(UnraidSensorBase):
+    """Disk usage sensor."""
+
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:harddisk"
+
+    def __init__(
+        self,
+        coordinator: UnraidDataUpdateCoordinator,
+        entry: ConfigEntry,
+        disk_id: str,
+        disk_name: str,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, entry)
+        self._disk_id = disk_id
+        self._disk_name = disk_name
+        self._attr_name = f"Disk {disk_name} Usage"
+
+    @property
+    def unique_id(self) -> str:
+        """Return unique ID."""
+        # Sanitize disk ID for unique ID
+        safe_id = self._disk_id.replace(" ", "_").replace("/", "_").lower()
+        return f"{self._entry.entry_id}_disk_{safe_id}_usage"
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the state."""
+        for disk in self.coordinator.data.get(KEY_DISKS, []):
+            disk_id = disk.get("id", disk.get("name"))
+            if disk_id == self._disk_id:
+                return disk.get("usage_percent")
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return extra attributes."""
+        for disk in self.coordinator.data.get(KEY_DISKS, []):
+            disk_id = disk.get("id", disk.get("name"))
+            if disk_id == self._disk_id:
+                size_bytes = disk.get("size_bytes", 0)
+                used_bytes = disk.get("used_bytes", 0)
+                free_bytes = disk.get("free_bytes", 0)
+                return {
+                    "device": disk.get("device"),
+                    "status": disk.get("status"),
+                    "filesystem": disk.get("filesystem"),
+                    "mount_point": disk.get("mount_point"),
+                    "size": f"{size_bytes / (1024**3):.2f} GB" if size_bytes else "Unknown",
+                    "used": f"{used_bytes / (1024**3):.2f} GB" if used_bytes else "Unknown",
+                    "free": f"{free_bytes / (1024**3):.2f} GB" if free_bytes else "Unknown",
+                    "smart_status": disk.get("smart_status"),
+                    "smart_errors": disk.get("smart_errors", 0),
+                }
+        return {}
+
+
+class UnraidDiskTemperatureSensor(UnraidSensorBase):
+    """Disk temperature sensor."""
+
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = ICON_TEMPERATURE
+
+    def __init__(
+        self,
+        coordinator: UnraidDataUpdateCoordinator,
+        entry: ConfigEntry,
+        disk_id: str,
+        disk_name: str,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, entry)
+        self._disk_id = disk_id
+        self._disk_name = disk_name
+        self._attr_name = f"Disk {disk_name} Temperature"
+
+    @property
+    def unique_id(self) -> str:
+        """Return unique ID."""
+        # Sanitize disk ID for unique ID
+        safe_id = self._disk_id.replace(" ", "_").replace("/", "_").lower()
+        return f"{self._entry.entry_id}_disk_{safe_id}_temperature"
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the state."""
+        for disk in self.coordinator.data.get(KEY_DISKS, []):
+            disk_id = disk.get("id", disk.get("name"))
+            if disk_id == self._disk_id:
+                temp = disk.get("temperature_celsius")
+                # Return None if disk is spun down (temp = 0 or missing)
+                return temp if temp and temp > 0 else None
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return extra attributes."""
+        for disk in self.coordinator.data.get(KEY_DISKS, []):
+            disk_id = disk.get("id", disk.get("name"))
+            if disk_id == self._disk_id:
+                return {
+                    "device": disk.get("device"),
+                    "status": disk.get("status"),
+                    "power_on_hours": disk.get("power_on_hours"),
+                    "power_cycle_count": disk.get("power_cycle_count"),
+                }
+        return {}
 
