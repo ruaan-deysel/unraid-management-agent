@@ -106,18 +106,16 @@ func (c *GPUCollector) collectIntelGPU() ([]*dto.GPUMetrics, error) {
 			}
 
 			// Extract all quoted strings using regex
+			// Format: "VGA compatible controller" "Intel Corporation" "CoffeeLake-S GT2 [UHD Graphics 630]" -p00 "ASRock Incorporation" "Device 3e92"
+			// Indices: [0]=class, [1]=vendor, [2]=device_name, [3]=subsys_vendor, [4]=subsys_device
 			re := regexp.MustCompile(`"([^"]*)"`)
 			matches := re.FindAllStringSubmatch(line, -1)
 
-			// Debug: log all quoted strings
-			logger.Debug("Intel GPU: Found %d quoted strings", len(matches))
-			for i, match := range matches {
-				logger.Debug("Intel GPU: String %d: %s", i, match[1])
-			}
+			// The 3rd quoted string (index 2) is the device name
+			if len(matches) >= 3 {
+				fullModel := matches[2][1] // matches[2][0] is the full match with quotes, [1] is the captured group
+				logger.Debug("Intel GPU: Full model string: %s", fullModel)
 
-			// The 4th quoted string (index 3) is the device name
-			if len(matches) >= 4 {
-				fullModel := matches[3][1] // matches[3][0] is the full match with quotes, [1] is the captured group
 				// Extract just the marketing name from brackets if present
 				if strings.Contains(fullModel, "[") {
 					start := strings.Index(fullModel, "[")
@@ -126,11 +124,12 @@ func (c *GPUCollector) collectIntelGPU() ([]*dto.GPUMetrics, error) {
 						intelGPUModel = strings.TrimSpace(fullModel[start+1 : end])
 					}
 				} else {
+					// No brackets, use the full model name
 					intelGPUModel = fullModel
 				}
 				logger.Debug("Intel GPU: Parsed - ID: %s, Model: %s", intelGPUID, intelGPUModel)
 			} else {
-				logger.Debug("Intel GPU: Failed to parse model name from line (found %d quoted strings)", len(matches))
+				logger.Debug("Intel GPU: Failed to parse model name from line (found %d quoted strings, need at least 3)", len(matches))
 			}
 			break
 		}
@@ -237,7 +236,16 @@ func (c *GPUCollector) collectIntelGPU() ([]*dto.GPUMetrics, error) {
 		}
 	}
 
-	// Extract memory info
+	// Extract power consumption (GPU power, not package power)
+	if power, ok := intelData["power"].(map[string]interface{}); ok {
+		if gpuPower, ok := power["GPU"].(float64); ok {
+			gpu.PowerDraw = gpuPower
+			logger.Debug("Intel GPU power: %.3f W", gpuPower)
+		}
+	}
+
+	// Extract memory info (Note: Intel iGPU shares system RAM, intel_gpu_top doesn't report memory usage)
+	// The "memory" field is not present in intel_gpu_top JSON output for integrated GPUs
 	if memory, ok := intelData["memory"].(map[string]interface{}); ok {
 		if total, ok := memory["total"].(float64); ok {
 			gpu.MemoryTotal = uint64(total)
@@ -250,8 +258,8 @@ func (c *GPUCollector) collectIntelGPU() ([]*dto.GPUMetrics, error) {
 		}
 	}
 
-	// Intel iGPU typically doesn't report temperature directly via intel_gpu_top
-	// Try to get it from hwmon/sensors
+	// Intel iGPU typically doesn't report temperature via intel_gpu_top or sysfs hwmon
+	// Most Intel integrated GPUs don't expose temperature sensors
 	if temp, err := c.getIntelGPUTemp(); err == nil {
 		gpu.Temperature = temp
 	}
