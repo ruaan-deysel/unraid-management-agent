@@ -17,6 +17,7 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from .api_client import UnraidAPIClient
+from . import repairs
 from .const import (
     CONF_ENABLE_WEBSOCKET,
     CONF_UPDATE_INTERVAL,
@@ -25,6 +26,7 @@ from .const import (
     DOMAIN,
     EVENT_ARRAY_STATUS_UPDATE,
     EVENT_CONTAINER_LIST_UPDATE,
+    EVENT_DISK_LIST_UPDATE,
     EVENT_GPU_UPDATE,
     EVENT_NETWORK_LIST_UPDATE,
     EVENT_SYSTEM_UPDATE,
@@ -32,6 +34,7 @@ from .const import (
     EVENT_VM_LIST_UPDATE,
     KEY_ARRAY,
     KEY_CONTAINERS,
+    KEY_DISKS,
     KEY_GPU,
     KEY_NETWORK,
     KEY_SYSTEM,
@@ -351,6 +354,7 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator):
             results = await asyncio.gather(
                 self.client.get_system_info(),
                 self.client.get_array_status(),
+                self.client.get_disks(),
                 self.client.get_containers(),
                 self.client.get_vms(),
                 self.client.get_ups_status(),
@@ -363,17 +367,21 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator):
             data = {
                 KEY_SYSTEM: results[0] if not isinstance(results[0], Exception) else {},
                 KEY_ARRAY: results[1] if not isinstance(results[1], Exception) else {},
-                KEY_CONTAINERS: results[2] if not isinstance(results[2], Exception) else [],
-                KEY_VMS: results[3] if not isinstance(results[3], Exception) else [],
-                KEY_UPS: results[4] if not isinstance(results[4], Exception) else {},
-                KEY_GPU: results[5] if not isinstance(results[5], Exception) else [],
-                KEY_NETWORK: results[6] if not isinstance(results[6], Exception) else [],
+                KEY_DISKS: results[2] if not isinstance(results[2], Exception) else [],
+                KEY_CONTAINERS: results[3] if not isinstance(results[3], Exception) else [],
+                KEY_VMS: results[4] if not isinstance(results[4], Exception) else [],
+                KEY_UPS: results[5] if not isinstance(results[5], Exception) else {},
+                KEY_GPU: results[6] if not isinstance(results[6], Exception) else [],
+                KEY_NETWORK: results[7] if not isinstance(results[7], Exception) else [],
             }
 
             # Log any errors
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
                     _LOGGER.warning("Error fetching data for index %d: %s", i, result)
+
+            # Check for issues and create repair flows
+            await repairs.async_check_and_create_issues(self.hass, self)
 
             return data
 
@@ -391,6 +399,8 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator):
             self.data[KEY_SYSTEM] = data
         elif event_type == EVENT_ARRAY_STATUS_UPDATE:
             self.data[KEY_ARRAY] = data
+        elif event_type == EVENT_DISK_LIST_UPDATE:
+            self.data[KEY_DISKS] = data if isinstance(data, list) else [data]
         elif event_type == EVENT_UPS_STATUS_UPDATE:
             self.data[KEY_UPS] = data
         elif event_type == EVENT_GPU_UPDATE:

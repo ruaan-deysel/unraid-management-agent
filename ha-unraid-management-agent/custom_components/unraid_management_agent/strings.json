@@ -259,6 +259,28 @@
       "name": "Resume Parity Check",
       "description": "Resume a paused parity check"
     }
+  },
+  "issues": {
+    "connection_failed": {
+      "title": "Connection to Unraid Server Failed",
+      "description": "Failed to connect to Unraid server at {host}:{port}.\n\nError: {error}\n\n**Troubleshooting Steps:**\n1. Verify the Unraid server is running\n2. Check the host and port are correct\n3. Ensure the Unraid Management Agent daemon is running\n4. Check firewall settings\n5. Verify network connectivity\n\nClick Submit to acknowledge this issue."
+    },
+    "disk_smart_errors": {
+      "title": "Disk SMART Errors Detected",
+      "description": "Disk **{disk_name}** has {smart_errors} SMART errors.\n\nSMART Status: {smart_status}\n\n**Recommended Actions:**\n1. Back up important data immediately\n2. Run a full SMART test\n3. Consider replacing the disk\n4. Monitor disk health closely\n\nClick Submit to acknowledge this issue."
+    },
+    "disk_high_temperature": {
+      "title": "Disk High Temperature Warning",
+      "description": "Disk **{disk_name}** temperature is {temperature}°C.\n\n**Recommended Actions:**\n1. Check cooling/airflow in the system\n2. Verify fan operation\n3. Consider adding additional cooling\n4. Monitor temperature trends\n\nClick Submit to acknowledge this issue."
+    },
+    "array_parity_invalid": {
+      "title": "Array Parity Invalid",
+      "description": "The Unraid array parity is invalid.\n\nArray State: {array_state}\n\n**Recommended Actions:**\n1. Run a parity check to identify issues\n2. Review system logs for errors\n3. Check disk health status\n4. Consider rebuilding parity if necessary\n\nClick Submit to acknowledge this issue."
+    },
+    "parity_check_stuck": {
+      "title": "Parity Check May Be Stuck",
+      "description": "Parity check is at {sync_percent}% and may be stuck.\n\n**Recommended Actions:**\n1. Check system logs for errors\n2. Monitor progress for changes\n3. Consider pausing and resuming the check\n4. Check disk health status\n\nClick Submit to acknowledge this issue."
+    }
   }
 }
 
