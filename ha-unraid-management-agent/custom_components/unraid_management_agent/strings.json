@@ -145,6 +145,26 @@
         }
       }
     },
+    "container_pause": {
+      "name": "Pause Container",
+      "description": "Pause a running Docker container",
+      "fields": {
+        "container_id": {
+          "name": "Container ID",
+          "description": "The ID or name of the container to pause"
+        }
+      }
+    },
+    "container_resume": {
+      "name": "Resume Container",
+      "description": "Resume a paused Docker container",
+      "fields": {
+        "container_id": {
+          "name": "Container ID",
+          "description": "The ID or name of the container to resume"
+        }
+      }
+    },
     "vm_start": {
       "name": "Start VM",
       "description": "Start a virtual machine",
@@ -175,6 +195,46 @@
         }
       }
     },
+    "vm_pause": {
+      "name": "Pause VM",
+      "description": "Pause a running virtual machine (suspend to RAM)",
+      "fields": {
+        "vm_id": {
+          "name": "VM ID",
+          "description": "The ID or name of the VM to pause"
+        }
+      }
+    },
+    "vm_resume": {
+      "name": "Resume VM",
+      "description": "Resume a paused virtual machine",
+      "fields": {
+        "vm_id": {
+          "name": "VM ID",
+          "description": "The ID or name of the VM to resume"
+        }
+      }
+    },
+    "vm_hibernate": {
+      "name": "Hibernate VM",
+      "description": "Hibernate a virtual machine (suspend to disk)",
+      "fields": {
+        "vm_id": {
+          "name": "VM ID",
+          "description": "The ID or name of the VM to hibernate"
+        }
+      }
+    },
+    "vm_force_stop": {
+      "name": "Force Stop VM",
+      "description": "Force stop a virtual machine (equivalent to power off)",
+      "fields": {
+        "vm_id": {
+          "name": "VM ID",
+          "description": "The ID or name of the VM to force stop"
+        }
+      }
+    },
     "array_start": {
       "name": "Start Array",
       "description": "Start the Unraid array"
@@ -190,6 +250,14 @@
     "parity_check_stop": {
       "name": "Stop Parity Check",
       "description": "Stop the running parity check"
+    },
+    "parity_check_pause": {
+      "name": "Pause Parity Check",
+      "description": "Pause the running parity check"
+    },
+    "parity_check_resume": {
+      "name": "Resume Parity Check",
+      "description": "Resume a paused parity check"
     }
   }
 }

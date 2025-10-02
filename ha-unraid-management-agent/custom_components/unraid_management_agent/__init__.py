@@ -8,8 +8,8 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT, Platform
-from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
@@ -85,6 +85,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Set up platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    # Register services
+    await async_setup_services(hass, coordinator)
+
     # Start WebSocket for real-time updates
     if enable_websocket:
         await coordinator.async_start_websocket()
@@ -108,6 +111,211 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload config entry when options change."""
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def async_setup_services(
+    hass: HomeAssistant, coordinator: UnraidDataUpdateCoordinator
+) -> None:
+    """Set up services for Unraid Management Agent."""
+
+    async def handle_container_start(call: ServiceCall) -> None:
+        """Handle container start service."""
+        container_id = call.data["container_id"]
+        try:
+            await coordinator.client.start_container(container_id)
+            await coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error("Failed to start container %s: %s", container_id, err)
+            raise HomeAssistantError(f"Failed to start container: {err}") from err
+
+    async def handle_container_stop(call: ServiceCall) -> None:
+        """Handle container stop service."""
+        container_id = call.data["container_id"]
+        try:
+            await coordinator.client.stop_container(container_id)
+            await coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error("Failed to stop container %s: %s", container_id, err)
+            raise HomeAssistantError(f"Failed to stop container: {err}") from err
+
+    async def handle_container_restart(call: ServiceCall) -> None:
+        """Handle container restart service."""
+        container_id = call.data["container_id"]
+        try:
+            await coordinator.client.restart_container(container_id)
+            await coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error("Failed to restart container %s: %s", container_id, err)
+            raise HomeAssistantError(f"Failed to restart container: {err}") from err
+
+    async def handle_container_pause(call: ServiceCall) -> None:
+        """Handle container pause service."""
+        container_id = call.data["container_id"]
+        try:
+            await coordinator.client.pause_container(container_id)
+            await coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error("Failed to pause container %s: %s", container_id, err)
+            raise HomeAssistantError(f"Failed to pause container: {err}") from err
+
+    async def handle_container_resume(call: ServiceCall) -> None:
+        """Handle container resume service."""
+        container_id = call.data["container_id"]
+        try:
+            await coordinator.client.unpause_container(container_id)
+            await coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error("Failed to resume container %s: %s", container_id, err)
+            raise HomeAssistantError(f"Failed to resume container: {err}") from err
+
+    async def handle_vm_start(call: ServiceCall) -> None:
+        """Handle VM start service."""
+        vm_id = call.data["vm_id"]
+        try:
+            await coordinator.client.start_vm(vm_id)
+            await coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error("Failed to start VM %s: %s", vm_id, err)
+            raise HomeAssistantError(f"Failed to start VM: {err}") from err
+
+    async def handle_vm_stop(call: ServiceCall) -> None:
+        """Handle VM stop service."""
+        vm_id = call.data["vm_id"]
+        try:
+            await coordinator.client.stop_vm(vm_id)
+            await coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error("Failed to stop VM %s: %s", vm_id, err)
+            raise HomeAssistantError(f"Failed to stop VM: {err}") from err
+
+    async def handle_vm_restart(call: ServiceCall) -> None:
+        """Handle VM restart service."""
+        vm_id = call.data["vm_id"]
+        try:
+            await coordinator.client.restart_vm(vm_id)
+            await coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error("Failed to restart VM %s: %s", vm_id, err)
+            raise HomeAssistantError(f"Failed to restart VM: {err}") from err
+
+    async def handle_vm_pause(call: ServiceCall) -> None:
+        """Handle VM pause service."""
+        vm_id = call.data["vm_id"]
+        try:
+            await coordinator.client.pause_vm(vm_id)
+            await coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error("Failed to pause VM %s: %s", vm_id, err)
+            raise HomeAssistantError(f"Failed to pause VM: {err}") from err
+
+    async def handle_vm_resume(call: ServiceCall) -> None:
+        """Handle VM resume service."""
+        vm_id = call.data["vm_id"]
+        try:
+            await coordinator.client.resume_vm(vm_id)
+            await coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error("Failed to resume VM %s: %s", vm_id, err)
+            raise HomeAssistantError(f"Failed to resume VM: {err}") from err
+
+    async def handle_vm_hibernate(call: ServiceCall) -> None:
+        """Handle VM hibernate service."""
+        vm_id = call.data["vm_id"]
+        try:
+            await coordinator.client.hibernate_vm(vm_id)
+            await coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error("Failed to hibernate VM %s: %s", vm_id, err)
+            raise HomeAssistantError(f"Failed to hibernate VM: {err}") from err
+
+    async def handle_vm_force_stop(call: ServiceCall) -> None:
+        """Handle VM force stop service."""
+        vm_id = call.data["vm_id"]
+        try:
+            await coordinator.client.force_stop_vm(vm_id)
+            await coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error("Failed to force stop VM %s: %s", vm_id, err)
+            raise HomeAssistantError(f"Failed to force stop VM: {err}") from err
+
+    async def handle_array_start(call: ServiceCall) -> None:
+        """Handle array start service."""
+        try:
+            await coordinator.client.start_array()
+            await coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error("Failed to start array: %s", err)
+            raise HomeAssistantError(f"Failed to start array: {err}") from err
+
+    async def handle_array_stop(call: ServiceCall) -> None:
+        """Handle array stop service."""
+        try:
+            await coordinator.client.stop_array()
+            await coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error("Failed to stop array: %s", err)
+            raise HomeAssistantError(f"Failed to stop array: {err}") from err
+
+    async def handle_parity_check_start(call: ServiceCall) -> None:
+        """Handle parity check start service."""
+        try:
+            await coordinator.client.start_parity_check()
+            await coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error("Failed to start parity check: %s", err)
+            raise HomeAssistantError(f"Failed to start parity check: {err}") from err
+
+    async def handle_parity_check_stop(call: ServiceCall) -> None:
+        """Handle parity check stop service."""
+        try:
+            await coordinator.client.stop_parity_check()
+            await coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error("Failed to stop parity check: %s", err)
+            raise HomeAssistantError(f"Failed to stop parity check: {err}") from err
+
+    async def handle_parity_check_pause(call: ServiceCall) -> None:
+        """Handle parity check pause service."""
+        try:
+            await coordinator.client.pause_parity_check()
+            await coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error("Failed to pause parity check: %s", err)
+            raise HomeAssistantError(f"Failed to pause parity check: {err}") from err
+
+    async def handle_parity_check_resume(call: ServiceCall) -> None:
+        """Handle parity check resume service."""
+        try:
+            await coordinator.client.resume_parity_check()
+            await coordinator.async_request_refresh()
+        except Exception as err:
+            _LOGGER.error("Failed to resume parity check: %s", err)
+            raise HomeAssistantError(f"Failed to resume parity check: {err}") from err
+
+    # Register all services
+    hass.services.async_register(DOMAIN, "container_start", handle_container_start)
+    hass.services.async_register(DOMAIN, "container_stop", handle_container_stop)
+    hass.services.async_register(DOMAIN, "container_restart", handle_container_restart)
+    hass.services.async_register(DOMAIN, "container_pause", handle_container_pause)
+    hass.services.async_register(DOMAIN, "container_resume", handle_container_resume)
+
+    hass.services.async_register(DOMAIN, "vm_start", handle_vm_start)
+    hass.services.async_register(DOMAIN, "vm_stop", handle_vm_stop)
+    hass.services.async_register(DOMAIN, "vm_restart", handle_vm_restart)
+    hass.services.async_register(DOMAIN, "vm_pause", handle_vm_pause)
+    hass.services.async_register(DOMAIN, "vm_resume", handle_vm_resume)
+    hass.services.async_register(DOMAIN, "vm_hibernate", handle_vm_hibernate)
+    hass.services.async_register(DOMAIN, "vm_force_stop", handle_vm_force_stop)
+
+    hass.services.async_register(DOMAIN, "array_start", handle_array_start)
+    hass.services.async_register(DOMAIN, "array_stop", handle_array_stop)
+
+    hass.services.async_register(DOMAIN, "parity_check_start", handle_parity_check_start)
+    hass.services.async_register(DOMAIN, "parity_check_stop", handle_parity_check_stop)
+    hass.services.async_register(DOMAIN, "parity_check_pause", handle_parity_check_pause)
+    hass.services.async_register(DOMAIN, "parity_check_resume", handle_parity_check_resume)
+
+    _LOGGER.info("Registered %d services for Unraid Management Agent", 18)
 
 
 class UnraidDataUpdateCoordinator(DataUpdateCoordinator):

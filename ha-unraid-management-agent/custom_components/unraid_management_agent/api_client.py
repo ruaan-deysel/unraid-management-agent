@@ -10,23 +10,31 @@ from .const import (
     API_ARRAY,
     API_ARRAY_START,
     API_ARRAY_STOP,
+    API_DISKS,
     API_DOCKER,
+    API_DOCKER_PAUSE,
     API_DOCKER_RESTART,
     API_DOCKER_START,
     API_DOCKER_STOP,
+    API_DOCKER_UNPAUSE,
     API_GPU,
     API_HEALTH,
     API_NETWORK,
+    API_PARITY_CHECK_PAUSE,
+    API_PARITY_CHECK_RESUME,
     API_PARITY_CHECK_START,
     API_PARITY_CHECK_STOP,
     API_SHARES,
     API_SYSTEM,
     API_UPS,
     API_VM,
+    API_VM_FORCE_STOP,
+    API_VM_HIBERNATE,
+    API_VM_PAUSE,
     API_VM_RESTART,
+    API_VM_RESUME,
     API_VM_START,
     API_VM_STOP,
-    API_DISKS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -110,6 +118,14 @@ class UnraidAPIClient:
         """Stop the parity check."""
         return await self._post(API_PARITY_CHECK_STOP)
 
+    async def pause_parity_check(self) -> dict[str, Any]:
+        """Pause the parity check."""
+        return await self._post(API_PARITY_CHECK_PAUSE)
+
+    async def resume_parity_check(self) -> dict[str, Any]:
+        """Resume the parity check."""
+        return await self._post(API_PARITY_CHECK_RESUME)
+
     # Disks
     async def get_disks(self) -> list[dict[str, Any]]:
         """Get list of disks."""
@@ -140,6 +156,16 @@ class UnraidAPIClient:
         endpoint = API_DOCKER_RESTART.format(id=container_id)
         return await self._post(endpoint)
 
+    async def pause_container(self, container_id: str) -> dict[str, Any]:
+        """Pause a Docker container."""
+        endpoint = API_DOCKER_PAUSE.format(id=container_id)
+        return await self._post(endpoint)
+
+    async def unpause_container(self, container_id: str) -> dict[str, Any]:
+        """Unpause (resume) a Docker container."""
+        endpoint = API_DOCKER_UNPAUSE.format(id=container_id)
+        return await self._post(endpoint)
+
     # Virtual machines
     async def get_vms(self) -> list[dict[str, Any]]:
         """Get list of virtual machines."""
@@ -158,6 +184,26 @@ class UnraidAPIClient:
     async def restart_vm(self, vm_id: str) -> dict[str, Any]:
         """Restart a virtual machine."""
         endpoint = API_VM_RESTART.format(id=vm_id)
+        return await self._post(endpoint)
+
+    async def pause_vm(self, vm_id: str) -> dict[str, Any]:
+        """Pause a virtual machine (suspend to RAM)."""
+        endpoint = API_VM_PAUSE.format(id=vm_id)
+        return await self._post(endpoint)
+
+    async def resume_vm(self, vm_id: str) -> dict[str, Any]:
+        """Resume a paused virtual machine."""
+        endpoint = API_VM_RESUME.format(id=vm_id)
+        return await self._post(endpoint)
+
+    async def hibernate_vm(self, vm_id: str) -> dict[str, Any]:
+        """Hibernate a virtual machine (suspend to disk)."""
+        endpoint = API_VM_HIBERNATE.format(id=vm_id)
+        return await self._post(endpoint)
+
+    async def force_stop_vm(self, vm_id: str) -> dict[str, Any]:
+        """Force stop a virtual machine (power off)."""
+        endpoint = API_VM_FORCE_STOP.format(id=vm_id)
         return await self._post(endpoint)
 
     # UPS status
