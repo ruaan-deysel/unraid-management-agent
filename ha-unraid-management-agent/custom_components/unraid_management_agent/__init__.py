@@ -23,6 +23,13 @@ from .const import (
     DEFAULT_ENABLE_WEBSOCKET,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
+    EVENT_ARRAY_STATUS_UPDATE,
+    EVENT_CONTAINER_LIST_UPDATE,
+    EVENT_GPU_UPDATE,
+    EVENT_NETWORK_LIST_UPDATE,
+    EVENT_SYSTEM_UPDATE,
+    EVENT_UPS_STATUS_UPDATE,
+    EVENT_VM_LIST_UPDATE,
     KEY_ARRAY,
     KEY_CONTAINERS,
     KEY_GPU,
@@ -31,6 +38,7 @@ from .const import (
     KEY_UPS,
     KEY_VMS,
 )
+from .websocket_client import UnraidWebSocketClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -77,6 +85,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Set up platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    # Start WebSocket for real-time updates
+    if enable_websocket:
+        await coordinator.async_start_websocket()
+
     # Register update listener for options
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
@@ -88,12 +100,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         coordinator: UnraidDataUpdateCoordinator = hass.data[DOMAIN].pop(entry.entry_id)
         # Stop WebSocket if running
-        if hasattr(coordinator, "websocket_task") and coordinator.websocket_task:
-            coordinator.websocket_task.cancel()
-            try:
-                await coordinator.websocket_task
-            except asyncio.CancelledError:
-                pass
+        await coordinator.async_stop_websocket()
 
     return unload_ok
 
@@ -166,14 +173,56 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.error("Error communicating with API: %s", err)
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 
+    def _handle_websocket_event(self, event_type: str, data: Any) -> None:
+        """Handle WebSocket event and update coordinator data."""
+        if not self.data:
+            return
+
+        # Update coordinator data based on event type
+        if event_type == EVENT_SYSTEM_UPDATE:
+            self.data[KEY_SYSTEM] = data
+        elif event_type == EVENT_ARRAY_STATUS_UPDATE:
+            self.data[KEY_ARRAY] = data
+        elif event_type == EVENT_UPS_STATUS_UPDATE:
+            self.data[KEY_UPS] = data
+        elif event_type == EVENT_GPU_UPDATE:
+            self.data[KEY_GPU] = data if isinstance(data, list) else [data]
+        elif event_type == EVENT_NETWORK_LIST_UPDATE:
+            self.data[KEY_NETWORK] = data if isinstance(data, list) else [data]
+        elif event_type == EVENT_CONTAINER_LIST_UPDATE:
+            self.data[KEY_CONTAINERS] = data if isinstance(data, list) else [data]
+        elif event_type == EVENT_VM_LIST_UPDATE:
+            self.data[KEY_VMS] = data if isinstance(data, list) else [data]
+
+        # Notify listeners of data update
+        self.async_set_updated_data(self.data)
+
     async def async_start_websocket(self) -> None:
         """Start WebSocket connection for real-time updates."""
         if not self.enable_websocket:
             _LOGGER.debug("WebSocket disabled in configuration")
             return
 
-        # WebSocket implementation will be added in Phase 2.2
-        _LOGGER.info("WebSocket support will be added in Phase 2.2")
+        if self.websocket_task and not self.websocket_task.done():
+            _LOGGER.debug("WebSocket already running")
+            return
+
+        try:
+            # Create WebSocket client
+            ws_client = UnraidWebSocketClient(
+                host=self.client.host,
+                port=self.client.port,
+                session=self.client.session,
+                callback=self._handle_websocket_event,
+            )
+
+            # Start listening in background task
+            self.websocket_task = asyncio.create_task(ws_client.listen())
+            _LOGGER.info("WebSocket client started")
+
+        except Exception as err:
+            _LOGGER.error("Failed to start WebSocket client: %s", err)
+            self.websocket_task = None
 
     async def async_stop_websocket(self) -> None:
         """Stop WebSocket connection."""
@@ -184,4 +233,5 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator):
             except asyncio.CancelledError:
                 pass
             self.websocket_task = None
+            _LOGGER.info("WebSocket client stopped")
 
