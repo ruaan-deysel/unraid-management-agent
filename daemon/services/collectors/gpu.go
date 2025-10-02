@@ -217,6 +217,11 @@ func (c *GPUCollector) collectIntelGPU() ([]*dto.GPUMetrics, error) {
 		Timestamp: time.Now(),
 	}
 
+	// Extract driver version from modinfo
+	if driverVersion, err := c.getIntelDriverVersion(); err == nil {
+		gpu.DriverVersion = driverVersion
+	}
+
 	// Extract utilization from engines
 	if engines, ok := intelData["engines"].(map[string]interface{}); ok {
 		// Sum up all engine utilizations for overall GPU usage
@@ -264,6 +269,13 @@ func (c *GPUCollector) collectIntelGPU() ([]*dto.GPUMetrics, error) {
 		gpu.Temperature = temp
 	}
 
+	// For Intel iGPUs, add CPU temperature as they share the die with the CPU
+	// This provides useful thermal information since iGPUs don't have dedicated temp sensors
+	if cpuTemp, err := c.getCPUTemp(); err == nil {
+		gpu.CPUTemperature = cpuTemp
+		logger.Debug("Intel GPU: CPU temperature: %.1f°C", cpuTemp)
+	}
+
 	return []*dto.GPUMetrics{gpu}, nil
 }
 
@@ -282,6 +294,50 @@ func (c *GPUCollector) getIntelGPUTemp() (float64, error) {
 
 	// Convert from millidegrees to degrees
 	return tempMilliC / 1000.0, nil
+}
+
+// Get CPU temperature from coretemp hwmon
+// This is useful for Intel iGPUs since they share the die with the CPU
+func (c *GPUCollector) getCPUTemp() (float64, error) {
+	// Try to find coretemp hwmon device
+	// Look for hwmon device with name "coretemp"
+	output, err := lib.ExecCommandOutput("bash", "-c", "for d in /sys/class/hwmon/hwmon*; do if [ -f $d/name ] && grep -q coretemp $d/name 2>/dev/null; then cat $d/temp1_input 2>/dev/null && exit 0; fi; done")
+	if err != nil || output == "" {
+		return 0, fmt.Errorf("failed to read CPU temperature from coretemp")
+	}
+
+	tempMilliC, err := strconv.ParseFloat(strings.TrimSpace(output), 64)
+	if err != nil {
+		return 0, err
+	}
+
+	// Convert from millidegrees to degrees
+	// temp1 is typically the package temperature (overall CPU temp)
+	return tempMilliC / 1000.0, nil
+}
+
+// Get Intel GPU driver version from modinfo
+func (c *GPUCollector) getIntelDriverVersion() (string, error) {
+	// Get vermagic from modinfo i915 (contains kernel version)
+	output, err := lib.ExecCommandOutput("modinfo", "i915")
+	if err != nil {
+		return "", fmt.Errorf("modinfo i915 failed: %w", err)
+	}
+
+	// Parse vermagic line: "vermagic:       6.12.24-Unraid SMP preempt mod_unload"
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "vermagic:") {
+			// Extract kernel version from vermagic
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				// Return kernel version (e.g., "6.12.24-Unraid")
+				return parts[1], nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("failed to parse driver version from modinfo")
 }
 
 // NVIDIA GPU collection using nvidia-smi
