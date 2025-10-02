@@ -1,0 +1,196 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Unraid Server",
+        "description": "Enter the connection details for your Unraid Management Agent",
+        "data": {
+          "host": "Host (IP address or hostname)",
+          "port": "Port",
+          "update_interval": "Update interval (seconds)",
+          "enable_websocket": "Enable WebSocket for real-time updates"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the Unraid server. Please check the host and port.",
+      "invalid_auth": "Invalid authentication credentials.",
+      "timeout": "Connection timeout. Please check your network connection.",
+      "already_configured": "This Unraid server is already configured.",
+      "unknown": "An unknown error occurred. Please check the logs."
+    },
+    "abort": {
+      "already_configured": "This Unraid server is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Unraid Management Agent Options",
+        "description": "Configure update intervals and features",
+        "data": {
+          "update_interval": "Update interval (seconds)",
+          "enable_websocket": "Enable WebSocket for real-time updates"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "cpu_usage": {
+        "name": "CPU Usage"
+      },
+      "ram_usage": {
+        "name": "RAM Usage"
+      },
+      "cpu_temperature": {
+        "name": "CPU Temperature"
+      },
+      "uptime": {
+        "name": "Uptime"
+      },
+      "array_usage": {
+        "name": "Array Usage"
+      },
+      "parity_progress": {
+        "name": "Parity Check Progress"
+      },
+      "gpu_name": {
+        "name": "GPU Name"
+      },
+      "gpu_utilization": {
+        "name": "GPU Utilization"
+      },
+      "gpu_cpu_temperature": {
+        "name": "GPU CPU Temperature"
+      },
+      "gpu_power": {
+        "name": "GPU Power"
+      },
+      "ups_battery": {
+        "name": "UPS Battery"
+      },
+      "ups_load": {
+        "name": "UPS Load"
+      },
+      "ups_runtime": {
+        "name": "UPS Runtime"
+      }
+    },
+    "binary_sensor": {
+      "array_started": {
+        "name": "Array Started"
+      },
+      "parity_check_running": {
+        "name": "Parity Check Running"
+      },
+      "parity_valid": {
+        "name": "Parity Valid"
+      },
+      "ups_connected": {
+        "name": "UPS Connected"
+      }
+    },
+    "switch": {
+      "container": {
+        "name": "Container {name}"
+      },
+      "vm": {
+        "name": "VM {name}"
+      }
+    },
+    "button": {
+      "array_start": {
+        "name": "Start Array"
+      },
+      "array_stop": {
+        "name": "Stop Array"
+      },
+      "parity_check_start": {
+        "name": "Start Parity Check"
+      },
+      "parity_check_stop": {
+        "name": "Stop Parity Check"
+      }
+    }
+  },
+  "services": {
+    "container_start": {
+      "name": "Start Container",
+      "description": "Start a Docker container",
+      "fields": {
+        "container_id": {
+          "name": "Container ID",
+          "description": "The ID or name of the container to start"
+        }
+      }
+    },
+    "container_stop": {
+      "name": "Stop Container",
+      "description": "Stop a Docker container",
+      "fields": {
+        "container_id": {
+          "name": "Container ID",
+          "description": "The ID or name of the container to stop"
+        }
+      }
+    },
+    "container_restart": {
+      "name": "Restart Container",
+      "description": "Restart a Docker container",
+      "fields": {
+        "container_id": {
+          "name": "Container ID",
+          "description": "The ID or name of the container to restart"
+        }
+      }
+    },
+    "vm_start": {
+      "name": "Start VM",
+      "description": "Start a virtual machine",
+      "fields": {
+        "vm_id": {
+          "name": "VM ID",
+          "description": "The ID or name of the VM to start"
+        }
+      }
+    },
+    "vm_stop": {
+      "name": "Stop VM",
+      "description": "Stop a virtual machine",
+      "fields": {
+        "vm_id": {
+          "name": "VM ID",
+          "description": "The ID or name of the VM to stop"
+        }
+      }
+    },
+    "vm_restart": {
+      "name": "Restart VM",
+      "description": "Restart a virtual machine",
+      "fields": {
+        "vm_id": {
+          "name": "VM ID",
+          "description": "The ID or name of the VM to restart"
+        }
+      }
+    },
+    "array_start": {
+      "name": "Start Array",
+      "description": "Start the Unraid array"
+    },
+    "array_stop": {
+      "name": "Stop Array",
+      "description": "Stop the Unraid array"
+    },
+    "parity_check_start": {
+      "name": "Start Parity Check",
+      "description": "Start a parity check"
+    },
+    "parity_check_stop": {
+      "name": "Stop Parity Check",
+      "description": "Stop the running parity check"
+    }
+  }
+}
+
