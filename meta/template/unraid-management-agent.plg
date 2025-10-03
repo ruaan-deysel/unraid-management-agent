@@ -15,7 +15,8 @@
          version="&version;"
          launch="&launch;"
          pluginURL="&pluginURL;"
-         support="&gitURL;/issues">
+         support="&gitURL;/issues"
+         icon="server">
 
 <CHANGES>
 ###2025.10.01 - v1.0.0
