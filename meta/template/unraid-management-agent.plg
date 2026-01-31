@@ -53,9 +53,12 @@
 </CHANGES>
 
 <!--
-Unraid Management Agent - REST API and WebSocket server for Home Assistant integration.
+Management Agent for Unraid® - REST API and WebSocket server for Home Assistant integration.
 
-Exposes comprehensive Unraid system monitoring and control via REST API and WebSockets.
+Exposes comprehensive Unraid® system monitoring and control via REST API and WebSockets.
+
+Unraid® is a registered trademark of Lime Technology, Inc.
+This application is not affiliated with, endorsed, or sponsored by Lime Technology, Inc.
 -->
 
 <!-- Get the plugin bundle -->

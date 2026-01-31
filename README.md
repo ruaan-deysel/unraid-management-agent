@@ -5,29 +5,31 @@
 [![License](https://img.shields.io/github/license/ruaan-deysel/unraid-management-agent)](./LICENSE)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ruaan-deysel/unraid-management-agent)
 
-# Unraid Management Agent
+# Management Agent for Unraid®
 
-A Go-based plugin for Unraid that exposes comprehensive system monitoring and control via REST API and WebSockets.
+A Go-based plugin for Unraid® that exposes comprehensive system monitoring and control via REST API and WebSockets.
+
+> **Unraid® is a registered trademark of Lime Technology, Inc. This application is not affiliated with, endorsed, or sponsored by Lime Technology, Inc.**
 
 ## ⚠️ Important: Third-Party Plugin Notice
 
-**This is a community-developed third-party plugin and is NOT an official Unraid product.**
+**This is a community-developed third-party plugin and is NOT an official Unraid® product.**
 
-### Relationship to Official Unraid API
+### Relationship to Official Unraid® API
 
-- **Official Unraid API**: Unraid OS 7.2+ includes an official **GraphQL-based API** as part of the core operating system. This is the official API provided and supported by Lime Technology (the creators of Unraid).
+- **Official Unraid® API**: Unraid® OS 7.2+ includes an official **GraphQL-based API** as part of the core operating system. This is the official API provided and supported by Lime Technology, Inc. (the creators of Unraid®).
 
-- **This Plugin**: The Unraid Management Agent is a **separate, independent third-party plugin** that provides a **REST API and WebSocket interface** for system monitoring and control. It is developed and maintained by the community, not by Lime Technology.
+- **This Plugin**: Management Agent for Unraid® is a **separate, independent third-party plugin** that provides a **REST API and WebSocket interface** for system monitoring and control. It is developed and maintained by the community, not by Lime Technology, Inc.
 
 ### Key Differences
 
-| Feature          | Official Unraid API        | This Plugin (Unraid Management Agent)         |
-| ---------------- | -------------------------- | --------------------------------------------- |
-| **Developer**    | Lime Technology (Official) | Community (Third-Party)                       |
-| **API Type**     | GraphQL                    | REST API + WebSocket                          |
-| **Availability** | Built into Unraid OS 7.2+  | Separate plugin installation required         |
-| **Support**      | Official Unraid support    | Community support                             |
-| **Purpose**      | Official system API        | Alternative/complementary monitoring solution |
+| Feature          | Official Unraid® API        | This Plugin (Management Agent for Unraid®)    |
+| ---------------- | --------------------------- | --------------------------------------------- |
+| **Developer**    | Lime Technology (Official)  | Community (Third-Party)                       |
+| **API Type**     | GraphQL                     | REST API + WebSocket                          |
+| **Availability** | Built into Unraid® OS 7.2+  | Separate plugin installation required         |
+| **Support**      | Official Unraid® support    | Community support                             |
+| **Purpose**      | Official system API         | Alternative/complementary monitoring solution |
 
 ### When to Use This Plugin
 
@@ -40,14 +42,14 @@ You might choose this plugin if you:
 
 ### Coexistence with Official API
 
-This plugin **can coexist** with the official Unraid API. They operate independently and do not conflict with each other. You can use both simultaneously if your use case requires it.
+This plugin **can coexist** with the official Unraid® API. They operate independently and do not conflict with each other. You can use both simultaneously if your use case requires it.
 
-### Official Unraid API Documentation
+### Official Unraid® API Documentation
 
-For information about the official Unraid GraphQL API, please refer to:
+For information about the official Unraid® GraphQL API, please refer to:
 
-- [Unraid Official Documentation](https://docs.unraid.net/)
-- Unraid OS 7.2+ release notes and API documentation
+- [Unraid® Official Documentation](https://docs.unraid.net/)
+- Unraid® OS 7.2+ release notes and API documentation
 
 ---
 
@@ -179,7 +181,7 @@ Coordinates the entire application lifecycle:
 
 ## System Requirements and Dependencies
 
-**Important:** The Unraid Management Agent has **NO external plugin dependencies**. It collects data directly from system sources.
+**Important:** Management Agent for Unraid® has **NO external plugin dependencies**. It collects data directly from system sources.
 
 For detailed information, see:
 
@@ -189,13 +191,13 @@ For detailed information, see:
 
 ### Quick Prerequisites
 
-- Unraid 6.9+ (tested on Unraid 7.x)
+- Unraid® 6.9+ (tested on Unraid® 7.x)
 - Port 8043 available (configurable)
 - No other plugins required
 
 ### Via Community Applications (Recommended)
 
-**Coming Soon**: This plugin will be available in the Unraid Community Applications store.
+**Coming Soon**: This plugin will be available in the Unraid® Community Applications store.
 
 For now, you can install manually using the plugin URL:
 
@@ -252,7 +254,7 @@ make package
 
 ## System Compatibility
 
-**Important Notice:** This plugin was developed and tested on a specific Unraid system configuration. While we strive for broad compatibility, **there is a possibility that the plugin may not function correctly on all hardware configurations** due to variations in:
+**Important Notice:** This plugin was developed and tested on a specific Unraid® system configuration. While we strive for broad compatibility, **there is a possibility that the plugin may not function correctly on all hardware configurations** due to variations in:
 
 - **CPU Architectures**: Different CPU models, instruction sets, and architectures (Intel vs AMD, different generations)
 - **Disk Controllers and Storage Devices**: Various RAID controllers, HBA cards, SAS/SATA controllers, NVMe configurations
@@ -271,7 +273,7 @@ make package
 
 This plugin has been developed and tested on the following configuration:
 
-- **Unraid Version**: 7.x
+- **Unraid® Version**: 7.x
 - **Plugin Version**: 2025.11.0
 - **Architecture**: Linux/amd64
 - **Primary Testing**: REST API endpoints, WebSocket events, Docker/VM control operations
@@ -530,9 +532,9 @@ make clean
 
 ### Settings Page
 
-Configure the plugin through the Unraid web UI:
+Configure the plugin through the Unraid® web UI:
 
-1. Navigate to **Settings** → **Unraid Management Agent**
+1. Navigate to **Settings** → **Management Agent for Unraid®**
 2. Adjust settings as needed:
    - **Port**: API server port (default: 8043)
    - **Collection Intervals**: How often each data type is collected
@@ -735,7 +737,7 @@ Hardware: AMD Ryzen 9 5950X, LSI 9300-8i HBA, NVIDIA RTX 3080
 Issue: GPU temperature not detected due to different nvidia-smi output format
 Solution: Added parsing for alternative nvidia-smi XML format
 Testing: Verified GPU metrics endpoint returns correct data, all tests pass
-Unraid Version: 7.2
+Unraid® Version: 7.2
 ```
 
 ### Why Community Contributions Matter
@@ -752,10 +754,16 @@ As a single maintainer, it's challenging to:
 
 - 🔧 **Hardware-Specific Fixes**: Support for different disk controllers, GPU models, UPS brands
 - 📊 **Data Collection Improvements**: Better parsing of system commands for different hardware
-- 🧪 **Testing**: Testing on different Unraid versions and hardware configurations
+- 🧪 **Testing**: Testing on different Unraid® versions and hardware configurations
 - 📝 **Documentation**: Improving docs, adding examples, documenting edge cases
 - 🐛 **Bug Fixes**: Fixing issues you encounter on your system
 - ✨ **New Features**: Adding support for additional hardware or metrics
+
+## Trademarks
+
+Unraid® is a registered trademark of Lime Technology, Inc. This application is not affiliated with, endorsed, or sponsored by Lime Technology, Inc.
+
+This project follows Unraid's [Third Party App Naming and Trademark Policy](https://unraid.net/policies).
 
 ## License
 

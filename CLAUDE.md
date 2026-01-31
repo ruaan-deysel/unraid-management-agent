@@ -4,10 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-The Unraid Management Agent is a Go-based plugin for Unraid that exposes comprehensive system monitoring and control via REST API, WebSockets, and MCP (Model Context Protocol). This is a **third-party community plugin**, not an official Unraid product. It provides a REST API + WebSocket interface as an alternative/complement to the official Unraid GraphQL API.
+Management Agent for Unraid® is a Go-based plugin for Unraid® that exposes comprehensive system monitoring and control via REST API, WebSockets, and MCP (Model Context Protocol). This is a **third-party community plugin**, not an official Unraid® product. It provides a REST API + WebSocket interface as an alternative/complement to the official Unraid® GraphQL API.
+
+> **Trademark Notice:** Unraid® is a registered trademark of Lime Technology, Inc. This application is not affiliated with, endorsed, or sponsored by Lime Technology, Inc.
 
 **Language:** Go 1.25
-**Target Platform:** Linux/amd64 (Unraid OS)
+**Target Platform:** Linux/amd64 (Unraid® OS)
 
 ## Essential Commands
 
@@ -20,7 +22,7 @@ make deps
 # Build for local development (current architecture)
 make local
 
-# Build for Unraid (Linux/amd64)
+# Build for Unraid® (Linux/amd64)
 make release
 
 # Create full plugin package (.tgz)
@@ -52,14 +54,14 @@ make clean
 ./unraid-management-agent boot --port 8043
 ```
 
-### Deployment to Unraid
+### Deployment to Unraid®
 
 Use the provided deployment scripts for building and testing on actual hardware:
 
 ```bash
-# 1. Create config with Unraid SSH credentials
+# 1. Create config with Unraid® SSH credentials
 cp scripts/config.sh.example scripts/config.sh
-# Edit config.sh with actual Unraid server IP, username, and password
+# Edit config.sh with actual Unraid® server IP, username, and password
 
 # 2. Deploy and test
 ./scripts/deploy-plugin.sh
@@ -202,7 +204,7 @@ Execute control operations via `lib.ExecuteShellCommand()`:
 #### 7. Library Utilities (`daemon/lib/`)
 
 - `shell.go`: Execute shell commands with error handling
-- `parser.go`: Parse Unraid-specific file formats (.ini files)
+- `parser.go`: Parse Unraid®-specific file formats (.ini files)
 - `validation.go`: Input validation (CWE-22 path traversal protection)
 - `dmidecode.go`, `ethtool.go`: Hardware info parsing
 
@@ -224,9 +226,9 @@ Coordinates the entire application lifecycle:
 4. **WebSocket Hub** receives event, broadcasts to all clients
 5. **REST endpoint** `/api/v1/system` returns cached `systemCache` data
 
-### Unraid Integration
+### Unraid® Integration
 
-The agent reads from Unraid-specific locations (see `daemon/constants/const.go`):
+The agent reads from Unraid®-specific locations (see `daemon/constants/const.go`):
 
 **Configuration Files:**
 
@@ -243,7 +245,7 @@ The agent reads from Unraid-specific locations (see `daemon/constants/const.go`)
 
 **Binaries:**
 
-- `/usr/local/sbin/mdcmd` - Unraid management command (array operations)
+- `/usr/local/sbin/mdcmd` - Unraid® management command (array operations)
 - `/usr/bin/docker` - Docker CLI
 - `/usr/bin/virsh` - VM management
 - `/usr/sbin/smartctl` - SMART data
@@ -409,7 +411,7 @@ Use `lib.ExecuteShellCommand()` for all shell commands — never use `exec.Comma
 - **Initialization order is critical** — API subscriptions must start before collectors in orchestrator.go
 - **Always use mutex locks** — RLock/RUnlock for cache reads, Lock/Unlock for writes
 - **Always validate user input** — use `lib.Validate*()` functions to prevent injection and path traversal
-- **Test on actual Unraid** — local development differs from production; use deployment scripts
+- **Test on actual Unraid®** — local development differs from production; use deployment scripts
 - **Context cancellation** — respect `ctx.Done()` in goroutines for graceful shutdown
 - **Keep CHANGELOG.md updated** — every change must be documented before release
 

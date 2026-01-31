@@ -1,14 +1,16 @@
 # Installation Guide
 
-Complete installation instructions for the Unraid Management Agent.
+Complete installation instructions for Management Agent for Unraid®.
+
+> **Trademark Notice:** Unraid® is a registered trademark of Lime Technology, Inc. This application is not affiliated with, endorsed, or sponsored by Lime Technology, Inc.
 
 ## Overview
 
-The Unraid Management Agent is installed as a **Community Applications** plugin and provides a REST API, WebSocket events, MQTT publishing, Prometheus metrics, and Model Context Protocol (MCP) integration for monitoring and controlling your Unraid server.
+Management Agent for Unraid® is installed as a **Community Applications** plugin and provides a REST API, WebSocket events, MQTT publishing, Prometheus metrics, and Model Context Protocol (MCP) integration for monitoring and controlling your Unraid® server.
 
 ## Prerequisites
 
-- Unraid OS 6.8.0 or newer (6.12.0+ recommended)
+- Unraid® OS 6.8.0 or newer (6.12.0+ recommended)
 - Community Applications plugin installed
 - Network connectivity
 - Basic understanding of REST APIs (optional)
@@ -17,9 +19,9 @@ The Unraid Management Agent is installed as a **Community Applications** plugin 
 
 ### Method 1: Community Applications (Recommended)
 
-1. **Open Unraid Web UI** → **Plugins** → **Community Applications**
+1. **Open Unraid® Web UI** → **Plugins** → **Community Applications**
 
-2. **Search** for "Unraid Management Agent"
+2. **Search** for "Management Agent for Unraid"
 
 3. **Click Install** and wait for completion
 
@@ -59,10 +61,10 @@ For developers or testing:
 git clone https://github.com/ruaan-deysel/unraid-management-agent.git
 cd unraid-management-agent
 
-# Build for Unraid (Linux/amd64)
+# Build for Unraid® (Linux/amd64)
 make release
 
-# Copy to Unraid
+# Copy to Unraid®
 scp build/unraid-management-agent root@YOUR_UNRAID_IP:/usr/local/bin/
 
 # Set permissions
@@ -113,7 +115,7 @@ The API listens on **port 8043**. To access from other machines:
 curl http://YOUR_UNRAID_IP:8043/api/v1/health
 ```
 
-**Firewall**: Port 8043 should be accessible by default on Unraid.
+**Firewall**: Port 8043 should be accessible by default on Unraid®.
 
 ### 4. Security Considerations
 
@@ -181,7 +183,7 @@ wget https://github.com/ruaan-deysel/unraid-management-agent/releases/latest/dow
 ### Via Web UI
 
 1. **Plugins** → **Installed Plugins**
-2. Find "Unraid Management Agent"
+2. Find "Management Agent for Unraid®"
 3. Click **Uninstall**
 
 ### Manual Removal
@@ -253,7 +255,7 @@ ls -la /var/log/unraid-management-agent.log
 
 - **GitHub Issues**: https://github.com/ruaan-deysel/unraid-management-agent/issues
 - **Documentation**: https://github.com/ruaan-deysel/unraid-management-agent/tree/main/docs
-- **Community**: Unraid Forums
+- **Community**: Unraid® Forums
 
 ---
 

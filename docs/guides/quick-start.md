@@ -1,12 +1,14 @@
 # Quick Start Guide
 
-Get up and running with the Unraid Management Agent in under 5 minutes.
+Get up and running with Management Agent for Unraid® in minutes.
+
+> **Trademark Notice:** Unraid® is a registered trademark of Lime Technology, Inc. This application is not affiliated with, endorsed, or sponsored by Lime Technology, Inc.
 
 ## Installation
 
 ### Via Plugin URL (Recommended)
 
-1. Open Unraid Web UI
+1. Open Unraid® Web UI
 2. Navigate to **Plugins** → **Install Plugin**
 3. Paste plugin URL:
    ```
@@ -82,7 +84,7 @@ curl http://localhost:8043/api/v1/disks | jq
 const ws = new WebSocket('ws://YOUR_UNRAID_IP:8043/api/v1/ws');
 
 ws.onopen = () => {
-  console.log('Connected to Unraid Management Agent');
+  console.log('Connected to Management Agent for Unraid®');
 };
 
 ws.onmessage = (event) => {
@@ -107,7 +109,7 @@ def on_message(ws, message):
     print(f"Data: {data['data']}")
 
 def on_open(ws):
-    print("Connected to Unraid Management Agent")
+    print("Connected to Management Agent for Unraid®")
 
 ws = websocket.WebSocketApp(
     "ws://YOUR_UNRAID_IP:8043/api/v1/ws",
@@ -171,13 +173,13 @@ curl http://localhost:8043/metrics
 
 ### Change Port
 
-1. Navigate to **Settings** → **Unraid Management Agent**
+1. Navigate to **Settings** → **Management Agent for Unraid®**
 2. Change **Port** setting
 3. Click **Apply** (service restarts automatically)
 
 ### Adjust Collection Intervals
 
-1. Navigate to **Settings** → **Unraid Management Agent**
+1. Navigate to **Settings** → **Management Agent for Unraid®**
 2. Adjust intervals for each collector type
 3. Click **Apply**
 
@@ -225,7 +227,7 @@ netstat -tulpn | grep 8043
 
 - **Issues**: [GitHub Issues](https://github.com/ruaan-deysel/unraid-management-agent/issues)
 - **Documentation**: [Full Documentation](../README.md)
-- **Community**: Unraid Community Forums
+- **Community**: Unraid® Community Forums
 
 ---
 

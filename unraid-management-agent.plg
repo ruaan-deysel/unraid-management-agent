@@ -16,7 +16,7 @@
 <PLUGIN name="&name;" author="&author;" version="&version;" launch="&launch;" icon="server" min="6.9.0" pluginURL="&pluginURL;" support="&supportURL;">
 
 <DESCRIPTION>
-This Unraid plugin provides REST API and WebSocket interfaces for real-time system monitoring, Docker/VM control, and comprehensive hardware metrics.
+Management Agent for Unraid® - REST API and WebSocket interfaces for real-time system monitoring, Docker/VM control, and comprehensive hardware metrics. Unraid® is a trademark of Lime Technology, Inc. Not affiliated.
 </DESCRIPTION>
 
 <CHANGES>
@@ -53,10 +53,13 @@ This Unraid plugin provides REST API and WebSocket interfaces for real-time syst
 </CHANGES>
 
 <!--
-Unraid Management Agent - REST API and WebSocket server for comprehensive system monitoring and control.
+Management Agent for Unraid® - REST API and WebSocket server for comprehensive system monitoring and control.
 
-This plugin provides a REST API and WebSocket interface for monitoring and controlling your Unraid server.
+This plugin provides a REST API and WebSocket interface for monitoring and controlling your Unraid® server.
 Perfect for Home Assistant integration, custom dashboards, or automation scripts.
+
+Unraid® is a registered trademark of Lime Technology, Inc.
+This application is not affiliated with, endorsed, or sponsored by Lime Technology, Inc.
 
 Features:
 - 20+ REST API endpoints
@@ -70,7 +73,7 @@ Features:
 - Automatic log rotation
 
 Requirements:
-- Unraid 6.9+ (tested on Unraid 7.x)
+- Unraid® 6.9+ (tested on Unraid® 7.x)
 - Port 8043 available (configurable)
 
 Support:
@@ -96,20 +99,20 @@ if [ -f /etc/unraid-version ]; then
     if [ "$major_version" -lt 6 ] || ([ "$major_version" -eq 6 ] && [ "$minor_version" -lt 9 ]); then
         echo ""
         echo "========================================="
-        echo " ERROR: Incompatible Unraid Version"
+        echo " ERROR: Incompatible Unraid® Version"
         echo "========================================="
         echo ""
-        echo "This plugin requires Unraid 6.9.0 or higher."
+        echo "This plugin requires Unraid® 6.9.0 or higher."
         echo "Your current version: $version"
         echo ""
-        echo "Please upgrade your Unraid system before installing this plugin."
+        echo "Please upgrade your Unraid® system before installing this plugin."
         echo ""
         exit 1
     fi
 
-    echo "✓ Unraid version check passed (version: $version)"
+    echo "✓ Unraid® version check passed (version: $version)"
 else
-    echo "⚠ Warning: Could not verify Unraid version"
+    echo "⚠ Warning: Could not verify Unraid® version"
     echo "  Proceeding with installation..."
 fi
 
@@ -128,7 +131,7 @@ exit 0
 <FILE Name="/boot/config/plugins/&name;/config.cfg">
 <INLINE>
 <![CDATA[
-# Unraid Management Agent Configuration
+# Management Agent for Unraid® Configuration
 # This file is automatically created if it doesn't exist
 
 # Service configuration

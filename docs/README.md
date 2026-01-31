@@ -1,6 +1,8 @@
 # Documentation
 
-Welcome to the Unraid Management Agent documentation. This directory contains comprehensive guides for installation, API usage, integration, and development.
+Welcome to the Management Agent for Unraid® documentation. This directory contains comprehensive guides for installation, API usage, integration, and development.
+
+> **Trademark Notice:** Unraid® is a registered trademark of Lime Technology, Inc. This application is not affiliated with, endorsed, or sponsored by Lime Technology, Inc.
 
 ## 📚 Table of Contents
 
