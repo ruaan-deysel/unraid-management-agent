@@ -109,6 +109,8 @@ func (c *ShareCollector) Collect() {
 }
 
 func (c *ShareCollector) collectShares() ([]dto.ShareInfo, error) {
+	const kibToBytes uint64 = 1024
+
 	logger.Debug("Share: Starting collection from %s", constants.SharesIni)
 	var shares []dto.ShareInfo
 
@@ -170,15 +172,15 @@ func (c *ShareCollector) collectShares() ([]dto.ShareInfo, error) {
 				currentShare.Name = value
 			case "size":
 				if size, err := strconv.ParseUint(value, 10, 64); err == nil {
-					currentShare.Total = size
+					currentShare.Total = size * kibToBytes // shares.ini stores size in KiB (1024-byte blocks)
 				}
 			case "free":
 				if free, err := strconv.ParseUint(value, 10, 64); err == nil {
-					currentShare.Free = free
+					currentShare.Free = free * kibToBytes // shares.ini stores free in KiB (1024-byte blocks)
 				}
 			case "used":
 				if used, err := strconv.ParseUint(value, 10, 64); err == nil {
-					currentShare.Used = used
+					currentShare.Used = used * kibToBytes // shares.ini stores used in KiB (1024-byte blocks)
 				}
 			// Cache settings from shares.ini (Issue #53)
 			case "useCache":
