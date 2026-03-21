@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **MQTT: 7 previously missing event types now published** — NUT UPS (`nut/status`),
+  hardware info (`hardware`), registration (`registration`), unassigned devices
+  (`unassigned/devices`), ZFS datasets (`zfs/datasets`), ZFS snapshots
+  (`zfs/snapshots`), and ZFS ARC stats (`zfs/arc`)
+- **MQTT: Full Home Assistant MQTT discovery for all 7 new data types** — NUT UPS metrics
+  (battery, load, voltage, runtime, model), hardware diagnostics (BIOS, baseboard, CPU speed,
+  memory slots), registration state/validity/expiry, per-device unassigned disk sensors,
+  per-dataset ZFS usage/compression/readonly, snapshot count/total size, ARC size/hit ratio,
+  and L2ARC size/hit ratio
+- **MQTT: `MQTTTopics` DTO and `/api/v1/mqtt/topics` endpoint** updated with 7 new topic paths
+
 ## [2026.03.03] - 2026-03-18
 
 ### Fixed
