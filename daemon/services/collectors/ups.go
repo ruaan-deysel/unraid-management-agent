@@ -29,6 +29,17 @@ func NewUPSCollector(ctx *domain.Context) *UPSCollector {
 // It runs in a goroutine and publishes UPS status updates at the specified interval until the context is cancelled.
 func (c *UPSCollector) Start(ctx context.Context, interval time.Duration) {
 	logger.Info("Starting ups collector (interval: %v)", interval)
+
+	// Run once immediately with panic recovery
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Error("UPS collector PANIC on startup: %v", r)
+			}
+		}()
+		c.Collect()
+	}()
+
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -60,7 +71,7 @@ func (c *UPSCollector) Collect() {
 			logger.Debug("Published %s event (APC)", constants.TopicUPSStatusUpdate.Name)
 			return
 		}
-		logger.Warning("Failed to collect APC UPS data", "error", err)
+		logger.Debug("apcaccess failed, falling back to NUT: %v", err)
 	}
 
 	// Fallback to upsc (NUT - Network UPS Tools)
