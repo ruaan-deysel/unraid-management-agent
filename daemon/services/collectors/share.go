@@ -323,6 +323,7 @@ func (c *ShareCollector) isNFSExported(export string) bool {
 func zfsDatasetSizes() map[string]uint64 {
 	out, err := lib.ExecCommandOutput("zfs", "list", "-Hp", "-o", "name,refer")
 	if err != nil {
+		logger.Debug("zfsDatasetSizes: zfs list failed: %v (output: %q)", err, out)
 		return nil
 	}
 	sizes := make(map[string]uint64)
