@@ -11,6 +11,7 @@ import (
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/constants"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/domain"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/dto"
+	"github.com/ruaan-deysel/unraid-management-agent/daemon/lib"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/logger"
 )
 
@@ -201,6 +202,32 @@ func (c *ShareCollector) collectShares() ([]dto.ShareInfo, error) {
 		return shares, err
 	}
 
+	// Enrich Used with per-share ZFS referenced bytes when ZFS collector is enabled.
+	// Each share can span multiple pools (cachePool, cachePool2, array).
+	// Sum all matching "<pool>/<sharename>" dataset sizes.
+	if c.ctx.Intervals.ZFS > 0 {
+		if zfsSizes := zfsDatasetSizes(); zfsSizes != nil {
+			for i := range shares {
+				var total uint64
+				found := false
+				for dataset, bytes := range zfsSizes {
+					// Match datasets of the form "<pool>/<sharename>" (exactly one slash separator)
+					slash := strings.LastIndex(dataset, "/")
+					if slash < 0 {
+						continue // pool root, skip
+					}
+					if dataset[slash+1:] == shares[i].Name {
+						total += bytes
+						found = true
+					}
+				}
+				if found {
+					shares[i].Used = total
+				}
+			}
+		}
+	}
+
 	// Calculate total and usage percentage for each share
 	for i := range shares {
 		// If total is 0, calculate it from used + free
@@ -289,6 +316,26 @@ func (c *ShareCollector) isSMBExported(export string, security string) bool {
 func (c *ShareCollector) isNFSExported(export string) bool {
 	// Check export field for NFS indicators
 	return strings.Contains(export, "nfs") || strings.Contains(export, "-n")
+}
+
+// zfsDatasetSizes runs "zfs list -Hp -o name,refer" and returns a map of
+// dataset name → referenced bytes. Returns nil if zfs is unavailable.
+func zfsDatasetSizes() map[string]uint64 {
+	out, err := lib.ExecCommandOutput("zfs", "list", "-Hp", "-o", "name,refer")
+	if err != nil {
+		return nil
+	}
+	sizes := make(map[string]uint64)
+	for line := range strings.SplitSeq(out, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) != 2 {
+			continue
+		}
+		if bytes, err := strconv.ParseUint(fields[1], 10, 64); err == nil {
+			sizes[fields[0]] = bytes
+		}
+	}
+	return sizes
 }
 
 // determineMoverAction determines the mover action based on cache settings
