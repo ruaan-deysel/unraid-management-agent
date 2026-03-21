@@ -38,7 +38,7 @@ func (c *ShareCollector) Start(ctx context.Context, interval time.Duration) {
 				logger.Error("Share collector PANIC on startup: %v", r)
 			}
 		}()
-		c.Collect()
+		c.Collect(ctx)
 	}()
 
 	// Set up fsnotify watcher for instant state updates on shares.ini changes
@@ -63,7 +63,7 @@ func (c *ShareCollector) Start(ctx context.Context, interval time.Duration) {
 						}
 					}()
 					logger.Debug("Share collector: shares.ini changed, collecting immediately")
-					c.Collect()
+					c.Collect(ctx)
 				}()
 			})
 		}()
@@ -85,7 +85,7 @@ func (c *ShareCollector) Start(ctx context.Context, interval time.Duration) {
 						logger.Error("Share collector PANIC in loop: %v", r)
 					}
 				}()
-				c.Collect()
+				c.Collect(ctx)
 			}()
 		}
 	}
@@ -93,11 +93,11 @@ func (c *ShareCollector) Start(ctx context.Context, interval time.Duration) {
 
 // Collect gathers user share information and publishes it to the event bus.
 // It reads share configuration from /boot/config/shares/ and enriches with usage data from df command.
-func (c *ShareCollector) Collect() {
+func (c *ShareCollector) Collect(ctx context.Context) {
 	logger.Debug("Collecting share data...")
 
 	// Collect share information
-	shares, err := c.collectShares()
+	shares, err := c.collectShares(ctx)
 	if err != nil {
 		logger.Error("Share: Failed to collect share data: %v", err)
 		return
@@ -109,7 +109,7 @@ func (c *ShareCollector) Collect() {
 	logger.Debug("Share: Published %s event with %d shares", constants.TopicShareListUpdate.Name, len(shares))
 }
 
-func (c *ShareCollector) collectShares() ([]dto.ShareInfo, error) {
+func (c *ShareCollector) collectShares(ctx context.Context) ([]dto.ShareInfo, error) {
 	logger.Debug("Share: Starting collection from %s", constants.SharesIni)
 	var shares []dto.ShareInfo
 
@@ -206,20 +206,19 @@ func (c *ShareCollector) collectShares() ([]dto.ShareInfo, error) {
 	// Each share can span multiple pools (cachePool, cachePool2, array).
 	// Sum all matching "<pool>/<sharename>" dataset sizes.
 	if c.ctx.Intervals.ZFS > 0 {
-		if zfsSizes := zfsDatasetSizes(); zfsSizes != nil {
+		if zfsSizes := zfsDatasetSizes(ctx); zfsSizes != nil {
 			for i := range shares {
 				var total uint64
 				found := false
 				for dataset, bytes := range zfsSizes {
-					// Match datasets of the form "<pool>/<sharename>" (exactly one slash separator)
-					slash := strings.LastIndex(dataset, "/")
-					if slash < 0 {
-						continue // pool root, skip
+					// Only count direct "<pool>/<sharename>" datasets (exactly one slash).
+					// Nested datasets like "pool/share/child" must not inflate the share total.
+					parts := strings.SplitN(dataset, "/", 3)
+					if len(parts) != 2 || parts[1] != shares[i].Name {
+						continue
 					}
-					if dataset[slash+1:] == shares[i].Name {
-						total += bytes
-						found = true
-					}
+					total += bytes
+					found = true
 				}
 				if found {
 					shares[i].Used = total
@@ -320,8 +319,8 @@ func (c *ShareCollector) isNFSExported(export string) bool {
 
 // zfsDatasetSizes runs "zfs list -Hp -o name,refer" and returns a map of
 // dataset name → referenced bytes. Returns nil if zfs is unavailable.
-func zfsDatasetSizes() map[string]uint64 {
-	out, err := lib.ExecCommandOutput("zfs", "list", "-Hp", "-o", "name,refer")
+func zfsDatasetSizes(ctx context.Context) map[string]uint64 {
+	out, err := lib.ExecCommandOutputWithContext(ctx, "zfs", "list", "-Hp", "-o", "name,refer")
 	if err != nil {
 		logger.Debug("zfsDatasetSizes: zfs list failed: %v (output: %q)", err, out)
 		return nil
