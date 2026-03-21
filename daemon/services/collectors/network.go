@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/constants"
@@ -17,15 +18,24 @@ import (
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/logger"
 )
 
+// prevNetStats holds the previous collection's byte counts for rate calculation.
+type prevNetStats struct {
+	bytesReceived uint64
+	bytesSent     uint64
+	timestamp     time.Time
+}
+
 // NetworkCollector collects network interface information including status, speed, and statistics.
 // It gathers data from network interfaces, bonds, bridges, and VLANs.
 type NetworkCollector struct {
-	ctx *domain.Context
+	ctx       *domain.Context
+	mu        sync.Mutex
+	prevStats map[string]prevNetStats
 }
 
 // NewNetworkCollector creates a new network interface collector with the given context.
 func NewNetworkCollector(ctx *domain.Context) *NetworkCollector {
-	return &NetworkCollector{ctx: ctx}
+	return &NetworkCollector{ctx: ctx, prevStats: make(map[string]prevNetStats)}
 }
 
 // Start begins the network collector's periodic data collection.
@@ -125,6 +135,28 @@ func (c *NetworkCollector) collectNetworkInterfaces() ([]dto.NetworkInfo, error)
 
 		// Get ethtool information (enhanced network details)
 		c.enrichWithEthtool(&netInfo, ifName)
+
+		// Compute throughput rates from successive reads
+		c.mu.Lock()
+		if prev, ok := c.prevStats[ifName]; ok {
+			elapsed := time.Since(prev.timestamp).Seconds()
+			if elapsed > 0 {
+				rx := float64(netInfo.BytesReceived) - float64(prev.bytesReceived)
+				tx := float64(netInfo.BytesSent) - float64(prev.bytesSent)
+				if rx >= 0 {
+					netInfo.RxBytesPerSec = rx / elapsed
+				}
+				if tx >= 0 {
+					netInfo.TxBytesPerSec = tx / elapsed
+				}
+			}
+		}
+		c.prevStats[ifName] = prevNetStats{
+			bytesReceived: netInfo.BytesReceived,
+			bytesSent:     netInfo.BytesSent,
+			timestamp:     time.Now(),
+		}
+		c.mu.Unlock()
 
 		interfaces = append(interfaces, netInfo)
 	}

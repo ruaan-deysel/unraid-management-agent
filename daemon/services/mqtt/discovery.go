@@ -1222,15 +1222,15 @@ func (c *Client) publishNetworkEntities(topic, prefix, displayName string) []str
 	})
 	c.publishHAEntity(haEntityOpts{
 		entityType: "sensor", stateTopic: topic,
-		id: prefix + "_rx", name: fmt.Sprintf("Network: %s Bytes Received", displayName), unit: "B",
-		icon: "mdi:download", template: "{{ value_json.bytes_received }}",
-		deviceClass: "data_size", stateClass: "total_increasing",
+		id: prefix + "_rx", name: fmt.Sprintf("Network: %s Throughput In", displayName), unit: "B/s",
+		icon: "mdi:download", template: "{{ value_json.rx_bytes_per_sec | round(1) }}",
+		deviceClass: "data_rate", stateClass: "measurement",
 	})
 	c.publishHAEntity(haEntityOpts{
 		entityType: "sensor", stateTopic: topic,
-		id: prefix + "_tx", name: fmt.Sprintf("Network: %s Bytes Sent", displayName), unit: "B",
-		icon: "mdi:upload", template: "{{ value_json.bytes_sent }}",
-		deviceClass: "data_size", stateClass: "total_increasing",
+		id: prefix + "_tx", name: fmt.Sprintf("Network: %s Throughput Out", displayName), unit: "B/s",
+		icon: "mdi:upload", template: "{{ value_json.tx_bytes_per_sec | round(1) }}",
+		deviceClass: "data_rate", stateClass: "measurement",
 	})
 	c.publishHAEntity(haEntityOpts{
 		entityType: "sensor", stateTopic: topic,
