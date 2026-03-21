@@ -474,7 +474,7 @@ func (c *Client) publishUPSDiscovery() {
 	c.publishHAEntity(haEntityOpts{
 		entityType: "sensor", stateTopic: topic,
 		id: "ups_power", name: "UPS: Power Draw", unit: "W",
-		icon: "mdi:lightning-bolt", template: "{{ value_json.nominal_power_watts | default(0) | round(0) }}",
+		icon: "mdi:lightning-bolt", template: "{{ value_json.power_watts | default(0) | round(0) }}",
 		deviceClass: "power", stateClass: "measurement",
 	})
 	c.publishHAEntity(haEntityOpts{
