@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2026.03.20] - 2026-03-20
+
+### Added
+
+- **MQTT: 7 previously missing event types now published** — NUT UPS (`nut/status`),
+  hardware info (`hardware`), registration (`registration`), unassigned devices
+  (`unassigned/devices`), ZFS datasets (`zfs/datasets`), ZFS snapshots
+  (`zfs/snapshots`), and ZFS ARC stats (`zfs/arc`)
+- **MQTT: Full Home Assistant MQTT discovery for all 7 new data types** — NUT UPS metrics
+  (battery, load, voltage, runtime, model), hardware diagnostics (BIOS, baseboard, CPU speed,
+  memory slots), registration state/validity/expiry, per-device unassigned disk sensors,
+  per-dataset ZFS usage/compression/readonly, snapshot count/total size, ARC size/hit ratio,
+  and L2ARC size/hit ratio
+- **MQTT: `MQTTTopics` DTO and `/api/v1/mqtt/topics` endpoint** updated with 7 new topic paths
+- **Lib: `ExecCommandOutputWithContext`** — cancellable exec helper for context-aware command execution
+
+### Fixed
+
+- **UI: dark mode select colours** — fixed select element border, background, and warning text colours in dark mode
+- **Collectors: share sizes converted from KiB to bytes** — share used/free/total values now correctly reported in bytes
+- **Collectors: NUT warnings** — warn when NUT is enabled without UPS collector running; downgrade APC fallback noise to DEBUG
+- **Collectors: ZFS referenced bytes for per-share used size** — share collector now uses ZFS `referenced` property instead of `used` for more accurate per-share utilization
+- **Collectors: ZFS list failures logged at debug level** — reduces log noise when ZFS is not in use
+- **Collectors: ZFS dataset depth matching and thread context** — fixes dataset collection with nested pools and cancellation handling
+- **MQTT: UPS Power Draw sensor template** — use `power_watts` instead of `nominal_power_watts` for accurate real-time power readings
+
 ## [2026.03.03] - 2026-03-18
 
 ### Fixed
