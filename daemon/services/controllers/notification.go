@@ -13,8 +13,8 @@ import (
 
 // Package-level variables for notification directories (overridable in tests)
 var (
-	notificationsDir        = "/usr/local/emhttp/state/notifications"
-	notificationsArchiveDir = "/usr/local/emhttp/state/notifications/archive"
+	notificationsDir        = "/boot/config/plugins/dynamix/notifications/unread"
+	notificationsArchiveDir = "/boot/config/plugins/dynamix/notifications/archive"
 )
 
 // CreateNotification creates a new notification file
