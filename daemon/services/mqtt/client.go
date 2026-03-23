@@ -34,8 +34,8 @@ type Client struct {
 	deviceInfo   *dto.HADeviceInfo
 	hostname     string
 	agentVersion string
-	tracker      *discoveryTracker
-	domainCtx    *domain.Context // domain context for controllers (array, system)
+	tracker   *discoveryTracker
+	domainCtx *domain.Context // domain context for controllers (array, system)
 
 	// connectCancel cancels the context for goroutines spawned by handleConnect.
 	// Protected by mu.
@@ -329,7 +329,11 @@ func (c *Client) PublishSystemInfo(info *dto.SystemInfo) error {
 	if !c.shouldPublish() {
 		return nil
 	}
-	return c.publishJSON(c.buildTopic("system"), info)
+	if err := c.publishJSON(c.buildTopic("system"), info); err != nil {
+		return err
+	}
+	go c.publishFanDiscovery(info.Fans)
+	return nil
 }
 
 // PublishArrayStatus publishes array status to MQTT.

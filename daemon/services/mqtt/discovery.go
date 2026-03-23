@@ -340,6 +340,35 @@ func (c *Client) publishSystemDiscovery() {
 	})
 }
 
+// publishFanDiscovery publishes per-fan HA discovery entities.
+// Fans are embedded in the system JSON payload; each entity uses a Jinja2 selectattr
+// template to extract the RPM for its specific fan by name.
+func (c *Client) publishFanDiscovery(fans []dto.FanInfo) {
+	if !c.config.HomeAssistantMode {
+		return
+	}
+
+	topic := c.buildTopic("system")
+	var currentIDs []string
+
+	for _, fan := range fans {
+		fanID := "fan_" + sanitizeID(fan.Name)
+		c.publishHAEntity(haEntityOpts{
+			entityType: "sensor", stateTopic: topic,
+			id: fanID, name: fmt.Sprintf("System: %s", fan.Name), unit: "RPM",
+			icon:       "mdi:fan",
+			template:   fmt.Sprintf(`{{ (value_json.fans | selectattr('name', 'eq', '%s') | map(attribute='rpm') | first | default(0)) }}`, fan.Name),
+			stateClass: "measurement",
+		})
+		currentIDs = append(currentIDs, fanID)
+	}
+
+	removed := c.tracker.update("fans", currentIDs)
+	for _, id := range removed {
+		c.removeHAEntities(id)
+	}
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Array
 // ──────────────────────────────────────────────────────────────────────────────
