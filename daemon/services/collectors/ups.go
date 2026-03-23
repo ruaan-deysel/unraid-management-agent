@@ -30,15 +30,16 @@ func NewUPSCollector(ctx *domain.Context) *UPSCollector {
 func (c *UPSCollector) Start(ctx context.Context, interval time.Duration) {
 	logger.Info("Starting ups collector (interval: %v)", interval)
 
-	// Run once immediately with panic recovery
-	func() {
+	runCollectSafely := func(phase string) {
 		defer func() {
 			if r := recover(); r != nil {
-				logger.Error("UPS collector PANIC on startup: %v", r)
+				logger.Error("UPS collector PANIC during %s: %v", phase, r)
 			}
 		}()
 		c.Collect()
-	}()
+	}
+
+	runCollectSafely("startup")
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -49,7 +50,7 @@ func (c *UPSCollector) Start(ctx context.Context, interval time.Duration) {
 			logger.Info("UPS collector stopping due to context cancellation")
 			return
 		case <-ticker.C:
-			c.Collect()
+			runCollectSafely("periodic collection")
 		}
 	}
 }

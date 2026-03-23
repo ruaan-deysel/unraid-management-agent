@@ -222,7 +222,11 @@ func (c *ShareCollector) collectShares(ctx context.Context) ([]dto.ShareInfo, er
 					total += bytes
 					found = true
 				}
-				if found {
+				// Only replace Used with ZFS referenced bytes when the share is
+				// guaranteed to be pool-only (useCache=only). Mixed cache+array shares
+				// ("yes"/"prefer") still hold data on the array, so overwriting Used
+				// with only the pool bytes would under-report actual usage.
+				if found && shares[i].UseCache == "only" {
 					shares[i].Used = total
 				}
 			}
@@ -322,7 +326,10 @@ func (c *ShareCollector) isNFSExported(export string) bool {
 // zfsDatasetSizes runs "zfs list -Hp -o name,refer" and returns a map of
 // dataset name → referenced bytes. Returns nil if zfs is unavailable.
 func zfsDatasetSizes(ctx context.Context) map[string]uint64 {
-	out, err := lib.ExecCommandOutputWithContext(ctx, "zfs", "list", "-Hp", "-o", "name,refer")
+	cmdCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	out, err := lib.ExecCommandOutputWithContext(cmdCtx, "zfs", "list", "-Hp", "-o", "name,refer")
 	if err != nil {
 		logger.Debug("zfsDatasetSizes: zfs list failed: %v (output: %q)", err, out)
 		return nil

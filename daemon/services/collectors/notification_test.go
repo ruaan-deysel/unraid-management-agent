@@ -363,7 +363,7 @@ func TestCountByImportanceNormal(t *testing.T) {
 
 func TestResolveNotificationDirsDefault(t *testing.T) {
 	// When config file doesn't exist, should return the flash default
-	unread, archive := resolveNotificationDirs("/nonexistent/dynamix.cfg")
+	unread, archive := ResolveNotificationDirs("/nonexistent/dynamix.cfg")
 	const base = "/boot/config/plugins/dynamix/notifications"
 	if unread != base+"/unread" {
 		t.Errorf("unread = %q, want %q", unread, base+"/unread")
@@ -382,7 +382,7 @@ func TestResolveNotificationDirsFromCfg(t *testing.T) {
 	_, _ = f.WriteString("[display]\nsome=value\n[notify]\npath=\"/tmp/custom-notifications\"\nother=setting\n")
 	f.Close()
 
-	unread, archive := resolveNotificationDirs(f.Name())
+	unread, archive := ResolveNotificationDirs(f.Name())
 	if unread != "/tmp/custom-notifications/unread" {
 		t.Errorf("unread = %q, want /tmp/custom-notifications/unread", unread)
 	}
@@ -401,7 +401,7 @@ func TestResolveNotificationDirsEmptyPath(t *testing.T) {
 	_, _ = f.WriteString("[notify]\npath=\"\"\n")
 	f.Close()
 
-	unread, _ := resolveNotificationDirs(f.Name())
+	unread, _ := ResolveNotificationDirs(f.Name())
 	const base = "/boot/config/plugins/dynamix/notifications"
 	if unread != base+"/unread" {
 		t.Errorf("empty path= should fall back; got %q, want %q", unread, base+"/unread")

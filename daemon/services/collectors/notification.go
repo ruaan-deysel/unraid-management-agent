@@ -24,9 +24,10 @@ var (
 	notificationsArchiveDir = defaultNotificationsBase + "/archive"
 )
 
-// resolveNotificationDirs reads the notification base path from the [notify] section of
+// ResolveNotificationDirs reads the notification base path from the [notify] section of
 // dynamix.cfg. Falls back to the default flash path if the file cannot be read or path= is empty.
-func resolveNotificationDirs(cfgPath string) (unread, archive string) {
+// Exported so the controllers package can use the same resolved paths.
+func ResolveNotificationDirs(cfgPath string) (unread, archive string) {
 	base := defaultNotificationsBase
 	f, err := os.Open(cfgPath)
 	if err == nil {
@@ -48,6 +49,9 @@ func resolveNotificationDirs(cfgPath string) (unread, archive string) {
 				}
 				break
 			}
+		}
+		if err := scanner.Err(); err != nil {
+			logger.Debug("Error reading dynamix.cfg: %v", err)
 		}
 	}
 	return base + "/unread", base + "/archive"
@@ -76,7 +80,7 @@ func (c *NotificationCollector) Start(ctx context.Context, interval time.Duratio
 	// Resolve actual notification path from dynamix.cfg unless tests have already
 	// overridden the package-level vars via setupNotificationCollectorTestDirs.
 	if notificationsDir == defaultNotificationsBase+"/unread" {
-		notificationsDir, notificationsArchiveDir = resolveNotificationDirs(c.dynamixCfgPath)
+		notificationsDir, notificationsArchiveDir = ResolveNotificationDirs(c.dynamixCfgPath)
 	}
 
 	// Initialize file watcher
