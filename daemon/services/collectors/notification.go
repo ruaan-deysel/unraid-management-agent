@@ -251,7 +251,7 @@ func (c *NotificationCollector) countByImportance(notifications []dto.Notificati
 			counts.Alert++
 		case "warning":
 			counts.Warning++
-		case "info":
+		case "info", "normal": // "normal" is Dynamix's importance level for informational notifications
 			counts.Info++
 		}
 	}

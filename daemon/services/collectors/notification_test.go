@@ -334,6 +334,33 @@ func TestCountByImportance(t *testing.T) {
 	}
 }
 
+func TestCountByImportanceNormal(t *testing.T) {
+	hub := domain.NewEventBus(10)
+	ctx := &domain.Context{Hub: hub}
+	c := NewNotificationCollector(ctx)
+
+	notifications := []dto.Notification{
+		{Importance: "normal"},
+		{Importance: "normal"},
+		{Importance: "warning"},
+		{Importance: "alert"},
+	}
+	counts := c.countByImportance(notifications)
+
+	if counts.Info != 2 {
+		t.Errorf("Info = %d, want 2 (normal maps to info)", counts.Info)
+	}
+	if counts.Warning != 1 {
+		t.Errorf("Warning = %d, want 1", counts.Warning)
+	}
+	if counts.Alert != 1 {
+		t.Errorf("Alert = %d, want 1", counts.Alert)
+	}
+	if counts.Total != 4 {
+		t.Errorf("Total = %d, want 4", counts.Total)
+	}
+}
+
 func TestResolveNotificationDirsDefault(t *testing.T) {
 	// When config file doesn't exist, should return the flash default
 	unread, archive := resolveNotificationDirs("/nonexistent/dynamix.cfg")
