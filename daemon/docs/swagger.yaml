@@ -1417,8 +1417,8 @@ definitions:
         example: Twisted Pair
         type: string
       rx_bytes_per_sec:
-        description: Throughput rates (computed from successive collection cycles;
-          0 on first cycle)
+        description: RxBytesPerSec is the receive throughput (computed from successive
+          collection cycles; 0 on first cycle)
         example: 10485760
         type: number
       speed_mbps:
@@ -1456,6 +1456,8 @@ definitions:
         example: internal
         type: string
       tx_bytes_per_sec:
+        description: TxBytesPerSec is the transmit throughput (computed from successive
+          collection cycles; 0 on first cycle)
         example: 5242880
         type: number
       wake_on:

@@ -6071,7 +6071,7 @@ const docTemplate = `{
                     "example": "Twisted Pair"
                 },
                 "rx_bytes_per_sec": {
-                    "description": "Throughput rates (computed from successive collection cycles; 0 on first cycle)",
+                    "description": "RxBytesPerSec is the receive throughput (computed from successive collection cycles; 0 on first cycle)",
                     "type": "number",
                     "example": 10485760
                 },
@@ -6124,6 +6124,7 @@ const docTemplate = `{
                     "example": "internal"
                 },
                 "tx_bytes_per_sec": {
+                    "description": "TxBytesPerSec is the transmit throughput (computed from successive collection cycles; 0 on first cycle)",
                     "type": "number",
                     "example": 5242880
                 },
