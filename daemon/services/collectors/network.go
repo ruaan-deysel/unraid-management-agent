@@ -137,32 +137,40 @@ func (c *NetworkCollector) collectNetworkInterfaces() ([]dto.NetworkInfo, error)
 		c.enrichWithEthtool(&netInfo, ifName)
 
 		// Compute throughput rates from successive reads
-		c.mu.Lock()
-		if prev, ok := c.prevStats[ifName]; ok {
-			elapsed := time.Since(prev.timestamp).Seconds()
-			if elapsed > 0 {
-				rx := float64(netInfo.BytesReceived) - float64(prev.bytesReceived)
-				tx := float64(netInfo.BytesSent) - float64(prev.bytesSent)
-				if rx >= 0 {
-					netInfo.RxBytesPerSec = rx / elapsed
-				}
-				if tx >= 0 {
-					netInfo.TxBytesPerSec = tx / elapsed
-				}
-			}
-		}
-		c.prevStats[ifName] = prevNetStats{
-			bytesReceived: netInfo.BytesReceived,
-			bytesSent:     netInfo.BytesSent,
-			timestamp:     time.Now(),
-		}
-		c.mu.Unlock()
+		c.computeRates(ifName, &netInfo)
 
 		interfaces = append(interfaces, netInfo)
 	}
 
 	logger.Debug("Network: Parsed %d interfaces successfully", len(interfaces))
 	return interfaces, nil
+}
+
+// computeRates calculates RxBytesPerSec and TxBytesPerSec from the difference
+// between the current byte counters and those recorded in the previous collection cycle.
+// On the first call for a given interface, both rates remain zero.
+// Counter resets and wraps (new count < previous count) are silently ignored.
+func (c *NetworkCollector) computeRates(ifName string, netInfo *dto.NetworkInfo) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if prev, ok := c.prevStats[ifName]; ok {
+		elapsed := time.Since(prev.timestamp).Seconds()
+		if elapsed > 0 {
+			rx := float64(netInfo.BytesReceived) - float64(prev.bytesReceived)
+			tx := float64(netInfo.BytesSent) - float64(prev.bytesSent)
+			if rx >= 0 {
+				netInfo.RxBytesPerSec = rx / elapsed
+			}
+			if tx >= 0 {
+				netInfo.TxBytesPerSec = tx / elapsed
+			}
+		}
+	}
+	c.prevStats[ifName] = prevNetStats{
+		bytesReceived: netInfo.BytesReceived,
+		bytesSent:     netInfo.BytesSent,
+		timestamp:     time.Now(),
+	}
 }
 
 type netStats struct {
