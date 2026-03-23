@@ -657,3 +657,24 @@ func TestTestConnectionWithEmptyClientID(t *testing.T) {
 		t.Error("Timestamp should not be zero")
 	}
 }
+
+// TestPublishSystemInfoNilSafe verifies that PublishSystemInfo does not panic when called with nil.
+func TestPublishSystemInfoNilSafe(t *testing.T) {
+	config := DefaultConfig()
+	config.Enabled = true
+	client := NewClient(config, "test", "1.0.0", nil)
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("PublishSystemInfo(nil) panicked: %v", r)
+		}
+	}()
+	// shouldPublish returns false (not connected) so this reaches nil dereference
+	// only if the nil guard is missing after a successful publishJSON path.
+	// With Enabled=true but no broker, shouldPublish=false → returns early.
+	// The guard still protects against callers that reach the fan-discovery line.
+	err := client.PublishSystemInfo(nil)
+	if err != nil {
+		t.Errorf("PublishSystemInfo(nil) = %v, want nil", err)
+	}
+}

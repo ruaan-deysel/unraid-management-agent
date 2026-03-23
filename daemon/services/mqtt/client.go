@@ -332,6 +332,9 @@ func (c *Client) PublishSystemInfo(info *dto.SystemInfo) error {
 	if err := c.publishJSON(c.buildTopic("system"), info); err != nil {
 		return err
 	}
+	if info == nil {
+		return nil
+	}
 	go c.publishFanDiscovery(info.Fans)
 	return nil
 }
