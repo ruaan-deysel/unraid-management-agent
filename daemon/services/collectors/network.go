@@ -102,6 +102,8 @@ func (c *NetworkCollector) collectNetworkInterfaces() ([]dto.NetworkInfo, error)
 		logger.Error("Network: Failed to parse /proc/net/dev: %v", err)
 		return nil, err
 	}
+	sampleTime := time.Now()
+	c.pruneGoneInterfaces(stats)
 
 	// Get interface details from /sys/class/net
 	for ifName, ifStats := range stats {
@@ -118,7 +120,7 @@ func (c *NetworkCollector) collectNetworkInterfaces() ([]dto.NetworkInfo, error)
 			PacketsSent:     ifStats.PacketsSent,
 			ErrorsReceived:  ifStats.ErrorsReceived,
 			ErrorsSent:      ifStats.ErrorsSent,
-			Timestamp:       time.Now(),
+			Timestamp:       sampleTime,
 		}
 
 		// Get MAC address
@@ -137,7 +139,7 @@ func (c *NetworkCollector) collectNetworkInterfaces() ([]dto.NetworkInfo, error)
 		c.enrichWithEthtool(&netInfo, ifName)
 
 		// Compute throughput rates from successive reads
-		c.computeRates(ifName, &netInfo)
+		c.computeRates(ifName, sampleTime, &netInfo)
 
 		interfaces = append(interfaces, netInfo)
 	}
@@ -150,11 +152,12 @@ func (c *NetworkCollector) collectNetworkInterfaces() ([]dto.NetworkInfo, error)
 // between the current byte counters and those recorded in the previous collection cycle.
 // On the first call for a given interface, both rates remain zero.
 // Counter resets and wraps (new count < previous count) are silently ignored.
-func (c *NetworkCollector) computeRates(ifName string, netInfo *dto.NetworkInfo) {
+// sampleTime must be captured once per scan cycle and passed consistently for all interfaces.
+func (c *NetworkCollector) computeRates(ifName string, sampleTime time.Time, netInfo *dto.NetworkInfo) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if prev, ok := c.prevStats[ifName]; ok {
-		elapsed := time.Since(prev.timestamp).Seconds()
+		elapsed := sampleTime.Sub(prev.timestamp).Seconds()
 		if elapsed > 0 {
 			rx := float64(netInfo.BytesReceived) - float64(prev.bytesReceived)
 			tx := float64(netInfo.BytesSent) - float64(prev.bytesSent)
@@ -169,7 +172,18 @@ func (c *NetworkCollector) computeRates(ifName string, netInfo *dto.NetworkInfo)
 	c.prevStats[ifName] = prevNetStats{
 		bytesReceived: netInfo.BytesReceived,
 		bytesSent:     netInfo.BytesSent,
-		timestamp:     time.Now(),
+		timestamp:     sampleTime,
+	}
+}
+
+// pruneGoneInterfaces removes prevStats entries for interfaces no longer present in current.
+func (c *NetworkCollector) pruneGoneInterfaces(current map[string]netStats) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for ifName := range c.prevStats {
+		if _, ok := current[ifName]; !ok {
+			delete(c.prevStats, ifName)
+		}
 	}
 }
 

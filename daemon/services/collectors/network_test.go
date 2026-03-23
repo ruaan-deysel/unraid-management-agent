@@ -382,7 +382,7 @@ func TestComputeRates(t *testing.T) {
 			c := newTestCollector(t)
 			tt.setup(c)
 			netInfo := &dto.NetworkInfo{BytesReceived: tt.rx, BytesSent: tt.tx}
-			c.computeRates(ifName, netInfo)
+			c.computeRates(ifName, time.Now(), netInfo)
 			approxEqual(t, "RxBytesPerSec", netInfo.RxBytesPerSec, tt.wantRx, tolerance)
 			approxEqual(t, "TxBytesPerSec", netInfo.TxBytesPerSec, tt.wantTx, tolerance)
 		})
@@ -402,9 +402,30 @@ func TestComputeRatesConcurrent(t *testing.T) {
 				BytesReceived: uint64(i * 1000),
 				BytesSent:     uint64(i * 500),
 			}
-			c.computeRates(ifName, netInfo)
-			c.computeRates(ifName, netInfo)
+			c.computeRates(ifName, time.Now(), netInfo)
+			c.computeRates(ifName, time.Now(), netInfo)
 		}(i)
 	}
 	wg.Wait()
+}
+
+// TestPrevStatsPruning verifies stale interface entries are removed from prevStats.
+func TestPrevStatsPruning(t *testing.T) {
+	c := newTestCollector(t)
+	seedPrev(c, "eth0", 0, 0, time.Second)
+	seedPrev(c, "veth123abc", 0, 0, time.Second)
+
+	current := map[string]netStats{
+		"eth0": {BytesReceived: 1000, BytesSent: 500},
+	}
+	c.pruneGoneInterfaces(current)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if _, ok := c.prevStats["veth123abc"]; ok {
+		t.Error("expected veth123abc to be pruned from prevStats")
+	}
+	if _, ok := c.prevStats["eth0"]; !ok {
+		t.Error("expected eth0 to be retained in prevStats")
+	}
 }
