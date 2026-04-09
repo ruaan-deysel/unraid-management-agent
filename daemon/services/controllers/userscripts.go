@@ -108,18 +108,43 @@ func ExecuteUserScript(scriptName string, background bool, wait bool) (*dto.User
 	return executeScriptBackground(scriptPath, scriptName)
 }
 
-// executeScriptBackground executes a script in the background
+// executeScriptBackground executes a script in the background without waiting
+// for completion. It uses os.StartProcess with direct arguments to avoid shell
+// interpolation (CWE-78 prevention) and redirects stdio to /dev/null so the
+// API request is not blocked.
 func executeScriptBackground(scriptPath string, scriptName string) (*dto.UserScriptExecuteResponse, error) {
-	// Execute script in background using nohup + bash with direct arguments
-	// to avoid shell interpolation of the script path (CWE-78 prevention)
-	_, err := lib.ExecCommand("nohup", "bash", scriptPath)
-
+	devNull, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
 	if err != nil {
+		err = fmt.Errorf("open %s: %w", os.DevNull, err)
+		logger.Error("Failed to prepare background execution for user script %s: %v", scriptName, err)
+		return &dto.UserScriptExecuteResponse{
+			Success: false,
+			Error:   fmt.Sprintf("Failed to execute script: %v", err),
+		}, err
+	}
+	defer func() {
+		if closeErr := devNull.Close(); closeErr != nil {
+			logger.Error("Failed to close %s for user script %s: %v", os.DevNull, scriptName, closeErr)
+		}
+	}()
+
+	procAttr := &os.ProcAttr{
+		Files: []*os.File{devNull, devNull, devNull},
+	}
+
+	proc, err := os.StartProcess("/bin/bash", []string{"bash", scriptPath}, procAttr)
+	if err != nil {
+		err = fmt.Errorf("start background script %s: %w", scriptName, err)
 		logger.Error("Failed to execute user script %s in background: %v", scriptName, err)
 		return &dto.UserScriptExecuteResponse{
 			Success: false,
 			Error:   fmt.Sprintf("Failed to execute script: %v", err),
 		}, err
+	}
+
+	// Release the process so it doesn't become a zombie
+	if err := proc.Release(); err != nil {
+		logger.Warning("Failed to release background process for script %s: %v", scriptName, err)
 	}
 
 	logger.Info("User script %s started in background", scriptName)

@@ -11,8 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- **Fix shell injection in userscripts controller** — replaced `sh -c` with `fmt.Sprintf` pattern
-  with direct argument passing to eliminate CWE-78 command injection risk
+- **Fix shell injection in userscripts controller** — removed the `sh -c` + `fmt.Sprintf`
+  command-construction pattern in favor of direct argument passing to eliminate CWE-78
+  command injection risk
 - **WebSocket origin validation** — added per-request origin checking that validates the Origin
   header host against the request Host; added 64 KB `ReadLimit` to prevent message-size DoS
 - **Security headers middleware** — added `X-Content-Type-Options: nosniff`,

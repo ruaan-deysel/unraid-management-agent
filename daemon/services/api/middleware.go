@@ -82,9 +82,16 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		w.Header().Set("Permissions-Policy", "geolocation=(), camera=(), microphone=()")
+
+		// Swagger UI requires inline scripts/styles; use a relaxed CSP for it.
+		csp := "default-src 'self'"
+		if r.URL != nil && (r.URL.Path == "/swagger" || strings.HasPrefix(r.URL.Path, "/swagger/")) {
+			csp = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"
+		}
+		w.Header().Set("Content-Security-Policy", csp)
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -106,6 +113,11 @@ func bodySizeLimitMiddleware(next http.Handler) http.Handler {
 // prevent cross-site request forgery. Non-browser clients that don't send
 // an Origin header are allowed through.
 func csrfMiddleware(allowedOrigin string) mux.MiddlewareFunc {
+	// Normalize empty origin to wildcard, consistent with corsMiddleware.
+	if allowedOrigin == "" {
+		allowedOrigin = "*"
+	}
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Only check state-changing methods
@@ -124,7 +136,7 @@ func csrfMiddleware(allowedOrigin string) mux.MiddlewareFunc {
 			// Parse and validate origin
 			parsed, err := url.Parse(origin)
 			if err != nil {
-				http.Error(w, "Forbidden: invalid origin", http.StatusForbidden)
+				respondJSON(w, http.StatusForbidden, map[string]string{"error": "Forbidden: invalid origin"})
 				return
 			}
 
@@ -134,7 +146,7 @@ func csrfMiddleware(allowedOrigin string) mux.MiddlewareFunc {
 					next.ServeHTTP(w, r)
 					return
 				}
-				http.Error(w, "Forbidden: origin not allowed", http.StatusForbidden)
+				respondJSON(w, http.StatusForbidden, map[string]string{"error": "Forbidden: origin not allowed"})
 				return
 			}
 
@@ -153,18 +165,26 @@ func csrfMiddleware(allowedOrigin string) mux.MiddlewareFunc {
 				return
 			}
 
-			http.Error(w, "Forbidden: origin not allowed", http.StatusForbidden)
+			respondJSON(w, http.StatusForbidden, map[string]string{"error": "Forbidden: origin not allowed"})
 		})
 	}
 }
 
 // stripHostPort removes the port portion from a host:port string.
+// It also normalizes bracketed IPv6 literals without an explicit port so the
+// result matches url.URL.Hostname() behavior (e.g. "[::1]" → "::1").
 func stripHostPort(hostport string) string {
 	host, _, err := net.SplitHostPort(hostport)
-	if err != nil {
-		return hostport // already just a host
+	if err == nil {
+		return host
 	}
-	return host
+
+	// Handle bracketed IPv6 without port, e.g. "[::1]"
+	if strings.HasPrefix(hostport, "[") && strings.HasSuffix(hostport, "]") {
+		return hostport[1 : len(hostport)-1]
+	}
+
+	return hostport // already just a host
 }
 
 // isLocalhost returns true if the host is a loopback address or "localhost".

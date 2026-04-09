@@ -195,7 +195,12 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			if origin == "" {
 				return true // non-browser clients don't send Origin
 			}
-			if s.ctx.CORSOrigin == "*" {
+			corsOrigin := s.ctx.CORSOrigin
+			if corsOrigin == "" {
+				corsOrigin = "*"
+			}
+
+			if corsOrigin == "*" {
 				// In wildcard mode, verify origin host matches request host
 				// to prevent drive-by CSRF from arbitrary external sites.
 				parsed, err := url.Parse(origin)
@@ -204,7 +209,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				}
 				return parsed.Hostname() == stripHostPort(req.Host)
 			}
-			return origin == s.ctx.CORSOrigin
+			return origin == corsOrigin
 		},
 	}
 
