@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -13,11 +14,8 @@ import (
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/logger"
 )
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(_ *http.Request) bool {
-		return true // Allow all origins
-	},
-}
+// maxWSMessageSize is the maximum allowed size (bytes) for an incoming WebSocket message.
+const maxWSMessageSize = 64 * 1024 // 64 KB
 
 // broadcastMessage carries an event with its topic name through the broadcast channel.
 type broadcastMessage struct {
@@ -191,11 +189,32 @@ func (h *WSHub) Broadcast(topic string, data any) {
 //	@Tags			WebSocket
 //	@Router			/ws [get]
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
+	u := websocket.Upgrader{
+		CheckOrigin: func(req *http.Request) bool {
+			origin := req.Header.Get("Origin")
+			if origin == "" {
+				return true // non-browser clients don't send Origin
+			}
+			if s.ctx.CORSOrigin == "*" {
+				// In wildcard mode, verify origin host matches request host
+				// to prevent drive-by CSRF from arbitrary external sites.
+				parsed, err := url.Parse(origin)
+				if err != nil {
+					return false
+				}
+				return parsed.Hostname() == stripHostPort(req.Host)
+			}
+			return origin == s.ctx.CORSOrigin
+		},
+	}
+
+	conn, err := u.Upgrade(w, r, nil)
 	if err != nil {
 		logger.Error("WebSocket upgrade error: %v", err)
 		return
 	}
+
+	conn.SetReadLimit(maxWSMessageSize)
 
 	client := &WSClient{
 		hub:  s.wsHub,

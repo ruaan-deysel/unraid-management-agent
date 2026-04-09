@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Fix shell injection in userscripts controller** — replaced `sh -c` with `fmt.Sprintf` pattern
+  with direct argument passing to eliminate CWE-78 command injection risk
+- **WebSocket origin validation** — added per-request origin checking that validates the Origin
+  header host against the request Host; added 64 KB `ReadLimit` to prevent message-size DoS
+- **Security headers middleware** — added `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: DENY`, `X-XSS-Protection`, `Content-Security-Policy`, `Referrer-Policy`,
+  and `Permissions-Policy` headers to all HTTP responses
+- **CSRF origin validation middleware** — validates Origin header on state-changing requests
+  (POST/PUT/PATCH/DELETE) with localhost-aware matching
+- **Request body size limit** — added 1 MB `MaxBytesReader` middleware to prevent request body DoS
+  across all endpoints
+- **HTTP server timeout hardening** — added `ReadHeaderTimeout` (10 s) and `IdleTimeout` (120 s)
+  to mitigate slowloris-style attacks
+- **Null byte injection protection** — added CWE-158 null byte checks to `ValidateShareName`,
+  `ValidateUserScriptName`, `ValidatePluginName`, and `ValidateSnapshotName`
+- **Consistent validation error reporting** — refactored `ValidateLogFilename` from `bool` return
+  to `error` return with descriptive messages matching other validators
+
+### Fixed
+
+- **Replace direct `exec.Command` usage** — replaced 2 occurrences in `unassigned.go` and 1 in
+  `probes.go` with `lib.ExecCommandOutput` / `lib.ExecCommandOutputWithContext` wrappers for
+  consistent command execution and error handling
+- **Race condition in DockerCollector** — added `sync.Mutex` to protect concurrent access to the
+  `prevCPU` map in `getCPUFromCgroups` and `pruneStaleSnapshots`
+
 ## [2026.04.00] - 2026-04-08
 
 ### Security

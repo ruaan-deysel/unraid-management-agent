@@ -110,9 +110,9 @@ func ExecuteUserScript(scriptName string, background bool, wait bool) (*dto.User
 
 // executeScriptBackground executes a script in the background
 func executeScriptBackground(scriptPath string, scriptName string) (*dto.UserScriptExecuteResponse, error) {
-	// Execute script in background using bash with nohup to detach
-	// We use sh -c to run the command in background
-	_, err := lib.ExecCommand("sh", "-c", fmt.Sprintf("nohup bash %s > /dev/null 2>&1 &", scriptPath))
+	// Execute script in background using nohup + bash with direct arguments
+	// to avoid shell interpolation of the script path (CWE-78 prevention)
+	_, err := lib.ExecCommand("nohup", "bash", scriptPath)
 
 	if err != nil {
 		logger.Error("Failed to execute user script %s in background: %v", scriptName, err)

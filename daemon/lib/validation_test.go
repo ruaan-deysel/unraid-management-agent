@@ -609,85 +609,85 @@ func TestValidateLogFilename(t *testing.T) {
 	tests := []struct {
 		name     string
 		filename string
-		expected bool
+		wantErr  bool
 	}{
 		{
 			name:     "valid simple filename",
 			filename: "syslog",
-			expected: true,
+			wantErr:  false,
 		},
 		{
 			name:     "valid filename with extension",
 			filename: "app.log",
-			expected: true,
+			wantErr:  false,
 		},
 		{
 			name:     "valid plugin log path",
 			filename: "plugin/my-plugin.log",
-			expected: true,
+			wantErr:  false,
 		},
 		{
 			name:     "valid nested path",
 			filename: "logs/2024/01/app.log",
-			expected: true,
+			wantErr:  false,
 		},
 		{
 			name:     "empty filename",
 			filename: "",
-			expected: false,
+			wantErr:  true,
 		},
 		{
 			name:     "too long",
 			filename: strings.Repeat("a", 256),
-			expected: false,
+			wantErr:  true,
 		},
 		{
 			name:     "path traversal with ../",
 			filename: "../etc/passwd",
-			expected: false,
+			wantErr:  true,
 		},
 		{
 			name:     "path traversal with ..",
 			filename: "logs/../etc/passwd",
-			expected: false,
+			wantErr:  true,
 		},
 		{
 			name:     "backslash",
 			filename: "path\\to\\file",
-			expected: false,
+			wantErr:  true,
 		},
 		{
 			name:     "absolute path",
 			filename: "/var/log/syslog",
-			expected: false,
+			wantErr:  true,
 		},
 		{
 			name:     "null byte injection",
 			filename: "file\x00.log",
-			expected: false,
+			wantErr:  true,
 		},
 		{
 			name:     "valid with numbers",
 			filename: "log123.txt",
-			expected: true,
+			wantErr:  false,
 		},
 		{
 			name:     "valid with hyphen",
 			filename: "my-log-file.log",
-			expected: true,
+			wantErr:  false,
 		},
 		{
 			name:     "valid with underscore",
 			filename: "my_log_file.log",
-			expected: true,
+			wantErr:  false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ValidateLogFilename(tt.filename)
-			if result != tt.expected {
-				t.Errorf("ValidateLogFilename(%q) = %v, want %v", tt.filename, result, tt.expected)
+			err := ValidateLogFilename(tt.filename)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateLogFilename(%q) error = %v, wantErr %v", tt.filename, err, tt.wantErr)
 			}
 		})
 	}

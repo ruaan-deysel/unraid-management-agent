@@ -127,6 +127,11 @@ func ValidateShareName(name string) error {
 		return errors.New("invalid share name: cannot contain path separators")
 	}
 
+	// Check for null bytes (CWE-158)
+	if strings.Contains(name, "\x00") {
+		return errors.New("invalid share name: cannot contain null bytes")
+	}
+
 	// Validate against regex pattern (alphanumeric, hyphens, underscores only)
 	if !shareNameRegex.MatchString(name) {
 		return errors.New("invalid share name format: must contain only alphanumeric characters, hyphens, and underscores")
@@ -183,6 +188,11 @@ func ValidateUserScriptName(name string) error {
 		return errors.New("invalid user script name: cannot be an absolute path")
 	}
 
+	// Check for null bytes (CWE-158)
+	if strings.Contains(name, "\x00") {
+		return errors.New("invalid user script name: cannot contain null bytes")
+	}
+
 	// Validate against regex pattern (alphanumeric, hyphens, underscores, dots only)
 	if !userScriptNameRegex.MatchString(name) {
 		return errors.New("invalid user script name format: must contain only alphanumeric characters, hyphens, underscores, and dots")
@@ -203,36 +213,36 @@ func ValidateUserScriptName(name string) error {
 // ValidateLogFilename validates a log filename
 // Prevents path traversal attacks (CWE-22) by ensuring the filename contains only safe characters
 // and does not contain path separators or parent directory references
-func ValidateLogFilename(name string) bool {
+func ValidateLogFilename(name string) error {
 	if name == "" {
-		return false
+		return errors.New("log filename cannot be empty")
 	}
 
 	if len(name) > 255 {
-		return false
+		return errors.New("log filename too long: maximum 255 characters")
 	}
 
 	// Check for parent directory references (CWE-22 path traversal)
 	if strings.Contains(name, "..") {
-		return false
+		return errors.New("invalid log filename: cannot contain parent directory references")
 	}
 
 	// Check for path separators (only allow forward slashes for plugin log paths like "plugin/file.log")
 	if strings.Contains(name, "\\") {
-		return false
+		return errors.New("invalid log filename: cannot contain backslashes")
 	}
 
 	// Check for absolute paths
 	if strings.HasPrefix(name, "/") {
-		return false
+		return errors.New("invalid log filename: cannot be an absolute path")
 	}
 
 	// Check for null bytes (CWE-158)
 	if strings.Contains(name, "\x00") {
-		return false
+		return errors.New("invalid log filename: cannot contain null bytes")
 	}
 
-	return true
+	return nil
 }
 
 // ValidateContainerRef validates a Docker container reference (ID or name).
@@ -279,6 +289,11 @@ func ValidatePluginName(name string) error {
 		return errors.New("invalid plugin name: cannot contain path separators or directory traversal")
 	}
 
+	// Check for null bytes (CWE-158)
+	if strings.Contains(name, "\x00") {
+		return errors.New("invalid plugin name: cannot contain null bytes")
+	}
+
 	if !pluginNameRegex.MatchString(name) {
 		return errors.New("invalid plugin name format: must contain only alphanumeric characters, hyphens, underscores, and dots")
 	}
@@ -308,6 +323,11 @@ func ValidateSnapshotName(name string) error {
 
 	if strings.Contains(name, "..") || strings.Contains(name, "/") || strings.Contains(name, "\\") {
 		return errors.New("invalid snapshot name: cannot contain path separators or directory traversal")
+	}
+
+	// Check for null bytes (CWE-158)
+	if strings.Contains(name, "\x00") {
+		return errors.New("invalid snapshot name: cannot contain null bytes")
 	}
 
 	if !snapshotNameRegex.MatchString(name) {
