@@ -207,7 +207,13 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					return false
 				}
-				return parsed.Hostname() == stripHostPort(req.Host)
+				originHost := parsed.Hostname()
+				requestHost := stripHostPort(req.Host)
+				if originHost == requestHost {
+					return true
+				}
+				// Allow localhost aliases to match each other
+				return isLocalhost(originHost) && isLocalhost(requestHost)
 			}
 			return origin == corsOrigin
 		},

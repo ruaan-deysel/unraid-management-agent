@@ -142,10 +142,12 @@ func executeScriptBackground(scriptPath string, scriptName string) (*dto.UserScr
 		}, err
 	}
 
-	// Release the process so it doesn't become a zombie
-	if err := proc.Release(); err != nil {
-		logger.Warning("Failed to release background process for script %s: %v", scriptName, err)
-	}
+	// Reap the child in a background goroutine to prevent zombie processes.
+	go func() {
+		if _, err := proc.Wait(); err != nil {
+			logger.Warning("Background script %s exited with error: %v", scriptName, err)
+		}
+	}()
 
 	logger.Info("User script %s started in background", scriptName)
 	return &dto.UserScriptExecuteResponse{

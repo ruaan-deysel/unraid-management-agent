@@ -37,6 +37,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   consistent command execution and error handling
 - **Race condition in DockerCollector** — added `sync.Mutex` to protect concurrent access to the
   `prevCPU` map in `getCPUFromCgroups` and `pruneStaleSnapshots`
+- **CORS missing PATCH method** — added `PATCH` to `Access-Control-Allow-Methods` in CORS
+  middleware so preflight requests for `PATCH /api/v1/collectors/{name}/interval` succeed
+- **WebSocket localhost alias matching** — added `isLocalhost()` equivalence check in WebSocket
+  `CheckOrigin` for consistency with CSRF middleware (allows `localhost`/`127.0.0.1`/`::1` to
+  match interchangeably)
+- **Zombie processes from background scripts** — replaced `proc.Release()` with
+  `go proc.Wait()` in `executeScriptBackground` to properly reap child processes
+- **lsblk stderr contaminating JSON** — added `ExecCommandStdout` helper and switched
+  `getDeviceInfo` in unassigned collector to use stdout-only output, preventing stderr
+  warnings from corrupting JSON parsing
+- **Ping target validation** — added `ValidateHostOrIP` validator and applied it in
+  `probePing` to reject empty, flag-prefixed, or malformed targets before execution
 
 ## [2026.04.00] - 2026-04-08
 

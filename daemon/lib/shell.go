@@ -77,6 +77,21 @@ func ExecCommandOutputWithContext(ctx context.Context, command string, args ...s
 	return string(output), nil
 }
 
+// ExecCommandStdout executes a command and returns only stdout, discarding
+// stderr. Use this instead of ExecCommandOutput when the output is
+// machine-parsed (e.g. JSON) and stderr warnings could contaminate results.
+func ExecCommandStdout(command string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, command, args...) // #nosec G204 -- callers pass validated commands and arguments without shell interpolation
+	out, err := cmd.Output()
+	if err != nil {
+		return string(out), fmt.Errorf("command failed: %w", err)
+	}
+	return string(out), nil
+}
+
 // CommandExists checks if a command exists in PATH
 func CommandExists(command string) bool {
 	_, err := exec.LookPath(command)

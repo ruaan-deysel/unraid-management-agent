@@ -78,6 +78,9 @@ func probeTCP(_ context.Context, target string, timeout time.Duration) ProbeResu
 // probePing sends a single ICMP echo request via the ping binary.
 // Target should be a hostname or IP address.
 func probePing(ctx context.Context, target string, timeout time.Duration) ProbeResult {
+	if err := lib.ValidateHostOrIP(target); err != nil {
+		return ProbeResult{Healthy: false, Error: fmt.Sprintf("invalid ping target: %s", err)}
+	}
 	timeoutSec := fmt.Sprintf("%d", max(1, int(timeout.Seconds())))
 	output, err := lib.ExecCommandOutputWithContext(ctx, "ping", "-c", "1", "-W", timeoutSec, target)
 	if err != nil {

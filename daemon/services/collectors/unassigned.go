@@ -194,7 +194,8 @@ func (c *UnassignedCollector) isArrayDisk(device string, arrayDisks map[string]b
 // getDeviceInfo retrieves detailed information about a device
 func (c *UnassignedCollector) getDeviceInfo(device string) *dto.UnassignedDevice {
 	// Get device info using lsblk
-	output, err := lib.ExecCommandOutput("lsblk", "-J", "-o", "NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE,LABEL,SERIAL,MODEL", "/dev/"+device)
+	// Use stdout-only helper so stderr warnings don't contaminate JSON output.
+	output, err := lib.ExecCommandStdout("lsblk", "-J", "-o", "NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE,LABEL,SERIAL,MODEL", "/dev/"+device)
 	if err != nil {
 		logger.Debug("Failed to get info for device %s: %v", device, err)
 		return nil

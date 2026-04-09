@@ -3,6 +3,7 @@ package lib
 import (
 	"errors"
 	"fmt"
+	"net"
 	"regexp"
 	"strings"
 )
@@ -394,4 +395,30 @@ func ValidateCPUGovernor(governor string) error {
 		}
 	}
 	return fmt.Errorf("invalid governor %q: available governors are %v", governor, available)
+}
+
+// hostnameRegex allows RFC-952/1123 hostnames: labels of alphanumerics and hyphens
+// separated by dots, each label at most 63 chars, total at most 253 chars.
+var hostnameRegex = regexp.MustCompile(`^(?i)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$`)
+
+// ValidateHostOrIP validates that a string is a valid hostname or IP address.
+// It rejects empty strings, strings starting with '-' (flag injection), and
+// values that are not valid IPs or RFC-1123 hostnames.
+func ValidateHostOrIP(host string) error {
+	if host == "" {
+		return errors.New("host cannot be empty")
+	}
+	if strings.HasPrefix(host, "-") {
+		return fmt.Errorf("invalid host %q: must not start with a hyphen", host)
+	}
+	if net.ParseIP(host) != nil {
+		return nil
+	}
+	if len(host) > 253 {
+		return fmt.Errorf("invalid host %q: exceeds 253 characters", host)
+	}
+	if !hostnameRegex.MatchString(host) {
+		return fmt.Errorf("invalid host %q: must be a valid hostname or IP address", host)
+	}
+	return nil
 }
