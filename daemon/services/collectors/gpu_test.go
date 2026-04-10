@@ -196,53 +196,63 @@ func TestGPUUtilizationRanges(t *testing.T) {
 	}
 }
 
-func TestGPUGlobalIndexReassignment(t *testing.T) {
-	// Simulate multi-vendor GPU collection with vendor-local indices.
-	// Intel GPUs get index 0,1; NVIDIA gets index 0; AMD gets index 0.
-	// After global reassignment, indices must be 0,1,2,3 sequentially.
-	gpuMetrics := []*dto.GPUMetrics{
-		{Available: true, Index: 0, Vendor: "intel", Name: "UHD Graphics 630"},
-		{Available: true, Index: 1, Vendor: "intel", Name: "UHD Graphics 770"},
-		{Available: true, Index: 0, Vendor: "nvidia", Name: "GeForce RTX 5060 Ti"},
-		{Available: true, Index: 0, Vendor: "amd", Name: "Radeon RX 7900"},
+func TestAssignGlobalGPUIndices(t *testing.T) {
+	tests := []struct {
+		name            string
+		input           []*dto.GPUMetrics
+		expectedIndices []int
+	}{
+		{
+			name: "multi-vendor with duplicate vendor-local indices",
+			input: []*dto.GPUMetrics{
+				{Available: true, Index: 0, Vendor: "intel", Name: "UHD Graphics 630"},
+				{Available: true, Index: 1, Vendor: "intel", Name: "UHD Graphics 770"},
+				{Available: true, Index: 0, Vendor: "nvidia", Name: "GeForce RTX 5060 Ti"},
+				{Available: true, Index: 0, Vendor: "amd", Name: "Radeon RX 7900"},
+			},
+			expectedIndices: []int{0, 1, 2, 3},
+		},
+		{
+			name: "single vendor already sequential",
+			input: []*dto.GPUMetrics{
+				{Available: true, Index: 0, Vendor: "nvidia", Name: "GeForce RTX 3060"},
+				{Available: true, Index: 1, Vendor: "nvidia", Name: "GeForce RTX 5060 Ti"},
+				{Available: true, Index: 2, Vendor: "nvidia", Name: "GeForce RTX 5060 Ti"},
+			},
+			expectedIndices: []int{0, 1, 2},
+		},
+		{
+			name: "single vendor with non-sequential starting indices",
+			input: []*dto.GPUMetrics{
+				{Available: true, Index: 5, Vendor: "nvidia", Name: "GeForce RTX 3060"},
+				{Available: true, Index: 10, Vendor: "nvidia", Name: "GeForce RTX 5060 Ti"},
+			},
+			expectedIndices: []int{0, 1},
+		},
+		{
+			name:            "empty slice",
+			input:           []*dto.GPUMetrics{},
+			expectedIndices: []int{},
+		},
+		{
+			name: "single GPU",
+			input: []*dto.GPUMetrics{
+				{Available: true, Index: 42, Vendor: "intel", Name: "UHD Graphics 630"},
+			},
+			expectedIndices: []int{0},
+		},
 	}
 
-	// Reassign indices globally (same logic as Collect method)
-	for i, gpu := range gpuMetrics {
-		gpu.Index = i
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			AssignGlobalGPUIndices(tt.input)
 
-	for i, gpu := range gpuMetrics {
-		if gpu.Index != i {
-			t.Errorf("GPU[%d] Index = %d, want %d (vendor=%s, name=%s)",
-				i, gpu.Index, i, gpu.Vendor, gpu.Name)
-		}
-	}
-
-	// Verify vendor ordering: Intel → NVIDIA → AMD
-	expectedVendors := []string{"intel", "intel", "nvidia", "amd"}
-	for i, gpu := range gpuMetrics {
-		if gpu.Vendor != expectedVendors[i] {
-			t.Errorf("GPU[%d] Vendor = %q, want %q", i, gpu.Vendor, expectedVendors[i])
-		}
-	}
-}
-
-func TestGPUGlobalIndexSingleVendor(t *testing.T) {
-	// When only one vendor is present, indices should still be sequential.
-	gpuMetrics := []*dto.GPUMetrics{
-		{Available: true, Index: 0, Vendor: "nvidia", Name: "GeForce RTX 3060"},
-		{Available: true, Index: 1, Vendor: "nvidia", Name: "GeForce RTX 5060 Ti"},
-		{Available: true, Index: 2, Vendor: "nvidia", Name: "GeForce RTX 5060 Ti"},
-	}
-
-	for i, gpu := range gpuMetrics {
-		gpu.Index = i
-	}
-
-	for i, gpu := range gpuMetrics {
-		if gpu.Index != i {
-			t.Errorf("GPU[%d] Index = %d, want %d", i, gpu.Index, i)
-		}
+			for i, gpu := range tt.input {
+				if gpu.Index != tt.expectedIndices[i] {
+					t.Errorf("GPU[%d] Index = %d, want %d (vendor=%s, name=%s)",
+						i, gpu.Index, tt.expectedIndices[i], gpu.Vendor, gpu.Name)
+				}
+			}
+		})
 	}
 }

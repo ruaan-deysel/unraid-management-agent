@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2026.04.10] - 2026-04-10
+
 ### Fixed
 
 - **Individual GPU metrics for multi-vendor systems** — GPU indices are now globally unique
@@ -16,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Home Assistant entity conflicts when multiple GPU vendors are present (e.g., Intel iGPU +
   NVIDIA discrete GPUs). Previously, each vendor assigned indices starting from 0, causing
   `unraid/gpu/0` to be shared by different GPUs. Closes #105
+- **Stabilise ROCm GPU ordering** — AMD GPU collection via `rocm-smi` now sorts card
+  identifiers numerically before processing, preventing non-deterministic index assignment
+  across collection cycles
 
 ### Security
 
