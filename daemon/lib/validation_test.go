@@ -5,6 +5,64 @@ import (
 	"testing"
 )
 
+func TestValidateHostOrIP(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+		errMsg  string
+	}{
+		// Valid hostnames
+		{name: "simple hostname", input: "localhost", wantErr: false},
+		{name: "hostname with hyphen", input: "my-server", wantErr: false},
+		{name: "FQDN", input: "server.example.com", wantErr: false},
+		{name: "multi-label FQDN", input: "a.b.c.example.org", wantErr: false},
+		{name: "hostname with numbers", input: "server01", wantErr: false},
+		{name: "single letter", input: "a", wantErr: false},
+		// Valid IPs
+		{name: "IPv4 loopback", input: "127.0.0.1", wantErr: false},
+		{name: "IPv4 address", input: "192.168.1.100", wantErr: false},
+		{name: "IPv6 loopback", input: "::1", wantErr: false},
+		{name: "IPv6 full", input: "2001:db8::1", wantErr: false},
+		// Invalid: empty
+		{name: "empty string", input: "", wantErr: true, errMsg: "cannot be empty"},
+		// Invalid: flag injection via leading hyphen
+		{name: "leading hyphen", input: "-n", wantErr: true, errMsg: "must not start with a hyphen"},
+		{name: "leading double hyphen", input: "--verbose", wantErr: true, errMsg: "must not start with a hyphen"},
+		// Invalid: whitespace
+		{name: "space only", input: " ", wantErr: true},
+		{name: "embedded space", input: "my server", wantErr: true},
+		{name: "tab character", input: "host\tname", wantErr: true},
+		// Invalid: special / shell characters
+		{name: "semicolon injection", input: "host;rm -rf /", wantErr: true},
+		{name: "backtick injection", input: "host`cmd`", wantErr: true},
+		{name: "dollar sign", input: "host$VAR", wantErr: true},
+		{name: "ampersand", input: "host&cmd", wantErr: true},
+		{name: "pipe", input: "host|cmd", wantErr: true},
+		// Invalid: null byte
+		{name: "null byte", input: "host\x00name", wantErr: true},
+		// Invalid: length
+		{name: "exceeds 253 chars", input: strings.Repeat("a", 254), wantErr: true, errMsg: "exceeds 253"},
+		// Edge: label ending with hyphen is not a valid hostname
+		{name: "label ending hyphen", input: "host-", wantErr: true},
+		// Edge: dot at end (trailing dot) — not matched by regex
+		{name: "trailing dot", input: "host.", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateHostOrIP(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateHostOrIP(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+				return
+			}
+			if tt.wantErr && tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+				t.Errorf("ValidateHostOrIP(%q) error = %q, want to contain %q", tt.input, err.Error(), tt.errMsg)
+			}
+		})
+	}
+}
+
 func TestValidateContainerID(t *testing.T) {
 	tests := []struct {
 		name    string

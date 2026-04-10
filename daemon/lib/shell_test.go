@@ -112,3 +112,48 @@ func TestExecCommandWithTimeoutNonExistent(t *testing.T) {
 		t.Fatal("Expected error for non-existent command")
 	}
 }
+
+func TestExecCommandStdout(t *testing.T) {
+	t.Run("returns stdout on success", func(t *testing.T) {
+		out, err := ExecCommandStdout("echo", "hello stdout")
+		if err != nil {
+			t.Fatalf("ExecCommandStdout failed: %v", err)
+		}
+		if !strings.Contains(out, "hello stdout") {
+			t.Errorf("expected 'hello stdout' in output, got %q", out)
+		}
+	})
+
+	t.Run("stderr is not included in output", func(t *testing.T) {
+		// 'echo' writes to stdout only; use a shell one-liner via bash to emit
+		// a stderr warning while also producing stdout. ExecCommandStdout should
+		// return only the stdout portion.
+		out, err := ExecCommandStdout("bash", "-c", "echo stdout_only; echo stderr_warning >&2")
+		if err != nil {
+			t.Fatalf("ExecCommandStdout failed: %v", err)
+		}
+		if !strings.Contains(out, "stdout_only") {
+			t.Errorf("expected 'stdout_only' in output, got %q", out)
+		}
+		if strings.Contains(out, "stderr_warning") {
+			t.Errorf("stderr should not appear in stdout output, but got %q", out)
+		}
+	})
+
+	t.Run("non-zero exit code returns error", func(t *testing.T) {
+		_, err := ExecCommandStdout("false")
+		if err == nil {
+			t.Fatal("expected error for non-zero exit, got nil")
+		}
+		if !strings.Contains(err.Error(), "command failed") {
+			t.Errorf("expected wrapped error, got %v", err)
+		}
+	})
+
+	t.Run("non-existent command returns error", func(t *testing.T) {
+		_, err := ExecCommandStdout("command-that-does-not-exist-xyz")
+		if err == nil {
+			t.Fatal("expected error for non-existent command, got nil")
+		}
+	})
+}
