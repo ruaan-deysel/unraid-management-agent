@@ -107,16 +107,16 @@ func (c *GPUCollector) Collect() {
 
 	// Reassign indices globally to ensure uniqueness across vendors.
 	// Collection order is deterministic: Intel → NVIDIA → AMD.
-	AssignGlobalGPUIndices(gpuMetrics)
+	assignGlobalGPUIndices(gpuMetrics)
 
 	// Publish event
 	domain.Publish(c.ctx.Hub, constants.TopicGPUMetricsUpdate, gpuMetrics)
 	logger.Debug("Published %s event for %d total GPU(s)", constants.TopicGPUMetricsUpdate.Name, len(gpuMetrics))
 }
 
-// AssignGlobalGPUIndices reassigns GPU indices sequentially (0, 1, 2, ...)
+// assignGlobalGPUIndices reassigns GPU indices sequentially (0, 1, 2, ...)
 // to ensure global uniqueness across all vendors.
-func AssignGlobalGPUIndices(gpus []*dto.GPUMetrics) {
+func assignGlobalGPUIndices(gpus []*dto.GPUMetrics) {
 	for i, gpu := range gpus {
 		gpu.Index = i
 	}

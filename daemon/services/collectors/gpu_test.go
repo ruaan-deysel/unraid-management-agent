@@ -196,7 +196,7 @@ func TestGPUUtilizationRanges(t *testing.T) {
 	}
 }
 
-func TestAssignGlobalGPUIndices(t *testing.T) {
+func Test_assignGlobalGPUIndices(t *testing.T) {
 	tests := []struct {
 		name            string
 		input           []*dto.GPUMetrics
@@ -245,7 +245,7 @@ func TestAssignGlobalGPUIndices(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			AssignGlobalGPUIndices(tt.input)
+			assignGlobalGPUIndices(tt.input)
 
 			for i, gpu := range tt.input {
 				if gpu.Index != tt.expectedIndices[i] {
