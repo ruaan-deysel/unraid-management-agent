@@ -43,9 +43,9 @@ func TestValidateHostOrIP(t *testing.T) {
 		{name: "null byte", input: "host\x00name", wantErr: true},
 		// Invalid: length
 		{name: "exceeds 253 chars", input: strings.Repeat("a", 254), wantErr: true, errMsg: "exceeds 253"},
-		// Edge: label ending with hyphen is not a valid hostname
+		// Edge: labels ending with a hyphen are rejected by the RFC-1123 hostname regex.
 		{name: "label ending hyphen", input: "host-", wantErr: true},
-		// Edge: dot at end (trailing dot) — not matched by regex
+		// Edge: a trailing dot makes an otherwise valid label not match the regex.
 		{name: "trailing dot", input: "host.", wantErr: true},
 	}
 

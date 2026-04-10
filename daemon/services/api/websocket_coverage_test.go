@@ -476,8 +476,8 @@ func TestWebSocketOriginWildcardSameHost(t *testing.T) {
 	ts := httptest.NewServer(server.router)
 	defer ts.Close()
 
-	// Construct an Origin that matches the test server's host.
-	sameOrigin := "http://" + strings.TrimPrefix(ts.URL, "http://")
+	// Construct an Origin that matches the test server's host (ts.URL is already "http://host:port").
+	sameOrigin := ts.URL
 	conn, resp, err := dialWSWithOrigin(ts, sameOrigin)
 	if err != nil {
 		t.Fatalf("Expected same-host Origin to be accepted, got error: %v", err)
@@ -590,8 +590,6 @@ func TestWebSocketReadLimitEnforced(t *testing.T) {
 		resp.Body.Close()
 	}
 	defer conn.Close()
-
-	time.Sleep(50 * time.Millisecond)
 
 	// Send a message that exceeds the 64 KB limit.
 	oversized := make([]byte, maxWSMessageSize+1)
