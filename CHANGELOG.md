@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Individual GPU metrics for multi-vendor systems** — GPU indices are now globally unique
+  across all vendors (Intel → NVIDIA → AMD ordering), fixing MQTT topic collisions and
+  Home Assistant entity conflicts when multiple GPU vendors are present (e.g., Intel iGPU +
+  NVIDIA discrete GPUs). Previously, each vendor assigned indices starting from 0, causing
+  `unraid/gpu/0` to be shared by different GPUs. Closes #105
+
 ### Security
 
 - **Fix shell injection in userscripts controller** — removed the `sh -c` + `fmt.Sprintf`
