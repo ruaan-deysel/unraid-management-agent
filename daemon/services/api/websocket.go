@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/url"
 	"sync"
@@ -201,19 +202,58 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if corsOrigin == "*" {
-				// In wildcard mode, verify origin host matches request host
+				// In wildcard mode, verify origin matches request origin (scheme + host + port)
 				// to prevent drive-by CSRF from arbitrary external sites.
 				parsed, err := url.Parse(origin)
 				if err != nil {
 					return false
 				}
-				originHost := parsed.Hostname()
-				requestHost := stripHostPort(req.Host)
-				if originHost == requestHost {
+
+				originScheme := parsed.Scheme
+				originHostPort := parsed.Host // includes port if present
+
+				requestScheme := "http"
+				if req.TLS != nil {
+					requestScheme = "https"
+				}
+				requestHostPort := req.Host
+
+				// Exact origin match (scheme, host, and port)
+				if originScheme == requestScheme && originHostPort == requestHostPort {
 					return true
 				}
-				// Allow localhost aliases to match each other
-				return isLocalhost(originHost) && isLocalhost(requestHost)
+
+				// Allow localhost aliases to match each other only if scheme and port also match
+				originHost := parsed.Hostname()
+				requestHost := stripHostPort(req.Host)
+				if isLocalhost(originHost) && isLocalhost(requestHost) {
+					// Both are localhost variants, now verify scheme and port match
+					originPort := parsed.Port()
+					if originPort == "" {
+						if originScheme == "https" {
+							originPort = "443"
+						} else {
+							originPort = "80"
+						}
+					}
+
+					requestPort := ""
+					if _, port, err := net.SplitHostPort(requestHostPort); err == nil {
+						requestPort = port
+					} else {
+						if requestScheme == "https" {
+							requestPort = "443"
+						} else {
+							requestPort = "80"
+						}
+					}
+
+					if originScheme == requestScheme && originPort == requestPort {
+						return true
+					}
+				}
+
+				return false
 			}
 			return origin == corsOrigin
 		},

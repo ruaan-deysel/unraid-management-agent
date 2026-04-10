@@ -150,19 +150,52 @@ func csrfMiddleware(allowedOrigin string) mux.MiddlewareFunc {
 				return
 			}
 
-			// Wildcard mode: verify origin host matches request host to
-			// prevent drive-by CSRF from external websites.
-			originHost := parsed.Hostname()
-			requestHost := stripHostPort(r.Host)
-			if originHost == requestHost {
+			// Wildcard mode: verify origin matches request origin (scheme + host + port)
+			// to prevent drive-by CSRF from external websites.
+			originScheme := parsed.Scheme
+			originHostPort := parsed.Host // includes port if present
+
+			requestScheme := "http"
+			if r.TLS != nil {
+				requestScheme = "https"
+			}
+			requestHostPort := r.Host
+
+			// Exact origin match (scheme, host, and port)
+			if originScheme == requestScheme && originHostPort == requestHostPort {
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			// Allow localhost aliases to match each other
+			// Allow localhost aliases to match each other only if scheme and port also match
+			originHost := parsed.Hostname()
+			requestHost := stripHostPort(r.Host)
 			if isLocalhost(originHost) && isLocalhost(requestHost) {
-				next.ServeHTTP(w, r)
-				return
+				// Both are localhost variants, now verify scheme and port match
+				originPort := parsed.Port()
+				if originPort == "" {
+					if originScheme == "https" {
+						originPort = "443"
+					} else {
+						originPort = "80"
+					}
+				}
+
+				requestPort := ""
+				if _, port, err := net.SplitHostPort(requestHostPort); err == nil {
+					requestPort = port
+				} else {
+					if requestScheme == "https" {
+						requestPort = "443"
+					} else {
+						requestPort = "80"
+					}
+				}
+
+				if originScheme == requestScheme && originPort == requestPort {
+					next.ServeHTTP(w, r)
+					return
+				}
 			}
 
 			respondJSON(w, http.StatusForbidden, map[string]string{"error": "Forbidden: origin not allowed"})
