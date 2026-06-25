@@ -409,10 +409,11 @@ tls_key_file: /boot/config/ssl/certs/certificate_bundle.pem
 ```
 
 Point these at a **publicly-trusted** certificate — for example Unraid's own
-`*.myunraid.net` Let's Encrypt bundle under `/boot/config/ssl/certs/` (Unraid
-ships the cert and key concatenated in a single `*_unraid_bundle.pem`, so the
-same path can be used for both). Self-signed certificates work for browsers and
-`curl -k`, but are **not** accepted by hosted clients such as Claude Desktop.
+`*.myunraid.net` Let's Encrypt certificate, which Unraid maintains as a combined
+cert+key bundle at `/boot/config/ssl/certs/certificate_bundle.pem` (the same
+path used in the example above for both keys). Self-signed certificates work for
+browsers and `curl -k`, but are **not** accepted by hosted clients such as
+Claude Desktop.
 
 > [!NOTE]
 > Claude Desktop / claude.ai "Custom Connectors" are reached from Anthropic's

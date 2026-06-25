@@ -226,7 +226,7 @@ func main() {
 		logger.Warning("TLS is configured but invalid (%v); falling back to plain HTTP — the server will NOT be encrypted. Fix the certificate/key paths or remove the TLS settings.", err)
 		cli.TLSCertFile = ""
 		cli.TLSKeyFile = ""
-	} else if cli.TLSCertFile != "" {
+	} else if cli.TLSCertFile != "" && cli.TLSKeyFile != "" {
 		logger.Info("HTTPS enabled (certificate: %s)", cli.TLSCertFile)
 	}
 

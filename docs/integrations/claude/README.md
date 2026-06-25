@@ -45,8 +45,11 @@ Claude Code accepts the URL directly:
 claude mcp add --transport http unraid http://<unraid-ip>:8043/mcp
 ```
 
-If you've enabled native TLS (`--tls-cert-file`/`--tls-key-file`), use the
-matching `https://<unraid-ip>:8043/mcp` URL instead.
+If you've enabled native TLS (`--tls-cert-file`/`--tls-key-file`), use `https://`
+with the hostname the certificate is issued for (e.g.
+`https://<server>.myunraid.net:8043/mcp`) — a trusted cert validates against its
+hostname, so a raw `https://<ip>` URL only works if the certificate includes
+that IP as a Subject Alternative Name.
 
 ### Claude Desktop / claude.ai — "Custom Connector"
 
