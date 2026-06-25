@@ -60,6 +60,15 @@ func TestValidateTLSConfig(t *testing.T) {
 	dir := t.TempDir()
 	certPath, keyPath := writeTestKeyPair(t, dir)
 
+	// A loadable pair living under a directory whose name merely contains dots
+	// (not a ".." segment). This must be accepted — it guards against an
+	// over-broad traversal check rejecting legitimate paths.
+	dottedDir := filepath.Join(dir, "archive..old")
+	if err := os.MkdirAll(dottedDir, 0o700); err != nil {
+		t.Fatalf("mkdir dotted dir: %v", err)
+	}
+	dottedCert, dottedKey := writeTestKeyPair(t, dottedDir)
+
 	tests := []struct {
 		name     string
 		certFile string
@@ -68,11 +77,18 @@ func TestValidateTLSConfig(t *testing.T) {
 	}{
 		{name: "both empty is TLS disabled", certFile: "", keyFile: "", wantErr: false},
 		{name: "valid loadable key pair", certFile: certPath, keyFile: keyPath, wantErr: false},
+		{name: "dotted but legitimate component name", certFile: dottedCert, keyFile: dottedKey, wantErr: false},
 		{name: "only cert provided", certFile: certPath, keyFile: "", wantErr: true},
 		{name: "only key provided", certFile: "", keyFile: keyPath, wantErr: true},
 		{name: "relative cert path", certFile: "certs/cert.pem", keyFile: keyPath, wantErr: true},
-		{name: "path traversal in key", certFile: certPath, keyFile: "/boot/../etc/key.pem", wantErr: true},
+		{name: "path traversal in key (unix)", certFile: certPath, keyFile: "/boot/../etc/key.pem", wantErr: true},
+		{name: "path traversal in key (windows sep)", certFile: certPath, keyFile: `/boot/..\etc/key.pem`, wantErr: true},
+		{name: "relative traversal cert", certFile: "../../etc/passwd", keyFile: keyPath, wantErr: true},
 		{name: "null byte in cert", certFile: "/boot/cert\x00.pem", keyFile: keyPath, wantErr: true},
+		{name: "arbitrary absolute file is not a cert", certFile: "/etc/passwd", keyFile: keyPath, wantErr: true},
+		{name: "command-injection style path", certFile: "/boot/cert.pem; rm -rf /", keyFile: keyPath, wantErr: true},
+		{name: "subshell style path", certFile: "/boot/$(whoami)/cert.pem", keyFile: keyPath, wantErr: true},
+		{name: "backtick style path", certFile: "/boot/`id`/cert.pem", keyFile: keyPath, wantErr: true},
 		{name: "missing files but valid paths", certFile: "/nonexistent/cert.pem", keyFile: "/nonexistent/key.pem", wantErr: true},
 		{name: "key file is not a key pair", certFile: certPath, keyFile: certPath, wantErr: true},
 		{name: "over-long cert path", certFile: "/" + strings.Repeat("a", maxTLSPathLen), keyFile: keyPath, wantErr: true},

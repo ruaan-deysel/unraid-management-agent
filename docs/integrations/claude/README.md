@@ -39,11 +39,14 @@ depends on the client:
 
 ### Claude Code
 
-Claude Code accepts an HTTP URL directly:
+Claude Code accepts the URL directly:
 
 ```bash
 claude mcp add --transport http unraid http://<unraid-ip>:8043/mcp
 ```
+
+If you've enabled native TLS (`--tls-cert-file`/`--tls-key-file`), use the
+matching `https://<unraid-ip>:8043/mcp` URL instead.
 
 ### Claude Desktop / claude.ai — "Custom Connector"
 

@@ -502,8 +502,12 @@ func validateTLSPath(path, field string) error {
 	if strings.ContainsRune(path, 0) {
 		return fmt.Errorf("%s cannot contain null bytes", field) // CWE-158
 	}
-	if strings.Contains(path, "..") {
-		return fmt.Errorf("%s cannot contain path traversal sequences", field) // CWE-22
+	// Reject a literal ".." path segment (CWE-22) without rejecting legitimate
+	// names that merely contain dots, e.g. /boot/certs/archive..old/cert.pem.
+	for _, seg := range strings.Split(filepath.ToSlash(path), "/") {
+		if seg == ".." {
+			return fmt.Errorf("%s cannot contain path traversal sequences", field) // CWE-22
+		}
 	}
 	if !filepath.IsAbs(path) {
 		return fmt.Errorf("%s must be an absolute path", field)
