@@ -383,6 +383,39 @@ grep DEBUG /var/log/unraid-management-agent.log
 - Use WireGuard VPN for remote access
 - Use reverse proxy with authentication (nginx, Traefik)
 
+### HTTPS / TLS
+
+By default the agent serves plain HTTP. You can have it serve HTTPS natively
+(including the `/mcp` endpoint) by pointing it at a PEM certificate/key pair.
+TLS is enabled only when **both** files are configured; supplying just one, or
+an unreadable cert, logs a warning and falls back to plain HTTP so a stale path
+can never make the agent unreachable.
+
+| Setting          | CLI flag          | Env var         | Config key      |
+| ---------------- | ----------------- | --------------- | --------------- |
+| Certificate file | `--tls-cert-file` | `TLS_CERT_FILE` | `tls_cert_file` |
+| Private key file | `--tls-key-file`  | `TLS_KEY_FILE`  | `tls_key_file`  |
+
+Both paths must be absolute. Example (`config.yml`):
+
+```yaml
+tls_cert_file: /boot/config/ssl/certs/certificate_bundle.pem
+tls_key_file: /boot/config/ssl/certs/certificate_bundle.pem
+```
+
+Point these at a **publicly-trusted** certificate — for example Unraid's own
+`*.myunraid.net` Let's Encrypt bundle under `/boot/config/ssl/certs/` (Unraid
+ships the cert and key concatenated in a single `*_unraid_bundle.pem`, so the
+same path can be used for both). Self-signed certificates work for browsers and
+`curl -k`, but are **not** accepted by hosted clients such as Claude Desktop.
+
+> [!NOTE]
+> Claude Desktop / claude.ai "Custom Connectors" are reached from Anthropic's
+> cloud, so native HTTPS alone is not enough — the endpoint must also be
+> reachable from the public internet (port-forward or tunnel) with a trusted
+> cert. For LAN-only use, the `mcp-remote` bridge needs no TLS at all. See the
+> [Claude integration guide](../integrations/claude/README.md#2-connect-claude-to-your-server-mcp).
+
 ### Authentication (Future)
 
 Authentication is planned for future versions. Current options:

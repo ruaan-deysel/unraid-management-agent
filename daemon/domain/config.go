@@ -43,6 +43,17 @@ type Config struct {
 	// ReadOnly blocks all state-changing MCP tools so AI agents can only
 	// consume data. The REST API is unaffected.
 	ReadOnly bool `json:"read_only,omitempty"`
+	// TLSCertFile and TLSKeyFile point at a PEM certificate/key pair. When both
+	// are set the HTTP server (including the /mcp endpoint) is served over HTTPS;
+	// when either is empty the server stays on plain HTTP.
+	TLSCertFile string `json:"tls_cert_file,omitempty"`
+	TLSKeyFile  string `json:"tls_key_file,omitempty"`
+}
+
+// TLSEnabled reports whether HTTPS should be served. TLS is considered enabled
+// only when both a certificate and key file are configured.
+func (c Config) TLSEnabled() bool {
+	return c.TLSCertFile != "" && c.TLSKeyFile != ""
 }
 
 // DiscoveryConfig holds zeroconf (mDNS/DNS-SD) auto-discovery settings.
