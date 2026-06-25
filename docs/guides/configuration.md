@@ -387,16 +387,21 @@ grep DEBUG /var/log/unraid-management-agent.log
 
 By default the agent serves plain HTTP. You can have it serve HTTPS natively
 (including the `/mcp` endpoint) by pointing it at a PEM certificate/key pair.
-TLS is enabled only when **both** files are configured; supplying just one, or
-an unreadable cert, logs a warning and falls back to plain HTTP so a stale path
-can never make the agent unreachable.
+TLS is enabled only when **both** files are configured. If only one is set, or
+either file is missing, unreadable, or not a valid certificate/key pair, the
+agent logs a warning and falls back to plain HTTP so a stale path can never make
+it unreachable.
 
 | Setting          | CLI flag          | Env var         | Config key      |
 | ---------------- | ----------------- | --------------- | --------------- |
 | Certificate file | `--tls-cert-file` | `TLS_CERT_FILE` | `tls_cert_file` |
 | Private key file | `--tls-key-file`  | `TLS_KEY_FILE`  | `tls_key_file`  |
 
-Both paths must be absolute. Example (`config.yml`):
+Both paths must be absolute. The cert and key may live in separate files or in a
+single combined PEM bundle — Go reads the certificate from `tls_cert_file` and
+the private key from `tls_key_file`, so pointing **both** at one bundle that
+contains the cert and key is valid. Example (`config.yml`) using Unraid's
+combined bundle for both:
 
 ```yaml
 tls_cert_file: /boot/config/ssl/certs/certificate_bundle.pem

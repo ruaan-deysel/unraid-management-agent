@@ -3,6 +3,7 @@ package domain
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/dto"
 )
@@ -51,9 +52,11 @@ type Config struct {
 }
 
 // TLSEnabled reports whether HTTPS should be served. TLS is considered enabled
-// only when both a certificate and key file are configured.
+// only when both a certificate and key file are configured. Whitespace-only
+// values are treated as unset so they don't mislead the HTTPS branch before
+// validation runs.
 func (c Config) TLSEnabled() bool {
-	return c.TLSCertFile != "" && c.TLSKeyFile != ""
+	return strings.TrimSpace(c.TLSCertFile) != "" && strings.TrimSpace(c.TLSKeyFile) != ""
 }
 
 // DiscoveryConfig holds zeroconf (mDNS/DNS-SD) auto-discovery settings.

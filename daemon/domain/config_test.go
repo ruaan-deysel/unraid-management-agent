@@ -168,6 +168,8 @@ func TestConfigTLSEnabled(t *testing.T) {
 		{name: "neither set disables TLS", certFile: "", keyFile: "", want: false},
 		{name: "only cert set disables TLS", certFile: "/boot/cert.pem", keyFile: "", want: false},
 		{name: "only key set disables TLS", certFile: "", keyFile: "/boot/key.pem", want: false},
+		{name: "whitespace-only paths disable TLS", certFile: "  ", keyFile: "\t\n", want: false},
+		{name: "whitespace cert with real key disables TLS", certFile: "   ", keyFile: "/boot/key.pem", want: false},
 	}
 
 	for _, tt := range tests {

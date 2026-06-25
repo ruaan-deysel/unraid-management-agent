@@ -223,7 +223,7 @@ func main() {
 	// address behaviour, so a stale cert path can never make the agent
 	// unreachable. ValidateTLSConfig treats an empty pair as "TLS disabled".
 	if err := lib.ValidateTLSConfig(cli.TLSCertFile, cli.TLSKeyFile); err != nil {
-		logger.Warning("%v; serving plain HTTP", err)
+		logger.Warning("TLS is configured but invalid (%v); falling back to plain HTTP — the server will NOT be encrypted. Fix the certificate/key paths or remove the TLS settings.", err)
 		cli.TLSCertFile = ""
 		cli.TLSKeyFile = ""
 	} else if cli.TLSCertFile != "" {
