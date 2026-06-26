@@ -9,6 +9,7 @@ import (
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/dto"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/logger"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/agent/llm"
+	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/agent/scoring"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/agent/telemetry"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/agent/tools"
 	"go.opentelemetry.io/otel/attribute"
@@ -209,6 +210,7 @@ func (s *Service) finish(sess *dto.AgentSession, status dto.AgentSessionStatus, 
 	sess.Answer = answer
 	sess.EndedAt = &now
 	s.emit(sess, "session_completed", nil)
+	s.recordScores(sess)
 }
 
 func (s *Service) fail(sess *dto.AgentSession, msg string) {
@@ -218,6 +220,28 @@ func (s *Service) fail(sess *dto.AgentSession, msg string) {
 	sess.EndedAt = &now
 	logger.Error("Agent: session %s failed: %s", sess.ID, msg)
 	s.emit(sess, "session_failed", nil)
+	s.recordScores(sess)
+}
+
+// recordScores computes deterministic quality scores for a finished session and
+// ships them to Langfuse asynchronously. No-op when scoring is disabled.
+func (s *Service) recordScores(sess *dto.AgentSession) {
+	if s.scoreClient == nil {
+		return
+	}
+	var calls []scoring.Call
+	for _, st := range sess.Steps {
+		for _, tc := range st.ToolCalls {
+			calls = append(calls, scoring.Call{Name: tc.Name, Args: tc.Args, Result: tc.Result})
+		}
+	}
+	known := map[string]bool{}
+	for _, sch := range s.tools.Schemas() {
+		known[sch.Name] = true
+	}
+	scores := scoring.Evaluate(calls, known, s.readOnly)
+	traceID := sess.TraceID
+	go s.scoreClient.Post(context.Background(), traceID, scores)
 }
 
 // emit broadcasts a WS event and tolerates a nil broadcaster.

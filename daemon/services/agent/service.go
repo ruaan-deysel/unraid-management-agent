@@ -14,6 +14,7 @@ import (
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/logger"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/agent/llm"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/agent/memory"
+	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/agent/scoring"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/agent/tools"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/remediation"
 	"go.opentelemetry.io/otel/trace"
@@ -35,6 +36,9 @@ type Service struct {
 	runbooks *remediation.RunbookStore
 	bc       Broadcaster
 	tracer   trace.Tracer
+
+	scoreClient *scoring.Client
+	readOnly    bool
 
 	mu      sync.Mutex
 	seq     int
@@ -88,6 +92,12 @@ func (s *Service) nextID() string {
 
 // SetRunbookStore wires the persistent runbook store for runbook proposals.
 func (s *Service) SetRunbookStore(rs *remediation.RunbookStore) { s.runbooks = rs }
+
+// SetScoring wires the optional Langfuse scoring client. c may be nil (disabled).
+func (s *Service) SetScoring(c *scoring.Client, readOnly bool) {
+	s.scoreClient = c
+	s.readOnly = readOnly
+}
 
 // nextPrefSeq returns a monotonically increasing preference counter.
 func (s *Service) nextPrefSeq() int {

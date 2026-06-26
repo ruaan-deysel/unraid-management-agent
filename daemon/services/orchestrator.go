@@ -18,6 +18,7 @@ import (
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/logger"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/platform"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/agent"
+	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/agent/scoring"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/alerting"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/api"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/controllers"
@@ -168,6 +169,7 @@ func (o *Orchestrator) Run() error {
 			_ = agentDocker.Close()
 		} else if agentSvc != nil {
 			o.agentDocker = agentDocker
+			agentSvc.SetScoring(scoring.NewClient(o.ctx.Config), o.ctx.ReadOnly)
 			apiServer.SetAgent(agentSvc)
 			agentSvc.SetEventBus(o.ctx.Hub)
 			mcpServer.SetAgent(agentSvc)
