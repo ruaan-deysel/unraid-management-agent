@@ -16,6 +16,8 @@ import (
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/agent/memory"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/agent/tools"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/remediation"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 // Broadcaster streams agent events to WebSocket clients. Satisfied by the API server.
@@ -32,6 +34,7 @@ type Service struct {
 	memory   *memory.Store
 	runbooks *remediation.RunbookStore
 	bc       Broadcaster
+	tracer   trace.Tracer
 
 	mu      sync.Mutex
 	seq     int
@@ -44,8 +47,11 @@ type Service struct {
 }
 
 // NewService constructs the agent service.
-func NewService(cfg dto.AgentConfig, provider llm.Provider, reg *tools.Registry, store *Store, mem *memory.Store, bc Broadcaster) *Service {
-	s := &Service{cfg: cfg, provider: provider, tools: reg, store: store, memory: mem, bc: bc, lastWake: map[string]time.Time{}}
+func NewService(cfg dto.AgentConfig, provider llm.Provider, reg *tools.Registry, store *Store, mem *memory.Store, bc Broadcaster, tracer trace.Tracer) *Service {
+	if tracer == nil {
+		tracer = noop.NewTracerProvider().Tracer("agent")
+	}
+	s := &Service{cfg: cfg, provider: provider, tools: reg, store: store, memory: mem, bc: bc, tracer: tracer, lastWake: map[string]time.Time{}}
 	// Resume the session counter past any persisted IDs so a restart does not
 	// reuse "sess-1" and overwrite an existing session.
 	for _, sess := range store.List() {

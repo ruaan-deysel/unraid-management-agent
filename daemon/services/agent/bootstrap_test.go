@@ -41,7 +41,7 @@ func TestBuildServiceEnabledBranches(t *testing.T) {
 			}
 			cfg.APIKey = tc.apiKey
 
-			svc, err := BuildService(cfg, t.TempDir(), nil, nil, nil)
+			svc, err := BuildService(cfg, t.TempDir(), nil, nil, nil, nil)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatalf("expected error, got nil (svc=%v)", svc)

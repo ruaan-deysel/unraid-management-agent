@@ -178,4 +178,5 @@ type AgentSession struct {
 	PendingApproval *ApprovalRequest   `json:"pending_approval,omitempty"`
 	Transcript      []AgentMessage     `json:"transcript,omitempty"`
 	Plan            []PlanStep         `json:"plan,omitempty"`
+	TraceID         string             `json:"trace_id,omitempty"` // OTel trace ID of the agent-session span
 }

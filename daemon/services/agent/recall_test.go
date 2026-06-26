@@ -18,7 +18,7 @@ func TestFinalizeWritesIncident(t *testing.T) {
 	cfg := dto.DefaultAgentConfig()
 	cfg.Enabled = true
 	mem := memory.NewStore(t.TempDir(), 100)
-	svc := NewService(cfg, p, tools.BuildDefault(fakeState{}, fakeDocker{}), NewStore(t.TempDir()), mem, &capturingBroadcaster{})
+	svc := NewService(cfg, p, tools.BuildDefault(fakeState{}, fakeDocker{}), NewStore(t.TempDir()), mem, &capturingBroadcaster{}, nil)
 	sess, _ := svc.StartSession(context.Background(), "is plex healthy?")
 	if sess.Status != dto.SessionCompleted {
 		t.Fatalf("precondition: %q", sess.Status)
@@ -38,7 +38,7 @@ func TestRecallInjectedAtStart(t *testing.T) {
 		&llm.ChatResponse{Text: "[]"},
 		&llm.ChatResponse{Text: "ok", OutputTokens: 1},
 	)
-	svc := NewService(cfg, p, tools.BuildDefault(fakeState{}, fakeDocker{}), NewStore(t.TempDir()), mem, &capturingBroadcaster{})
+	svc := NewService(cfg, p, tools.BuildDefault(fakeState{}, fakeDocker{}), NewStore(t.TempDir()), mem, &capturingBroadcaster{}, nil)
 	_, _ = svc.StartSession(context.Background(), "is plex healthy?")
 	reqs := p.Requests()
 	// reqs[0] is the planner call (no recall); reqs[1] is the loop call with recall injected.
@@ -66,7 +66,7 @@ func TestNoIncidentOnApprovalPause(t *testing.T) {
 	reg := tools.NewRegistry()
 	reg.Register(tools.Tool{Name: "stop_array", RiskTier: dto.RiskHigh, Invoke: func(_ context.Context, _ string) (string, error) { return "", nil }})
 	mem := memory.NewStore(t.TempDir(), 100)
-	svc := NewService(cfg, p, reg, NewStore(t.TempDir()), mem, &capturingBroadcaster{})
+	svc := NewService(cfg, p, reg, NewStore(t.TempDir()), mem, &capturingBroadcaster{}, nil)
 	sess, _ := svc.StartSession(context.Background(), "stop array")
 	if sess.Status != dto.SessionAwaitingApproval {
 		t.Fatalf("precondition: %q", sess.Status)

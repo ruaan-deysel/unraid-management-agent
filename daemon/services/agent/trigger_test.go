@@ -17,7 +17,7 @@ func wakeSvc(t *testing.T) *Service {
 	cfg := dto.DefaultAgentConfig()
 	cfg.Enabled = true
 	reg := tools.BuildDefault(fakeState{}, fakeDocker{})
-	return NewService(cfg, p, reg, NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{})
+	return NewService(cfg, p, reg, NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{}, nil)
 }
 
 func TestHandleWakeDedupsBySubsystem(t *testing.T) {

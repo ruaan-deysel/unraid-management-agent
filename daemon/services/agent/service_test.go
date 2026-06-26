@@ -25,7 +25,7 @@ func TestNextIDResumesAfterRestart(t *testing.T) {
 	)
 	reg := tools.BuildDefault(nil, nil)
 
-	svc := NewService(cfg, provider, reg, store, memory.NewStore(t.TempDir(), 0), nil)
+	svc := NewService(cfg, provider, reg, store, memory.NewStore(t.TempDir(), 0), nil, nil)
 	sess, err := svc.StartSession(context.Background(), "check status")
 	if err != nil {
 		t.Fatalf("StartSession: %v", err)
@@ -47,7 +47,7 @@ func pausedSvc(t *testing.T, toolCalled *bool) *Service {
 	reg := tools.NewRegistry()
 	reg.Register(tools.Tool{Name: "stop_array", RiskTier: dto.RiskHigh,
 		Invoke: func(_ context.Context, _ string) (string, error) { *toolCalled = true; return "stopped", nil }})
-	return NewService(cfg, p, reg, NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{})
+	return NewService(cfg, p, reg, NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{}, nil)
 }
 
 func TestApproveExecutesAndCompletes(t *testing.T) {
@@ -108,7 +108,7 @@ func TestApproveForbiddenStillRefused(t *testing.T) {
 	reg := tools.NewRegistry()
 	reg.Register(tools.Tool{Name: "format_disk", RiskTier: dto.RiskHigh,
 		Invoke: func(_ context.Context, _ string) (string, error) { called = true; return "", nil }})
-	svc := NewService(cfg, p, reg, NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{})
+	svc := NewService(cfg, p, reg, NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{}, nil)
 	// format_disk is forbidden, so the loop refuses it inline and never pauses; session completes.
 	sess, _ := svc.StartSession(context.Background(), "format disk1")
 	if called {
@@ -190,7 +190,7 @@ func TestSendMessageContinuesSession(t *testing.T) {
 	)
 	cfg := dto.DefaultAgentConfig()
 	cfg.Enabled = true
-	svc := NewService(cfg, p, tools.BuildDefault(fakeState{}, fakeDocker{}), NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{})
+	svc := NewService(cfg, p, tools.BuildDefault(fakeState{}, fakeDocker{}), NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{}, nil)
 	sess, _ := svc.StartSession(context.Background(), "is plex healthy?")
 	if sess.Status != dto.SessionCompleted {
 		t.Fatalf("precondition: %q", sess.Status)
@@ -210,7 +210,7 @@ func TestSendMessageRejectsAwaitingOrEmpty(t *testing.T) {
 	cfg.Enabled = true
 	reg := tools.NewRegistry()
 	reg.Register(tools.Tool{Name: "stop_array", RiskTier: dto.RiskHigh, Invoke: func(_ context.Context, _ string) (string, error) { return "", nil }})
-	svc := NewService(cfg, p, reg, NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{})
+	svc := NewService(cfg, p, reg, NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{}, nil)
 	sess, _ := svc.StartSession(context.Background(), "stop array")
 	if sess.Status != dto.SessionAwaitingApproval {
 		t.Fatalf("precondition: %q", sess.Status)
@@ -220,7 +220,7 @@ func TestSendMessageRejectsAwaitingOrEmpty(t *testing.T) {
 	}
 
 	p2 := llm.NewMockProvider(&llm.ChatResponse{Text: "[]"}, &llm.ChatResponse{Text: "done"})
-	svc2 := NewService(cfg, p2, tools.BuildDefault(fakeState{}, fakeDocker{}), NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{})
+	svc2 := NewService(cfg, p2, tools.BuildDefault(fakeState{}, fakeDocker{}), NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{}, nil)
 	s2, _ := svc2.StartSession(context.Background(), "x")
 	if _, err := svc2.SendMessage(context.Background(), s2.ID, "  "); err == nil {
 		t.Fatal("expected error on empty message")

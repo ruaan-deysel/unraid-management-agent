@@ -35,7 +35,7 @@ func TestLoopToolThenAnswer(t *testing.T) {
 	cfg.Enabled = true
 	reg := tools.BuildDefault(fakeState{}, fakeDocker{})
 	bc := &capturingBroadcaster{}
-	svc := NewService(cfg, p, reg, NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), bc)
+	svc := NewService(cfg, p, reg, NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), bc, nil)
 
 	sess, err := svc.StartSession(context.Background(), "is my system healthy?")
 	if err != nil {
@@ -71,7 +71,7 @@ func TestLoopHitsIterationCap(t *testing.T) {
 	cfg := dto.DefaultAgentConfig()
 	cfg.Enabled = true
 	cfg.MaxIterations = 3
-	svc := NewService(cfg, p, tools.BuildDefault(fakeState{}, fakeDocker{}), NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{})
+	svc := NewService(cfg, p, tools.BuildDefault(fakeState{}, fakeDocker{}), NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{}, nil)
 
 	sess, err := svc.StartSession(context.Background(), "loop forever")
 	if err != nil {
@@ -104,7 +104,7 @@ func TestLoopHighRiskToolPauses(t *testing.T) {
 	)
 	cfg := dto.DefaultAgentConfig() // RiskHigh -> ModeApprove
 	cfg.Enabled = true
-	svc := NewService(cfg, p, reg, NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{})
+	svc := NewService(cfg, p, reg, NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{}, nil)
 
 	sess, err := svc.StartSession(context.Background(), "stop the array")
 	if err != nil {
@@ -124,7 +124,7 @@ func TestLoopHighRiskToolPauses(t *testing.T) {
 func TestLoopDisabledAgentReturnsError(t *testing.T) {
 	cfg := dto.DefaultAgentConfig() // Enabled defaults to false
 	p := llm.NewMockProvider(&llm.ChatResponse{Text: "should never run"})
-	svc := NewService(cfg, p, tools.BuildDefault(fakeState{}, fakeDocker{}), NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{})
+	svc := NewService(cfg, p, tools.BuildDefault(fakeState{}, fakeDocker{}), NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{}, nil)
 
 	sess, err := svc.StartSession(context.Background(), "do something")
 	if err == nil {
@@ -145,7 +145,7 @@ func TestLoopTokenBudgetStops(t *testing.T) {
 	cfg.Enabled = true
 	cfg.MaxTokensPerSession = 5
 	cfg.MaxIterations = 12
-	svc := NewService(cfg, p, tools.BuildDefault(fakeState{}, fakeDocker{}), NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{})
+	svc := NewService(cfg, p, tools.BuildDefault(fakeState{}, fakeDocker{}), NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{}, nil)
 
 	sess, err := svc.StartSession(context.Background(), "use lots of tokens")
 	if err != nil {
@@ -173,7 +173,7 @@ func TestLoopPausesForApproval(t *testing.T) {
 	called := false
 	reg.Register(tools.Tool{Name: "stop_array", RiskTier: dto.RiskHigh,
 		Invoke: func(_ context.Context, _ string) (string, error) { called = true; return "stopped", nil }})
-	svc := NewService(cfg, p, reg, NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{})
+	svc := NewService(cfg, p, reg, NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{}, nil)
 
 	sess, err := svc.StartSession(context.Background(), "stop the array")
 	if err != nil {
@@ -207,7 +207,7 @@ func TestLoopForbidListRefusesEvenIfAuto(t *testing.T) {
 	called := false
 	reg.Register(tools.Tool{Name: "format_disk", RiskTier: dto.RiskHigh,
 		Invoke: func(_ context.Context, _ string) (string, error) { called = true; return "", nil }})
-	svc := NewService(cfg, p, reg, NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{})
+	svc := NewService(cfg, p, reg, NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{}, nil)
 
 	sess, err := svc.StartSession(context.Background(), "format disk1")
 	if err != nil {
@@ -235,7 +235,7 @@ func TestLoopAutoThenApprovalPreservesFirstResult(t *testing.T) {
 	stopped := false
 	reg.Register(tools.Tool{Name: "stop_array", RiskTier: dto.RiskHigh,
 		Invoke: func(_ context.Context, _ string) (string, error) { stopped = true; return "stopped", nil }})
-	svc := NewService(cfg, p, reg, NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{})
+	svc := NewService(cfg, p, reg, NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{}, nil)
 
 	sess, err := svc.StartSession(context.Background(), "check then stop")
 	if err != nil {
@@ -265,7 +265,7 @@ func TestLoopProviderErrorFails(t *testing.T) {
 	p := llm.NewMockProvider() // empty script → errors on first call
 	cfg := dto.DefaultAgentConfig()
 	cfg.Enabled = true
-	svc := NewService(cfg, p, tools.BuildDefault(fakeState{}, fakeDocker{}), NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{})
+	svc := NewService(cfg, p, tools.BuildDefault(fakeState{}, fakeDocker{}), NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{}, nil)
 	sess, err := svc.StartSession(context.Background(), "anything")
 	if err != nil {
 		t.Fatalf("StartSession itself should not error: %v", err)

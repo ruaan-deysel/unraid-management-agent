@@ -13,6 +13,8 @@ import (
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/agent/memory"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/agent/tools"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/remediation"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 // AgentConfigFile is the on-disk agent configuration filename.
@@ -44,9 +46,12 @@ func LoadConfig(configDir string) dto.AgentConfig {
 
 // BuildService assembles the agent service from config. Returns (nil, nil) when disabled.
 // The API key is sourced from the environment (never persisted).
-func BuildService(cfg dto.AgentConfig, configDir string, state tools.StateProvider, docker tools.DockerActor, bc Broadcaster) (*Service, error) {
+func BuildService(cfg dto.AgentConfig, configDir string, state tools.StateProvider, docker tools.DockerActor, bc Broadcaster, tracer trace.Tracer) (*Service, error) {
 	if !cfg.Enabled {
 		return nil, nil
+	}
+	if tracer == nil {
+		tracer = noop.NewTracerProvider().Tracer("agent")
 	}
 	if key := os.Getenv(APIKeyEnv); key != "" {
 		cfg.APIKey = key
@@ -78,6 +83,7 @@ func BuildService(cfg dto.AgentConfig, configDir string, state tools.StateProvid
 	default:
 		return nil, fmt.Errorf("unsupported agent provider %q", cfg.Provider)
 	}
+	provider = llm.NewTracingProvider(provider, tracer)
 
 	store := NewStore(configDir)
 	if err := store.Load(); err != nil {
@@ -88,7 +94,7 @@ func BuildService(cfg dto.AgentConfig, configDir string, state tools.StateProvid
 		logger.Warning("Agent: failed to load memory: %v", err)
 	}
 	reg := tools.BuildDefault(state, docker)
-	svc := NewService(cfg, provider, reg, store, mem, bc)
+	svc := NewService(cfg, provider, reg, store, mem, bc, tracer)
 	rbStore := remediation.NewRunbookStore(configDir)
 	if err := rbStore.Load(); err != nil {
 		logger.Warning("Agent: failed to load runbooks: %v", err)

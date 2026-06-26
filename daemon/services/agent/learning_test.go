@@ -15,7 +15,7 @@ func TestProposePreferenceIsPending(t *testing.T) {
 	cfg.Enabled = true
 	mem := memory.NewStore(t.TempDir(), 100)
 	reg := tools.BuildDefault(fakeState{}, fakeDocker{})
-	svc := NewService(cfg, llm.NewMockProvider(), reg, NewStore(t.TempDir()), mem, &capturingBroadcaster{})
+	svc := NewService(cfg, llm.NewMockProvider(), reg, NewStore(t.TempDir()), mem, &capturingBroadcaster{}, nil)
 	svc.RegisterLearningTools(reg)
 	tool, ok := reg.Get("propose_preference")
 	if !ok {
@@ -39,7 +39,7 @@ func TestProposePreferenceRejectsEmptyFields(t *testing.T) {
 	cfg.Enabled = true
 	mem := memory.NewStore(t.TempDir(), 100)
 	reg := tools.BuildDefault(fakeState{}, fakeDocker{})
-	svc := NewService(cfg, llm.NewMockProvider(), reg, NewStore(t.TempDir()), mem, &capturingBroadcaster{})
+	svc := NewService(cfg, llm.NewMockProvider(), reg, NewStore(t.TempDir()), mem, &capturingBroadcaster{}, nil)
 	svc.RegisterLearningTools(reg)
 
 	prefTool, _ := reg.Get("propose_preference")
@@ -73,7 +73,7 @@ func newAutoApproveSvc(t *testing.T, called *bool) (*Service, *memory.Store) {
 	reg := tools.NewRegistry()
 	reg.Register(tools.Tool{Name: "stop_array", RiskTier: dto.RiskHigh, Invoke: func(_ context.Context, _ string) (string, error) { *called = true; return "stopped", nil }})
 	mem := memory.NewStore(t.TempDir(), 100)
-	return NewService(cfg, p, reg, NewStore(t.TempDir()), mem, &capturingBroadcaster{}), mem
+	return NewService(cfg, p, reg, NewStore(t.TempDir()), mem, &capturingBroadcaster{}, nil), mem
 }
 
 func TestActivePreferenceAutoApproves(t *testing.T) {

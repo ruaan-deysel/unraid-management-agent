@@ -161,7 +161,8 @@ func (o *Orchestrator) Run() error {
 	agentCfg := agent.LoadConfig("")
 	if agentCfg.Enabled {
 		agentDocker := controllers.NewDockerController()
-		agentSvc, agentErr := agent.BuildService(agentCfg, "", apiServer, agentDocker, apiServer)
+		// TODO(Task 5): pass the real Langfuse telemetry tracer here
+		agentSvc, agentErr := agent.BuildService(agentCfg, "", apiServer, agentDocker, apiServer, nil)
 		if agentErr != nil {
 			logger.Warning("Agent disabled: %v", agentErr)
 			_ = agentDocker.Close()
