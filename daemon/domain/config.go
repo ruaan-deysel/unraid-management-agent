@@ -49,6 +49,18 @@ type Config struct {
 	// when either is empty the server stays on plain HTTP.
 	TLSCertFile string `json:"tls_cert_file,omitempty"`
 	TLSKeyFile  string `json:"tls_key_file,omitempty"`
+
+	// Langfuse observability (opt-in; enabled when both keys are set).
+	// Keys use json:"-" so they never leak into config dumps or logs.
+	LangfusePublicKey string `json:"-"`
+	LangfuseSecretKey string `json:"-"`
+	LangfuseBaseURL   string `json:"langfuse_base_url,omitempty"`
+}
+
+// LangfuseEnabled reports whether Langfuse tracing should be active.
+// Tracing is enabled only when both the public key and secret key are configured.
+func (c Config) LangfuseEnabled() bool {
+	return c.LangfusePublicKey != "" && c.LangfuseSecretKey != ""
 }
 
 // TLSEnabled reports whether HTTPS should be served. TLS is considered enabled

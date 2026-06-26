@@ -182,6 +182,29 @@ func TestConfigTLSEnabled(t *testing.T) {
 	}
 }
 
+func TestLangfuseEnabled(t *testing.T) {
+	tests := []struct {
+		name      string
+		publicKey string
+		secretKey string
+		want      bool
+	}{
+		{name: "both keys set enables tracing", publicKey: "pk-lf-abc123", secretKey: "sk-lf-xyz789", want: true},
+		{name: "neither key set disables tracing", publicKey: "", secretKey: "", want: false},
+		{name: "only public key disables tracing", publicKey: "pk-lf-abc123", secretKey: "", want: false},
+		{name: "only secret key disables tracing", publicKey: "", secretKey: "sk-lf-xyz789", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := Config{LangfusePublicKey: tt.publicKey, LangfuseSecretKey: tt.secretKey}
+			if got := c.LangfuseEnabled(); got != tt.want {
+				t.Errorf("LangfuseEnabled() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestContextFields(t *testing.T) {
 	ctx := Context{
 		Config: Config{

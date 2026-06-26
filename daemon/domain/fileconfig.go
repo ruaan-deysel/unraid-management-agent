@@ -35,6 +35,11 @@ type FileConfig struct {
 	TLSCertFile *string `yaml:"tls_cert_file,omitempty"`
 	TLSKeyFile  *string `yaml:"tls_key_file,omitempty"`
 
+	// Langfuse observability (opt-in; tracing is active when both keys are set).
+	LangfusePublicKey *string `yaml:"langfuse_public_key,omitempty"`
+	LangfuseSecretKey *string `yaml:"langfuse_secret_key,omitempty"`
+	LangfuseBaseURL   *string `yaml:"langfuse_base_url,omitempty"`
+
 	// MQTT configuration
 	MQTT *FileConfigMQTT `yaml:"mqtt,omitempty"`
 

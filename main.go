@@ -60,6 +60,11 @@ var cli struct {
 	// Read-only mode - blocks all state-changing MCP tools (REST API unaffected)
 	ReadOnly bool `default:"false" env:"READ_ONLY" help:"block all state-changing MCP tools so AI agents can only consume data"`
 
+	// Langfuse observability (opt-in; tracing is active when both keys are set)
+	LangfusePublicKey string `default:"" env:"LANGFUSE_PUBLIC_KEY" help:"Langfuse public key (enables tracing when set with the secret key)"`
+	LangfuseSecretKey string `default:"" env:"LANGFUSE_SECRET_KEY" help:"Langfuse secret key"`
+	LangfuseBaseURL   string `default:"https://us.cloud.langfuse.com" env:"LANGFUSE_BASE_URL" help:"Langfuse host base URL"`
+
 	// CORS
 	CORSOrigin string `default:"*" env:"CORS_ORIGIN" help:"Access-Control-Allow-Origin value (default: *)"`
 
@@ -280,13 +285,16 @@ func main() {
 	// Create application context with intervals from CLI/env
 	appCtx := &domain.Context{
 		Config: domain.Config{
-			Version:     Version,
-			Port:        cli.Port,
-			BindAddress: cli.BindAddress,
-			CORSOrigin:  cli.CORSOrigin,
-			ReadOnly:    cli.ReadOnly,
-			TLSCertFile: cli.TLSCertFile,
-			TLSKeyFile:  cli.TLSKeyFile,
+			Version:           Version,
+			Port:              cli.Port,
+			BindAddress:       cli.BindAddress,
+			CORSOrigin:        cli.CORSOrigin,
+			ReadOnly:          cli.ReadOnly,
+			TLSCertFile:       cli.TLSCertFile,
+			TLSKeyFile:        cli.TLSKeyFile,
+			LangfusePublicKey: cli.LangfusePublicKey,
+			LangfuseSecretKey: cli.LangfuseSecretKey,
+			LangfuseBaseURL:   cli.LangfuseBaseURL,
 		},
 		Hub:      domain.NewEventBus(1024), // Buffer size for event bus
 		Platform: platform.NewRegistry(),
@@ -384,6 +392,9 @@ func applyFileConfig(cfg *domain.FileConfig) {
 	setBool(&cli.Debug, cfg.Debug)
 	setBool(&cli.ReadOnly, cfg.ReadOnly)
 	setBool(&cli.LowPowerMode, cfg.LowPowerMode)
+	setStr(&cli.LangfusePublicKey, cfg.LangfusePublicKey)
+	setStr(&cli.LangfuseSecretKey, cfg.LangfuseSecretKey)
+	setStr(&cli.LangfuseBaseURL, cfg.LangfuseBaseURL)
 	setStr(&cli.DisableCollectors, cfg.DisableCollectors)
 	setStr(&cli.CORSOrigin, cfg.CORSOrigin)
 	setStr(&cli.TLSCertFile, cfg.TLSCertFile)
