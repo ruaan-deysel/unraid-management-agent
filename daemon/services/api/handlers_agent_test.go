@@ -37,7 +37,7 @@ func newAgentServer(t *testing.T) *Server {
 		&llm.ChatResponse{Text: "Healthy.", OutputTokens: 3},
 	)
 	reg := tools.BuildDefault(agentTestState{}, agentTestDocker{})
-	svc := agent.NewService(cfg, p, reg, agent.NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), s)
+	svc := agent.NewService(cfg, p, reg, agent.NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), s, nil)
 	s.SetAgent(svc)
 	return s
 }
@@ -184,7 +184,7 @@ func TestAgentApproveEndpoint(t *testing.T) {
 	reg := tools.NewRegistry()
 	reg.Register(tools.Tool{Name: "stop_array", RiskTier: dto.RiskHigh,
 		Invoke: func(_ context.Context, _ string) (string, error) { return "stopped", nil }})
-	svc := agent.NewService(cfg, p, reg, agent.NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), s)
+	svc := agent.NewService(cfg, p, reg, agent.NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), s, nil)
 	s.SetAgent(svc)
 
 	start := httptest.NewRequest(http.MethodPost, "/api/v1/agent/sessions", strings.NewReader(`{"goal":"stop array"}`))
@@ -269,7 +269,7 @@ func TestAgentCancelEndpoint(t *testing.T) {
 	reg := tools.NewRegistry()
 	reg.Register(tools.Tool{Name: "stop_array", RiskTier: dto.RiskHigh,
 		Invoke: func(_ context.Context, _ string) (string, error) { return "stopped", nil }})
-	svc := agent.NewService(cfg, p, reg, agent.NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), s)
+	svc := agent.NewService(cfg, p, reg, agent.NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), s, nil)
 	s.SetAgent(svc)
 
 	start := httptest.NewRequest(http.MethodPost, "/api/v1/agent/sessions", strings.NewReader(`{"goal":"stop array"}`))

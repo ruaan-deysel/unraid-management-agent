@@ -719,7 +719,7 @@ func newTestAgentService(t *testing.T) *agent.Service {
 		&llm.ChatResponse{Text: "all good", OutputTokens: 1},
 	)
 	reg := tools.BuildDefault(nil, nil)
-	return agent.NewService(cfg, p, reg, agent.NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), nil)
+	return agent.NewService(cfg, p, reg, agent.NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), nil, nil)
 }
 
 func TestRegisterAgentToolsInitializes(t *testing.T) {

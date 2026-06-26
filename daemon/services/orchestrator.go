@@ -19,6 +19,7 @@ import (
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/platform"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/agent"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/agent/scoring"
+	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/agent/telemetry"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/alerting"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/api"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/controllers"
@@ -158,12 +159,23 @@ func (o *Orchestrator) Run() error {
 	})
 	logger.Success("Watchdog started")
 
+	// Initialize Langfuse telemetry (opt-in; no-op when keys are absent).
+	// New() performs no network I/O, so placement here is safe regardless of init order.
+	tel, err := telemetry.New(o.ctx.Config)
+	if err != nil {
+		logger.Warning("Langfuse telemetry init failed (continuing without tracing): %v", err)
+		tel, _ = telemetry.New(domain.Config{}) // guaranteed no-op
+	}
+	defer func() { _ = tel.Shutdown(context.Background()) }()
+	if tel.Enabled() {
+		logger.Info("Langfuse tracing enabled")
+	}
+
 	// Initialize agent (disabled by default; opt-in via agent_config.json + UMA_AGENT_API_KEY)
 	agentCfg := agent.LoadConfig("")
 	if agentCfg.Enabled {
 		agentDocker := controllers.NewDockerController()
-		// TODO(Task 5): pass the real Langfuse telemetry tracer here
-		agentSvc, agentErr := agent.BuildService(agentCfg, "", apiServer, agentDocker, apiServer, nil)
+		agentSvc, agentErr := agent.BuildService(agentCfg, "", apiServer, agentDocker, apiServer, tel.Tracer("agent"))
 		if agentErr != nil {
 			logger.Warning("Agent disabled: %v", agentErr)
 			_ = agentDocker.Close()
