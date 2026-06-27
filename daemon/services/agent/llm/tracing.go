@@ -14,12 +14,14 @@ import (
 // tracingProvider decorates a Provider with Langfuse generation spans.
 type tracingProvider struct {
 	delegate Provider
+	model    string
 	tracer   trace.Tracer
 }
 
 // NewTracingProvider wraps delegate so each Chat emits a generation span.
-func NewTracingProvider(delegate Provider, tracer trace.Tracer) Provider {
-	return &tracingProvider{delegate: delegate, tracer: tracer}
+// model is the actual model identifier (e.g. "claude-3-5-sonnet-20241022").
+func NewTracingProvider(delegate Provider, model string, tracer trace.Tracer) Provider {
+	return &tracingProvider{delegate: delegate, model: model, tracer: tracer}
 }
 
 func (t *tracingProvider) Name() string { return t.delegate.Name() }
@@ -32,7 +34,7 @@ func (t *tracingProvider) Chat(ctx context.Context, req ChatRequest) (*ChatRespo
 	span.SetAttributes(
 		attribute.String("langfuse.observation.type", "generation"),
 		attribute.String("gen_ai.system", t.delegate.Name()),
-		attribute.String("gen_ai.request.model", t.delegate.Name()),
+		attribute.String("gen_ai.request.model", t.model),
 		attribute.String("langfuse.observation.input", telemetry.Mask(renderMessages(req))),
 	)
 

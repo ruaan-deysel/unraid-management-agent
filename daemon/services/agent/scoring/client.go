@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"net/http"
 	"time"
 
@@ -61,8 +62,12 @@ func (c *Client) Post(ctx context.Context, traceID string, s Scores) {
 			logger.Debug("Langfuse score post failed: %v", err)
 			continue
 		}
+		if resp.StatusCode >= 300 {
+			logger.Debug("Langfuse score post returned status %d", resp.StatusCode)
+		}
+		_, _ = io.Copy(io.Discard, resp.Body)
 		if closeErr := resp.Body.Close(); closeErr != nil {
-			logger.Debug("Langfuse score response close failed: %v", closeErr)
+			logger.Debug("Langfuse score body close failed: %v", closeErr)
 		}
 	}
 }

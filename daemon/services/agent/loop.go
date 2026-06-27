@@ -241,7 +241,11 @@ func (s *Service) recordScores(sess *dto.AgentSession) {
 	}
 	scores := scoring.Evaluate(calls, known, s.readOnly)
 	traceID := sess.TraceID
-	go s.scoreClient.Post(context.Background(), traceID, scores)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		s.scoreClient.Post(ctx, traceID, scores)
+	}()
 }
 
 // emit broadcasts a WS event and tolerates a nil broadcaster.

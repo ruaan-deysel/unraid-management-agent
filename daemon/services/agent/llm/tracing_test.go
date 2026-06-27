@@ -18,7 +18,7 @@ func (fakeProvider) Chat(_ context.Context, _ ChatRequest) (*ChatResponse, error
 func TestTracingProviderEmitsGeneration(t *testing.T) {
 	sr := tracetest.NewSpanRecorder()
 	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(sr))
-	p := NewTracingProvider(fakeProvider{}, tp.Tracer("test"))
+	p := NewTracingProvider(fakeProvider{}, "test-model", tp.Tracer("test"))
 
 	_, err := p.Chat(context.Background(), ChatRequest{System: "sys", Messages: []Message{{Role: "user", Content: "hi"}}})
 	if err != nil {
@@ -37,5 +37,8 @@ func TestTracingProviderEmitsGeneration(t *testing.T) {
 	}
 	if attrs["gen_ai.usage.output_tokens"] != "3" {
 		t.Errorf("missing token usage: %v", attrs)
+	}
+	if attrs["gen_ai.request.model"] != "test-model" {
+		t.Errorf("expected gen_ai.request.model=test-model, got %v", attrs)
 	}
 }

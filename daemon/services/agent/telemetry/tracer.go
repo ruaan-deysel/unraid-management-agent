@@ -5,6 +5,8 @@ package telemetry
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -32,14 +34,14 @@ func New(cfg domain.Config) (*Provider, error) {
 	}
 	auth := base64.StdEncoding.EncodeToString([]byte(cfg.LangfusePublicKey + ":" + cfg.LangfuseSecretKey))
 	exp, err := otlptracehttp.New(context.Background(),
-		otlptracehttp.WithEndpointURL(cfg.LangfuseBaseURL+"/api/public/otel/v1/traces"),
+		otlptracehttp.WithEndpointURL(strings.TrimRight(cfg.LangfuseBaseURL, "/")+"/api/public/otel/v1/traces"),
 		otlptracehttp.WithHeaders(map[string]string{
 			"Authorization":                "Basic " + auth,
 			"x-langfuse-ingestion-version": "4",
 		}),
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("langfuse telemetry: create OTLP exporter: %w", err)
 	}
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exp),

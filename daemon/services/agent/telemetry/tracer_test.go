@@ -37,11 +37,26 @@ func TestNewEnabledBuildsProvider(t *testing.T) {
 }
 
 func TestMaskRedactsSecrets(t *testing.T) {
-	in := `registration key ABCD-1234; password=hunter2; token sk-live-xyz; sk-lf-deadbeef`
-	got := Mask(in)
-	for _, leak := range []string{"ABCD-1234", "hunter2", "sk-live-xyz", "sk-lf-deadbeef"} {
-		if strings.Contains(got, leak) {
-			t.Errorf("Mask leaked %q in %q", leak, got)
-		}
+	cases := []struct {
+		name   string
+		input  string
+		leaked string
+	}{
+		{"registration key", "registration key ABCD-1234 rest", "ABCD-1234"},
+		{"wireguard", "wireguard-privatekey=secret", "secret"},
+		{"password=", "password=hunter2 other", "hunter2"},
+		{"token whitespace", "token sk-live-xyz end", "sk-live-xyz"},
+		{"token=", "token=mytoken rest", "mytoken"},
+		{"sk-key", "sk-abc123-def rest", "sk-abc123-def"},
+		{"pk-lf key", "pk-lf-mypublickey rest", "pk-lf-mypublickey"},
+		{"sk-lf key", "sk-lf-deadbeef rest", "sk-lf-deadbeef"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := Mask(tc.input)
+			if strings.Contains(got, tc.leaked) {
+				t.Errorf("Mask leaked %q in %q", tc.leaked, got)
+			}
+		})
 	}
 }

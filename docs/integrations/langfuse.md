@@ -116,11 +116,11 @@ the daemon (`json:"-"` in config structs).
 
 ## Configuration reference
 
-| Variable              | Required | Description                                     |
-| --------------------- | -------- | ----------------------------------------------- |
-| `LANGFUSE_PUBLIC_KEY` | Yes      | Project public key from Langfuse settings       |
-| `LANGFUSE_SECRET_KEY` | Yes      | Project secret key from Langfuse settings       |
-| `LANGFUSE_BASE_URL`   | Yes      | Langfuse base URL (cloud region or self-hosted) |
+| Variable              | Required | Description                                                                               |
+| --------------------- | -------- | ----------------------------------------------------------------------------------------- |
+| `LANGFUSE_PUBLIC_KEY` | Yes      | Project public key from Langfuse settings                                                 |
+| `LANGFUSE_SECRET_KEY` | Yes      | Project secret key from Langfuse settings                                                 |
+| `LANGFUSE_BASE_URL`   | No       | Langfuse base URL (cloud region or self-hosted). Default: `https://us.cloud.langfuse.com` |
 
 Tracing activates only when **both** `LANGFUSE_PUBLIC_KEY` and
 `LANGFUSE_SECRET_KEY` are non-empty. `LANGFUSE_BASE_URL` defaults to

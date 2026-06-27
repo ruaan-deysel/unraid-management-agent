@@ -193,6 +193,9 @@ func TestLangfuseEnabled(t *testing.T) {
 		{name: "neither key set disables tracing", publicKey: "", secretKey: "", want: false},
 		{name: "only public key disables tracing", publicKey: "pk-lf-abc123", secretKey: "", want: false},
 		{name: "only secret key disables tracing", publicKey: "", secretKey: "sk-lf-xyz789", want: false},
+		{name: "whitespace-only both keys disable tracing", publicKey: "   ", secretKey: "   ", want: false},
+		{name: "whitespace-only public key disables tracing", publicKey: "   ", secretKey: "sk-lf-xyz789", want: false},
+		{name: "whitespace-only secret key disables tracing", publicKey: "pk-lf-abc123", secretKey: "   ", want: false},
 	}
 
 	for _, tt := range tests {

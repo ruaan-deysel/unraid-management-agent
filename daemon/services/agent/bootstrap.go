@@ -83,7 +83,7 @@ func BuildService(cfg dto.AgentConfig, configDir string, state tools.StateProvid
 	default:
 		return nil, fmt.Errorf("unsupported agent provider %q", cfg.Provider)
 	}
-	provider = llm.NewTracingProvider(provider, tracer)
+	provider = llm.NewTracingProvider(provider, cfg.Model, tracer)
 
 	store := NewStore(configDir)
 	if err := store.Load(); err != nil {

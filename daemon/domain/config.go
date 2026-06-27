@@ -59,8 +59,9 @@ type Config struct {
 
 // LangfuseEnabled reports whether Langfuse tracing should be active.
 // Tracing is enabled only when both the public key and secret key are configured.
+// Whitespace-only values are treated as unset.
 func (c Config) LangfuseEnabled() bool {
-	return c.LangfusePublicKey != "" && c.LangfuseSecretKey != ""
+	return strings.TrimSpace(c.LangfusePublicKey) != "" && strings.TrimSpace(c.LangfuseSecretKey) != ""
 }
 
 // TLSEnabled reports whether HTTPS should be served. TLS is considered enabled
