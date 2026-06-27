@@ -71,7 +71,9 @@ func (s *Service) runLoop(ctx context.Context, sess *dto.AgentSession) {
 	loopCtx, sessionSpan := s.tracer.Start(loopCtx, "agent-session",
 		trace.WithAttributes(attribute.String("langfuse.session.id", sess.ID)))
 	defer sessionSpan.End()
-	sess.TraceID = sessionSpan.SpanContext().TraceID().String()
+	if sc := sessionSpan.SpanContext(); sc.HasTraceID() {
+		sess.TraceID = sc.TraceID().String()
+	}
 
 	schemas := s.tools.Schemas()
 

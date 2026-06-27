@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/domain"
@@ -26,7 +27,7 @@ func NewClient(cfg domain.Config) *Client {
 		return nil
 	}
 	return &Client{
-		base: cfg.LangfuseBaseURL,
+		base: strings.TrimRight(cfg.LangfuseBaseURL, "/"),
 		auth: "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.LangfusePublicKey+":"+cfg.LangfuseSecretKey)),
 		http: &http.Client{Timeout: 5 * time.Second},
 	}

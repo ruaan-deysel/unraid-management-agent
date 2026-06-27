@@ -75,10 +75,14 @@ func TestRunLoopNoopTracerRecordsNothing(t *testing.T) {
 	cfg.Enabled = true
 	svc := NewService(cfg, p, tools.BuildDefault(fakeState{}, fakeDocker{}), NewStore(t.TempDir()), memory.NewStore(t.TempDir(), 0), &capturingBroadcaster{}, nil)
 
-	if _, err := svc.StartSession(context.Background(), "hi"); err != nil {
+	sess, err := svc.StartSession(context.Background(), "hi")
+	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
 	if got := len(sr.Ended()); got != 0 {
 		t.Fatalf("expected no recorded spans with no-op tracer, got %d", got)
+	}
+	if sess.TraceID != "" {
+		t.Errorf("expected empty TraceID under no-op tracer, got %q", sess.TraceID)
 	}
 }

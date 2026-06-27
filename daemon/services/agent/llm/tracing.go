@@ -45,6 +45,9 @@ func (t *tracingProvider) Chat(ctx context.Context, req ChatRequest) (*ChatRespo
 		span.SetStatus(codes.Error, err.Error())
 		return resp, err
 	}
+	if resp == nil {
+		return resp, err
+	}
 	span.SetAttributes(
 		attribute.Int("gen_ai.usage.input_tokens", resp.InputTokens),
 		attribute.Int("gen_ai.usage.output_tokens", resp.OutputTokens),
