@@ -270,8 +270,11 @@ func TestCreateNotification_InvalidImportance(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected error for invalid importance level")
 	}
-	if !strings.Contains(err.Error(), "invalid importance level") {
-		t.Errorf("Expected an importance validation error, got: %v", err)
+	// Assert the whole message: it advertises the accepted levels, so this
+	// pins that list as part of the error contract.
+	const want = "invalid importance level: invalid (must be alert, warning, normal, or info)"
+	if got := err.Error(); got != want {
+		t.Errorf("CreateNotification() error = %q, want %q", got, want)
 	}
 	// Validation rejects before anything is written.
 	for _, dir := range []string{notificationsDir, notificationsArchiveDir} {
