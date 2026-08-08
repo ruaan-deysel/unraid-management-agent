@@ -35,9 +35,12 @@ func init() {
 // first. Files are written atomically so a failed write (e.g. ENOSPC) never
 // leaves a partial .notify file behind. See issue #134.
 func CreateNotification(title, subject, description, importance, link string) error {
-	// Validate importance
-	if importance != "alert" && importance != "warning" && importance != "info" {
-		return fmt.Errorf("invalid importance level: %s (must be alert, warning, or info)", importance)
+	// Validate importance. "normal" is the stock notify script's own level for
+	// informational notifications, and what the alert dispatcher sends for
+	// info-severity events; "info" remains the REST default and is used by
+	// existing in-repo callers.
+	if importance != "alert" && importance != "warning" && importance != "normal" && importance != "info" {
+		return fmt.Errorf("invalid importance level: %s (must be alert, warning, normal, or info)", importance)
 	}
 
 	timestamp := time.Now()
