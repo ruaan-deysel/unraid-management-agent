@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/constants"
+	"github.com/ruaan-deysel/unraid-management-agent/daemon/lib"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/logger"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/collectors"
 )
@@ -35,12 +36,8 @@ func init() {
 // first. Files are written atomically so a failed write (e.g. ENOSPC) never
 // leaves a partial .notify file behind. See issue #134.
 func CreateNotification(title, subject, description, importance, link string) error {
-	// Validate importance. "normal" is the stock notify script's own level for
-	// informational notifications, and what the alert dispatcher sends for
-	// info-severity events; "info" remains the REST default and is used by
-	// existing in-repo callers.
-	if importance != "alert" && importance != "warning" && importance != "normal" && importance != "info" {
-		return fmt.Errorf("invalid importance level: %s (must be alert, warning, normal, or info)", importance)
+	if err := lib.ValidateNotificationImportance(importance); err != nil {
+		return err
 	}
 
 	timestamp := time.Now()
