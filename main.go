@@ -63,6 +63,9 @@ var cli struct {
 	// CORS
 	CORSOrigin string `default:"*" env:"CORS_ORIGIN" help:"Access-Control-Allow-Origin value (default: *)"`
 
+	// API token - when set, every request must present "Authorization: Bearer <token>"
+	APIToken string `default:"" env:"API_TOKEN" help:"require bearer-token auth on the HTTP API and /mcp (empty = no authentication)"`
+
 	// TLS: serve HTTPS (incl. the /mcp endpoint) when both files are provided
 	TLSCertFile string `default:"" env:"TLS_CERT_FILE" help:"path to a PEM TLS certificate file (enables HTTPS when set with --tls-key-file)"`
 	TLSKeyFile  string `default:"" env:"TLS_KEY_FILE" help:"path to a PEM TLS private key file (enables HTTPS when set with --tls-cert-file)"`
@@ -284,6 +287,7 @@ func main() {
 			Port:        cli.Port,
 			BindAddress: cli.BindAddress,
 			CORSOrigin:  cli.CORSOrigin,
+			APIToken:    cli.APIToken,
 			ReadOnly:    cli.ReadOnly,
 			TLSCertFile: cli.TLSCertFile,
 			TLSKeyFile:  cli.TLSKeyFile,
@@ -386,6 +390,7 @@ func applyFileConfig(cfg *domain.FileConfig) {
 	setBool(&cli.LowPowerMode, cfg.LowPowerMode)
 	setStr(&cli.DisableCollectors, cfg.DisableCollectors)
 	setStr(&cli.CORSOrigin, cfg.CORSOrigin)
+	setStr(&cli.APIToken, cfg.APIToken)
 	setStr(&cli.TLSCertFile, cfg.TLSCertFile)
 	setStr(&cli.TLSKeyFile, cfg.TLSKeyFile)
 
