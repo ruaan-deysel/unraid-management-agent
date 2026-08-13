@@ -34,6 +34,7 @@ sanitize_bool() { [ "$1" = "true" ] && echo "true" || echo "false"; }
 PORT="${PORT:-8043}"
 BIND_ADDRESS="${BIND_ADDRESS:-}"
 READ_ONLY="${READ_ONLY:-false}"
+API_TOKEN="${API_TOKEN:-}"
 LOG_LEVEL="${LOG_LEVEL:-info}"
 # Defaults follow industry standards (Zabbix, Prometheus, Datadog)
 INTERVAL_SYSTEM="${INTERVAL_SYSTEM:-15}"
@@ -81,7 +82,7 @@ done
 for var in MQTT_ENABLED MQTT_HOME_ASSISTANT; do
     eval "$var=\$(sanitize_bool \"\$$var\")"
 done
-for var in MQTT_BROKER MQTT_USERNAME MQTT_PASSWORD MQTT_CLIENT_ID MQTT_TOPIC_PREFIX; do
+for var in MQTT_BROKER MQTT_USERNAME MQTT_PASSWORD MQTT_CLIENT_ID MQTT_TOPIC_PREFIX API_TOKEN; do
     eval "$var=\$(sanitize_str \"\$$var\")"
 done
 MQTT_PORT=$(sanitize_int "$MQTT_PORT");             MQTT_PORT="${MQTT_PORT:-1883}"
@@ -90,6 +91,7 @@ MQTT_PORT=$(sanitize_int "$MQTT_PORT");             MQTT_PORT="${MQTT_PORT:-1883
 nohup env \
   BIND_ADDRESS="$BIND_ADDRESS" \
   READ_ONLY="$READ_ONLY" \
+  API_TOKEN="$API_TOKEN" \
   INTERVAL_SYSTEM="$INTERVAL_SYSTEM" \
   INTERVAL_ARRAY="$INTERVAL_ARRAY" \
   INTERVAL_DISK="$INTERVAL_DISK" \

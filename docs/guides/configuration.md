@@ -21,6 +21,7 @@ This file is created automatically after the first installation and persists acr
 | `--port`                   | `8043`   | HTTP API port                                                                                      |
 | `--bind-address`           | -        | IP to bind the HTTP server to (empty = all). mDNS advertises it. Loopback rejected; invalid → all. |
 | `--read-only`              | `false`  | Block state-changing MCP tools (AI agents read-only; REST API unaffected)                          |
+| `--api-token`              | -        | Require `Authorization: Bearer <token>` on the HTTP API and `/mcp` (empty = no authentication)     |
 | `--debug`                  | `false`  | Enable debug logging                                                                               |
 | `--mqtt-enabled`           | `false`  | Enable MQTT publishing                                                                             |
 | `--mqtt-broker`            | -        | MQTT broker address (e.g., `tcp://localhost:1883`)                                                 |
@@ -92,6 +93,10 @@ Future versions will include a web UI for configuration.
 
    # Block all state-changing MCP tools (AI agents can only read)
    READ_ONLY=false
+
+   # Require "Authorization: Bearer <token>" on the API and /mcp.
+   # Empty (the default) leaves the API unauthenticated.
+   API_TOKEN=
 
    # MQTT Settings
    MQTT_ENABLED=true
@@ -422,9 +427,56 @@ Claude Desktop.
 > cert. For LAN-only use, the `mcp-remote` bridge needs no TLS at all. See the
 > [Claude integration guide](../integrations/claude/README.md#2-connect-claude-to-your-server-mcp).
 
-### Authentication (Future)
+### Authentication
 
-Authentication is planned for future versions. Current options:
+Set an API token to require `Authorization: Bearer <token>` on every request.
+When the token is empty (the default) the API stays unauthenticated, so
+upgrading an existing install changes nothing until you opt in.
+
+| Setting   | CLI flag      | Env var     | Config key  |
+| --------- | ------------- | ----------- | ----------- |
+| API token | `--api-token` | `API_TOKEN` | `api_token` |
+
+```bash
+# Generate a token and enable authentication
+API_TOKEN=$(head -c 32 /dev/urandom | base64)
+echo "$API_TOKEN"
+```
+
+Add it to `config.cfg`:
+
+```bash
+API_TOKEN="paste-the-generated-token-here"
+```
+
+Then pass it on every request:
+
+```bash
+curl -H "Authorization: Bearer $API_TOKEN" http://your-unraid-ip:8043/api/v1/system
+```
+
+> [!NOTE]
+> The plugin's start script strips shell metacharacters (`'`, `"`, `` ` ``, `$`,
+> `\`) from the token before passing it to the daemon, the same handling used for
+> `MQTT_PASSWORD`. Base64 tokens are unaffected — `+`, `/`, and `=` all survive.
+
+**What is protected**: every REST endpoint, `/mcp`, and `/metrics`.
+
+**What is not**: `/api/v1/health` stays open so external uptime monitoring keeps
+working without embedding a credential. It reports liveness only and exposes no
+system data.
+
+Requests without a valid token receive `401 Unauthorized` with a
+`WWW-Authenticate: Bearer` challenge. The token is compared in constant time,
+and because the field name contains "token" it is automatically redacted from
+diagnostics output.
+
+> [!NOTE]
+> The token is sent as a plain header, so pair it with HTTPS (see
+> [HTTPS / TLS](#https--tls)) on any network you do not fully trust. Over plain
+> HTTP the token is readable by anything on the path.
+
+Complementary options, still worth combining with a token:
 
 1. **Reverse Proxy**: nginx with basic auth
 2. **VPN Only**: WireGuard/Tailscale
