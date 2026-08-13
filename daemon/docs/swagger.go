@@ -70,4 +70,4 @@ package docs
 //	@securityDefinitions.apikey	BearerAuth
 //	@in							header
 //	@name						Authorization
-//	@description				Optional bearer-token authentication. Disabled by default; enabled by setting API_TOKEN. When enabled, send "Bearer <token>" on every request. /api/v1/health stays open so uptime monitoring keeps working.
+//	@description				Optional bearer-token authentication. Disabled by default; enabled by setting API_TOKEN. When enabled, send "Bearer <token>" on every request. /api/v1/health and /swagger/ stay open, so uptime monitoring and this documentation UI keep working.

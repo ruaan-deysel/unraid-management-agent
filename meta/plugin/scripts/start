@@ -82,9 +82,19 @@ done
 for var in MQTT_ENABLED MQTT_HOME_ASSISTANT; do
     eval "$var=\$(sanitize_bool \"\$$var\")"
 done
-for var in MQTT_BROKER MQTT_USERNAME MQTT_PASSWORD MQTT_CLIENT_ID MQTT_TOPIC_PREFIX API_TOKEN; do
+for var in MQTT_BROKER MQTT_USERNAME MQTT_PASSWORD MQTT_CLIENT_ID MQTT_TOPIC_PREFIX; do
     eval "$var=\$(sanitize_str \"\$$var\")"
 done
+
+# API_TOKEN is deliberately NOT passed through sanitize_str. Stripping shell
+# metacharacters would silently alter the credential, and the resulting 401s
+# give no hint as to why. The value is handed to env(1) as a single quoted
+# argument, so its contents are never interpreted by the shell. Reject control
+# characters instead, which cannot appear in an HTTP header value anyway.
+if [ -n "$API_TOKEN" ] && printf '%s' "$API_TOKEN" | LC_ALL=C grep -q '[[:cntrl:]]'; then
+    echo "Error: API_TOKEN contains control characters; refusing to start" >&2
+    exit 1
+fi
 MQTT_PORT=$(sanitize_int "$MQTT_PORT");             MQTT_PORT="${MQTT_PORT:-1883}"
 
 # ── Launch using env(1) to pass variables safely ──────────────

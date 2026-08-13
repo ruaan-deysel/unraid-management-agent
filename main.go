@@ -63,8 +63,10 @@ var cli struct {
 	// CORS
 	CORSOrigin string `default:"*" env:"CORS_ORIGIN" help:"Access-Control-Allow-Origin value (default: *)"`
 
-	// API token - when set, every request must present "Authorization: Bearer <token>"
-	APIToken string `default:"" env:"API_TOKEN" help:"require bearer-token auth on the HTTP API and /mcp (empty = no authentication)"`
+	// API token - when set, requests must present "Authorization: Bearer <token>",
+	// except the health endpoint and the Swagger UI. Prefer API_TOKEN or the config
+	// file over the flag: command-line arguments are visible in the process list.
+	APIToken string `default:"" env:"API_TOKEN" help:"require bearer-token auth on the HTTP API and /mcp; the health endpoint and Swagger UI stay open (empty = no authentication). Prefer the API_TOKEN env var or config file: flags are visible in the process list"`
 
 	// TLS: serve HTTPS (incl. the /mcp endpoint) when both files are provided
 	TLSCertFile string `default:"" env:"TLS_CERT_FILE" help:"path to a PEM TLS certificate file (enables HTTPS when set with --tls-key-file)"`
@@ -231,6 +233,18 @@ func main() {
 		cli.TLSKeyFile = ""
 	} else if cli.TLSCertFile != "" && cli.TLSKeyFile != "" {
 		logger.Info("HTTPS enabled (certificate: %s)", cli.TLSCertFile)
+	}
+
+	// Validate the API token. Unlike the TLS fallback above, an invalid token is
+	// a hard error: silently continuing without authentication would leave the
+	// API open on a server the operator believes is protected. Availability is
+	// the right trade for TLS, but not for a credential.
+	if err := lib.ValidateAPIToken(cli.APIToken); err != nil {
+		logger.Error("Invalid API token configuration: %v", err)
+		os.Exit(1)
+	}
+	if cli.APIToken != "" {
+		logger.Info("API authentication enabled: requests require a bearer token (health endpoint and Swagger UI remain open)")
 	}
 
 	if cli.ReadOnly {

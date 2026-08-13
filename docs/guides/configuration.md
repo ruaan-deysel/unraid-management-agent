@@ -429,9 +429,13 @@ Claude Desktop.
 
 ### Authentication
 
-Set an API token to require `Authorization: Bearer <token>` on every request.
-When the token is empty (the default) the API stays unauthenticated, so
-upgrading an existing install changes nothing until you opt in.
+Set an API token to require `Authorization: Bearer <token>`. When the token is
+empty (the default) the API stays unauthenticated, so upgrading an existing
+install changes nothing until you opt in.
+
+Prefer the config key or the `API_TOKEN` environment variable over the
+`--api-token` flag: command-line arguments are visible to any user who can read
+the process list.
 
 | Setting   | CLI flag      | Env var     | Config key  |
 | --------- | ------------- | ----------- | ----------- |
@@ -455,16 +459,21 @@ Then pass it on every request:
 curl -H "Authorization: Bearer $API_TOKEN" http://your-unraid-ip:8043/api/v1/system
 ```
 
-> [!NOTE]
-> The plugin's start script strips shell metacharacters (`'`, `"`, `` ` ``, `$`,
-> `\`) from the token before passing it to the daemon, the same handling used for
-> `MQTT_PASSWORD`. Base64 tokens are unaffected — `+`, `/`, and `=` all survive.
+The token is passed through untouched, so any character is safe to use. Tokens
+containing control characters are rejected at startup rather than silently
+altered, and a whitespace-only token is a startup error rather than a silent
+fallback to no authentication.
 
 **What is protected**: every REST endpoint, `/mcp`, and `/metrics`.
 
-**What is not**: `/api/v1/health` stays open so external uptime monitoring keeps
-working without embedding a credential. It reports liveness only and exposes no
-system data.
+**What is not**:
+
+- `/api/v1/health` — so external uptime monitoring keeps working without
+  embedding a credential. It reports liveness only and exposes no system data.
+- `/swagger/` — the docs UI is a browser page that cannot attach an
+  `Authorization` header when fetching its own `doc.json`, so requiring one
+  would leave it permanently broken rather than merely gated. It serves the API
+  schema and no system data.
 
 Requests without a valid token receive `401 Unauthorized` with a
 `WWW-Authenticate: Bearer` challenge. The token is compared in constant time,

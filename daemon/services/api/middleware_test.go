@@ -471,6 +471,29 @@ func TestAuthMiddleware(t *testing.T) {
 			wantStatus: http.StatusOK,
 			wantReach:  true,
 		},
+		{
+			name:       "swagger UI stays open so the docs page keeps working",
+			path:       "/swagger/index.html",
+			authHeader: "",
+			wantStatus: http.StatusOK,
+			wantReach:  true,
+		},
+		{
+			name:       "swagger doc.json stays open (the UI fetches it without a header)",
+			path:       "/swagger/doc.json",
+			authHeader: "",
+			wantStatus: http.StatusOK,
+			wantReach:  true,
+		},
+		{
+			// The exemption is a prefix match on "/swagger/", so a path that
+			// merely starts with the same letters must still be protected.
+			name:       "path resembling the swagger prefix is still protected",
+			path:       "/swaggerish/secrets",
+			authHeader: "",
+			wantStatus: http.StatusUnauthorized,
+			wantReach:  false,
+		},
 	}
 
 	for _, tt := range tests {

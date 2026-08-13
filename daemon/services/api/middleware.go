@@ -43,10 +43,26 @@ func corsMiddleware(allowedOrigin string) mux.MiddlewareFunc {
 // keeps working without embedding a credential. It reports only liveness.
 const healthPath = "/api/v1/health"
 
+// swaggerPathPrefix is exempt because the Swagger UI is a browser page that
+// cannot attach an Authorization header when fetching its own doc.json.
+// Protecting it would leave the documentation UI permanently broken rather
+// than merely gated. It serves the API schema — which is public in the
+// repository — and no system data.
+const swaggerPathPrefix = "/swagger/"
+
+// isAuthExempt reports whether a path bypasses authentication. See healthPath
+// and swaggerPathPrefix for why each is exempt.
+func isAuthExempt(u *url.URL) bool {
+	if u == nil {
+		return false
+	}
+	return u.Path == healthPath || strings.HasPrefix(u.Path, swaggerPathPrefix)
+}
+
 // authMiddleware requires "Authorization: Bearer <token>" on every request when
-// an API token is configured. When the token is empty the middleware is a
-// no-op, so existing unauthenticated installs behave exactly as before after an
-// upgrade.
+// an API token is configured, except for the health endpoint and the Swagger UI
+// (see isAuthExempt). When the token is empty the middleware is a no-op, so
+// existing unauthenticated installs behave exactly as before after an upgrade.
 //
 // CORS preflights never reach this middleware: corsMiddleware runs earlier and
 // short-circuits OPTIONS. That matters because browsers do not send
@@ -62,7 +78,7 @@ func authMiddleware(token string) mux.MiddlewareFunc {
 				return
 			}
 
-			if r.URL != nil && r.URL.Path == healthPath {
+			if isAuthExempt(r.URL) {
 				next.ServeHTTP(w, r)
 				return
 			}
