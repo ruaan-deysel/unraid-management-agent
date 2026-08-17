@@ -48,6 +48,12 @@ const healthPath = "/api/v1/health"
 // Protecting it would leave the documentation UI permanently broken rather
 // than merely gated. It serves the API schema — which is public in the
 // repository — and no system data.
+//
+// The trailing slash matches the route registered in setupRoutes. Bare
+// "/swagger" matches no route, so middleware never runs for it and it 404s
+// like any other unknown path. If a redirect from "/swagger" is ever added,
+// exempt that exact path here too — otherwise the redirect starts returning
+// 401 as soon as a token is configured.
 const swaggerPathPrefix = "/swagger/"
 
 // isAuthExempt reports whether a path bypasses authentication. See healthPath
