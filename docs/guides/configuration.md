@@ -450,8 +450,16 @@ echo "$API_TOKEN"
 Add it to `config.cfg`:
 
 ```bash
-API_TOKEN="paste-the-generated-token-here"
+API_TOKEN='paste-the-generated-token-here'
 ```
+
+**Use single quotes.** The plugin launcher reads `config.cfg` with `source`,
+which expands `$`, `` ` ``, and `\` inside a double-quoted value — so
+`API_TOKEN="tok$en"` reaches the daemon truncated, or empty. Single quotes stop
+that. The launcher compares the sourced value against the raw file contents and
+refuses to start on a mismatch, so this fails loudly rather than leaving
+authentication quietly disabled, but quoting it correctly avoids the problem in
+the first place.
 
 Then pass it on every request:
 
@@ -459,7 +467,8 @@ Then pass it on every request:
 curl -H "Authorization: Bearer $API_TOKEN" http://your-unraid-ip:8043/api/v1/system
 ```
 
-The token is passed through untouched, so any character is safe to use. Tokens
+The token is never sanitised or rewritten, so any character is safe to use —
+subject to the quoting rule above when the token lives in `config.cfg`. Tokens
 containing control characters are rejected at startup rather than silently
 altered, and a whitespace-only token is a startup error rather than a silent
 fallback to no authentication.

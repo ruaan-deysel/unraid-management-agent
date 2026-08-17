@@ -89,9 +89,25 @@ done
 # API_TOKEN is deliberately NOT passed through sanitize_str. Stripping shell
 # metacharacters would silently alter the credential, and the resulting 401s
 # give no hint as to why. The value is handed to env(1) as a single quoted
-# argument, so its contents are never interpreted by the shell. Reject control
-# characters instead, which cannot appear in an HTTP header value anyway.
-if [ -n "$API_TOKEN" ] && printf '%s' "$API_TOKEN" | LC_ALL=C grep -q '[[:cntrl:]]'; then
+# argument, so its contents are never interpreted by the shell.
+
+# `source` above expands $, `, and \ inside a double-quoted value, so a token
+# written as API_TOKEN="tok$en" arrives here truncated — or empty, which would
+# leave authentication silently disabled on a server the operator believes is
+# protected. Compare against the raw file value and refuse to start on any
+# mismatch; single-quoting the token in config.cfg avoids this entirely.
+raw_api_token=$(sed -n 's/^[[:space:]]*API_TOKEN=//p' "$CONFIG_FILE" | tail -n1 |
+    sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/")
+if [ "$raw_api_token" != "$API_TOKEN" ]; then
+    echo "Error: API_TOKEN in $CONFIG_FILE was altered by shell expansion." >&2
+    echo "       Single-quote it, e.g. API_TOKEN='your-token', and restart." >&2
+    exit 1
+fi
+
+# Reject control characters, which cannot appear in an HTTP header value anyway.
+# tr, not grep: grep is line-oriented and never sees an embedded newline as a
+# character within a line, so it silently accepts the most likely stray byte.
+if [ -n "$API_TOKEN" ] && [ "$(printf '%s' "$API_TOKEN" | tr -d '[:cntrl:]')" != "$API_TOKEN" ]; then
     echo "Error: API_TOKEN contains control characters; refusing to start" >&2
     exit 1
 fi
