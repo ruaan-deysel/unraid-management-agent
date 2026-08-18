@@ -461,14 +461,30 @@ refuses to start on a mismatch, so this fails loudly rather than leaving
 authentication quietly disabled, but quoting it correctly avoids the problem in
 the first place.
 
+Tokens generated the way shown above contain only `A-Za-z0-9+/=` and are always
+safe. If you choose your own, the quoting rules are:
+
+| Token contains                                | Use                                                                                                 |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| none of `'`, `"`, `$`, `` ` ``, `\`           | either quote style                                                                                  |
+| `$`, `` ` `` or `\` (no single quote)         | single quotes — `API_TOKEN='to$ken'`                                                                |
+| a literal single quote (no `$`, `` ` ``, `\`) | double quotes — `API_TOKEN="a'b"`                                                                   |
+| a single quote **and** `$`, `` ` `` or `\`    | not expressible in `config.cfg` — use the `API_TOKEN` environment variable, or generate a new token |
+
+The last row is a real limitation: the usual shell escape `API_TOKEN='a'\''b'`
+is rejected, because the launcher compares against the raw line rather than
+re-implementing shell quoting. It fails at startup with an explanation rather
+than starting with a corrupted credential.
+
 Then pass it on every request:
 
 ```bash
 curl -H "Authorization: Bearer $API_TOKEN" http://your-unraid-ip:8043/api/v1/system
 ```
 
-The token is never sanitised or rewritten, so any character is safe to use —
-subject to the quoting rule above when the token lives in `config.cfg`. Tokens
+The token is never sanitised or rewritten. Via the `API_TOKEN` environment
+variable or `--api-token`, any character is safe to use; via `config.cfg` the
+quoting table above applies. Tokens
 containing control characters are rejected at startup rather than silently
 altered, and a whitespace-only token is a startup error rather than a silent
 fallback to no authentication.
