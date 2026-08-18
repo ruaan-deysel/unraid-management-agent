@@ -464,30 +464,40 @@ the first place.
 Tokens generated the way shown above contain only `A-Za-z0-9+/=` and are always
 safe. If you choose your own, the quoting rules are:
 
-| Token contains                                | Use                                                                                                 |
-| --------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| none of `'`, `"`, `$`, `` ` ``, `\`           | either quote style                                                                                  |
-| `$`, `` ` `` or `\` (no single quote)         | single quotes — `API_TOKEN='to$ken'`                                                                |
-| a literal single quote (no `$`, `` ` ``, `\`) | double quotes — `API_TOKEN="a'b"`                                                                   |
-| a single quote **and** `$`, `` ` `` or `\`    | not expressible in `config.cfg` — use the `API_TOKEN` environment variable, or generate a new token |
+| Token contains                            | Use                                                                                                 |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| none of `'`, `"`, `$`, `` ` ``, `\`       | either quote style                                                                                  |
+| `"`, `$`, `` ` `` or `\` — but no `'`     | single quotes — `API_TOKEN='to$ken'`                                                                |
+| `'` — but none of `"`, `$`, `` ` ``, `\`  | double quotes — `API_TOKEN="a'b"`                                                                   |
+| `'` **and** any of `"`, `$`, `` ` ``, `\` | not expressible in `config.cfg` — use the `API_TOKEN` environment variable, or generate a new token |
 
-The last row is a real limitation: the usual shell escape `API_TOKEN='a'\''b'`
-is rejected, because the launcher compares against the raw line rather than
-re-implementing shell quoting. It fails at startup with an explanation rather
-than starting with a corrupted credential.
+Single quotes cannot contain a single quote, and double quotes cannot contain a
+double quote, which is what the last row reflects. The usual shell escape
+`API_TOKEN='a'\''b'` does not help: it is rejected too, because the launcher
+compares against the raw line rather than re-implementing shell quoting. All of
+these fail at startup with an explanation rather than starting with a corrupted
+credential.
 
 Then pass it on every request:
 
 ```bash
-curl -H "Authorization: Bearer $API_TOKEN" http://your-unraid-ip:8043/api/v1/system
+curl -H "Authorization: Bearer $API_TOKEN" https://your-unraid-ip:8043/api/v1/system
 ```
 
-The token is never sanitised or rewritten. Via the `API_TOKEN` environment
-variable or `--api-token`, any character is safe to use; via `config.cfg` the
-quoting table above applies. Tokens
-containing control characters are rejected at startup rather than silently
-altered, and a whitespace-only token is a startup error rather than a silent
-fallback to no authentication.
+Use `https://` wherever the agent has TLS configured (see
+[HTTPS / TLS](#https--tls)) — a bearer token sent over plain `http://` travels in
+clear text and is readable by anything on the path. On a trusted LAN with TLS
+disabled, substitute `http://`.
+
+The token is never sanitised or rewritten: the value you configure is the value
+compared. Via the `API_TOKEN` environment variable or `--api-token`, any
+character is safe to use; via `config.cfg` the quoting table above applies.
+Anything that would make the effective token differ from the configured one is
+a startup error rather than a silent change: control characters, leading or
+trailing whitespace (the server trims what a client sends, per normal HTTP
+header handling, so a padded token would authenticate as its trimmed form), and
+a whitespace-only value, which would otherwise fall back to no authentication
+at all.
 
 **What is protected**: every REST endpoint, `/mcp`, and `/metrics`.
 

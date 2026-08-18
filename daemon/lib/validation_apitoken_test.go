@@ -43,6 +43,27 @@ func TestValidateAPIToken(t *testing.T) {
 			errWant: "whitespace-only",
 		},
 		{
+			// The middleware trims the configured token, so a padded value would
+			// authenticate as the trimmed form — a different credential than the
+			// operator configured.
+			name:    "trailing whitespace is rejected",
+			token:   "admin ",
+			wantErr: true,
+			errWant: "leading or trailing whitespace",
+		},
+		{
+			name:    "leading whitespace is rejected",
+			token:   " admin",
+			wantErr: true,
+			errWant: "leading or trailing whitespace",
+		},
+		{
+			name:    "leading tab is rejected",
+			token:   "\tadmin",
+			wantErr: true,
+			errWant: "leading or trailing whitespace",
+		},
+		{
 			name:    "embedded newline is rejected",
 			token:   "abc\ndef",
 			wantErr: true,
