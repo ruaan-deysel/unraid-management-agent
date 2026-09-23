@@ -89,6 +89,7 @@ if [ -f "$CONFIG_FILE" ] && grep -q '^API_TOKEN=' "$CONFIG_FILE"; then
             raw_token=${raw_token#\'}
             raw_token=${raw_token%\'}
             ;;
+    esac
     quoted_token=$(printf '%s\n' "$raw_token" | sed -e "s/'/'\\\\''/g")
     escaped_token=$(printf '%s\n' "$quoted_token" | sed -e 's/[\\&|]/\\&/g')
     sed -i "s|^API_TOKEN=.*|API_TOKEN='${escaped_token}'|" "$CONFIG_FILE"
