@@ -624,6 +624,16 @@ func (c *SettingsCollector) GetUpdateStatus() (*dto.UpdateStatus, error) {
 		logger.Debug("Settings: Could not read Unraid version: %v", err)
 	}
 
+	// Check local OS update availability
+	if info, found := readLocalLatestVersion(); found && info != nil {
+		status.LatestVersion = info.Version
+		if info.IsNewer != nil {
+			status.OSUpdateAvailable = *info.IsNewer
+		} else if info.Version != "" && status.CurrentVersion != "" && info.Version != status.CurrentVersion {
+			status.OSUpdateAvailable = true
+		}
+	}
+
 	// Get plugin list with update info
 	pluginList, err := c.GetPluginList()
 	if err == nil {

@@ -23,6 +23,7 @@ func setupOSUpdateTest(t *testing.T) string {
 
 	// Point candidate search at the temp dir; the files don't exist yet.
 	osUpdateCandidatePaths = []string{
+		filepath.Join(dir, "result.json"),
 		filepath.Join(dir, "result"),
 		filepath.Join(dir, "update.ini"),
 	}
@@ -51,6 +52,16 @@ func writeLatestFile(t *testing.T, dir, filename, version string) {
 	path := filepath.Join(dir, filename)
 	if err := os.WriteFile(path, []byte("version="+version+"\n"), 0o600); err != nil {
 		t.Fatalf("writeLatestFile: %v", err)
+	}
+}
+
+// writeLatestJSONFile writes a latest-version candidate file (JSON format from unraidcheck).
+func writeLatestJSONFile(t *testing.T, dir, filename, version string, isNewer bool) {
+	t.Helper()
+	path := filepath.Join(dir, filename)
+	content := fmt.Sprintf(`{"version":%q,"isNewer":%t}`+"\n", version, isNewer)
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("writeLatestJSONFile: %v", err)
 	}
 }
 
@@ -122,6 +133,55 @@ func TestOSUpdate_LatestEqualsCurrent_StatusUpToDate(t *testing.T) {
 	}
 	if result.UpdateAvailable {
 		t.Error("UpdateAvailable should be false when up to date")
+	}
+}
+
+func TestOSUpdate_JSONResult_Available(t *testing.T) {
+	dir := setupOSUpdateTest(t)
+	writeVersionFile(t, filepath.Join(dir, "unraid-version"), "7.2.3")
+	writeLatestJSONFile(t, dir, "result.json", "7.3.2", true)
+
+	hub := domain.NewEventBus(16)
+	c := NewOSUpdateCollector(&domain.Context{Hub: hub})
+
+	result, err := c.defaultCheck()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Status != dto.OSUpdateStatusAvailable {
+		t.Errorf("Status = %q, want %q", result.Status, dto.OSUpdateStatusAvailable)
+	}
+	if !result.UpdateAvailable {
+		t.Error("UpdateAvailable should be true")
+	}
+	if result.LatestVersion != "7.3.2" {
+		t.Errorf("LatestVersion = %q, want 7.3.2", result.LatestVersion)
+	}
+	if result.CurrentVersion != "7.2.3" {
+		t.Errorf("CurrentVersion = %q, want 7.2.3", result.CurrentVersion)
+	}
+}
+
+func TestOSUpdate_JSONResult_UpToDate(t *testing.T) {
+	dir := setupOSUpdateTest(t)
+	writeVersionFile(t, filepath.Join(dir, "unraid-version"), "7.3.2")
+	writeLatestJSONFile(t, dir, "result.json", "7.3.2", false)
+
+	hub := domain.NewEventBus(16)
+	c := NewOSUpdateCollector(&domain.Context{Hub: hub})
+
+	result, err := c.defaultCheck()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Status != dto.OSUpdateStatusUpToDate {
+		t.Errorf("Status = %q, want %q", result.Status, dto.OSUpdateStatusUpToDate)
+	}
+	if result.UpdateAvailable {
+		t.Error("UpdateAvailable should be false")
+	}
+	if result.LatestVersion != "7.3.2" {
+		t.Errorf("LatestVersion = %q, want 7.3.2", result.LatestVersion)
 	}
 }
 
@@ -335,3 +395,32 @@ func TestOSUpdate_FallbackToSecondCandidatePath(t *testing.T) {
 		t.Errorf("LatestVersion = %q, want 7.2.2", result.LatestVersion)
 	}
 }
+
+func TestOSUpdate_JSONFileWithoutIsNewer_VersionComparison(t *testing.T) {
+	dir := setupOSUpdateTest(t)
+	writeVersionFile(t, filepath.Join(dir, "unraid-version"), "7.2.0")
+
+	// Write JSON candidate with version but no isNewer property
+	path := filepath.Join(dir, "result.json")
+	if err := os.WriteFile(path, []byte(`{"version":"7.2.5"}`+"\n"), 0o600); err != nil {
+		t.Fatalf("failed to write result.json: %v", err)
+	}
+
+	hub := domain.NewEventBus(16)
+	c := NewOSUpdateCollector(&domain.Context{Hub: hub})
+
+	result, err := c.defaultCheck()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Status != dto.OSUpdateStatusAvailable {
+		t.Errorf("Status = %q, want %q", result.Status, dto.OSUpdateStatusAvailable)
+	}
+	if !result.UpdateAvailable {
+		t.Error("UpdateAvailable should be true when version differs from current")
+	}
+	if result.LatestVersion != "7.2.5" {
+		t.Errorf("LatestVersion = %q, want 7.2.5", result.LatestVersion)
+	}
+}
+

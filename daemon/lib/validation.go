@@ -655,3 +655,14 @@ func ValidateNotificationImportance(importance string) error {
 		return fmt.Errorf("invalid importance level: %s (must be alert, warning, normal, or info)", importance)
 	}
 }
+
+// ValidateToolPolicyValue validates that a policy string is one of the supported values:
+// "default", "hidden", "read_only", "allow", "ask".
+func ValidateToolPolicyValue(val string) error {
+	switch val {
+	case "default", "hidden", "read_only", "allow", "ask", "":
+		return nil
+	default:
+		return fmt.Errorf("invalid tool policy value %q (must be one of: default, hidden, read_only, allow, ask)", val)
+	}
+}

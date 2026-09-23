@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/ruaan-deysel/unraid-management-agent/daemon/constants"
+	"github.com/ruaan-deysel/unraid-management-agent/daemon/domain"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/dto"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/logger"
+	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/collectors"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/services/controllers"
 )
 
@@ -1729,6 +1733,33 @@ func (c *Client) publishUnassignedDiscovery(list *dto.UnassignedDeviceList) {
 	removed := c.tracker.update("unassigned", currentIDs)
 	for _, id := range removed {
 		c.removeHAEntities(id)
+	}
+}
+
+// publishRemoteShareStates re-collects remote share states and publishes them
+// to MQTT immediately, as well as publishing the updated UnassignedDeviceList
+// onto the event bus.
+func (c *Client) publishRemoteShareStates() {
+	if c.domainCtx == nil {
+		return
+	}
+	unassignedCollector := collectors.NewUnassignedCollector(c.domainCtx)
+	shares := unassignedCollector.CollectRemoteShares()
+	for _, share := range shares {
+		if share.MountPoint == "" {
+			continue
+		}
+		shareID := sanitizeID(share.MountPoint)
+		shareTopic := c.buildTopic(fmt.Sprintf("unassigned/remote/%s", shareID))
+		_ = c.publishJSON(shareTopic, share)
+	}
+	if c.domainCtx.Hub != nil {
+		deviceList := &dto.UnassignedDeviceList{
+			Devices:      unassignedCollector.CollectUnassignedDevices(),
+			RemoteShares: shares,
+			Timestamp:    time.Now(),
+		}
+		domain.Publish(c.domainCtx.Hub, constants.TopicUnassignedDevicesUpdate, deviceList)
 	}
 }
 

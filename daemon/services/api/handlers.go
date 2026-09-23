@@ -4,6 +4,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -2799,6 +2800,16 @@ func (s *Server) handleUpdateStatus(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 
+	if cached := s.GetOSUpdateCache(); cached != nil {
+		if cached.CurrentVersion != "" {
+			status.CurrentVersion = cached.CurrentVersion
+		}
+		if cached.LatestVersion != "" {
+			status.LatestVersion = cached.LatestVersion
+		}
+		status.OSUpdateAvailable = cached.UpdateAvailable
+	}
+
 	respondJSON(w, http.StatusOK, status)
 }
 
@@ -4986,6 +4997,11 @@ func (s *Server) handleOSUpdate(w http.ResponseWriter, _ *http.Request) {
 		respondJSON(w, http.StatusOK, cached)
 		return
 	}
+	collector := collectors.NewOSUpdateCollector(s.ctx)
+	if status, err := collector.CheckFn(); err == nil && status != nil {
+		respondJSON(w, http.StatusOK, status)
+		return
+	}
 	respondJSON(w, http.StatusOK, &dto.OSUpdateStatus{
 		Status:    dto.OSUpdateStatusUnknown,
 		Timestamp: time.Now(),
@@ -5007,5 +5023,97 @@ func (s *Server) handleMover(w http.ResponseWriter, _ *http.Request) {
 	}
 	respondJSON(w, http.StatusOK, &dto.MoverStatus{
 		Timestamp: time.Now(),
+	})
+}
+
+// handleGetMCPToolPolicy godoc
+//
+//	@Summary		Get MCP tool access policy
+//	@Description	Get the catalog of MCP tools and their configured/effective access policies
+//	@Tags			MCP
+//	@Produce		json
+//	@Success		200	{object}	dto.MCPToolPolicyResponse	"MCP tool policy catalog and settings"
+//	@Router			/mcp/tool-policy [get]
+func (s *Server) handleGetMCPToolPolicy(w http.ResponseWriter, _ *http.Request) {
+	if s.toolPolicyStore == nil {
+		respondJSON(w, http.StatusOK, dto.MCPToolPolicyResponse{
+			GlobalReadOnly: s.ctx.ReadOnly,
+			Tools:          []dto.MCPToolCatalogItem{},
+			Policies:       map[string]string{},
+		})
+		return
+	}
+
+	catalog := s.toolPolicyStore.GetCatalog(s.ctx.ReadOnly)
+	rawPolicies := s.toolPolicyStore.GetAll()
+	policies := make(map[string]string, len(rawPolicies))
+	for k, v := range rawPolicies {
+		policies[k] = string(v)
+	}
+
+	respondJSON(w, http.StatusOK, dto.MCPToolPolicyResponse{
+		GlobalReadOnly: s.ctx.ReadOnly,
+		Tools:          catalog,
+		Policies:       policies,
+	})
+}
+
+// handleUpdateMCPToolPolicy godoc
+//
+//	@Summary		Update MCP tool access policy
+//	@Description	Update per-tool MCP access policies (hidden, read_only, allow, ask, default)
+//	@Tags			MCP
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		dto.MCPToolPolicyUpdateRequest	true	"Tool policy configuration"
+//	@Success		200		{object}	dto.Response					"Policy updated successfully"
+//	@Failure		400		{object}	dto.Response					"Invalid tool name or policy value"
+//	@Failure		500		{object}	dto.Response					"Store not initialized"
+//	@Router			/mcp/tool-policy [put]
+func (s *Server) handleUpdateMCPToolPolicy(w http.ResponseWriter, r *http.Request) {
+	if s.toolPolicyStore == nil {
+		respondWithError(w, http.StatusInternalServerError, "Tool policy store not initialized")
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, fmt.Sprintf("Failed to read request body: %v", err))
+		return
+	}
+
+	var updateReq dto.MCPToolPolicyUpdateRequest
+	var rawMap map[string]string
+	if err := json.Unmarshal(body, &updateReq); err == nil && updateReq.Policies != nil {
+		rawMap = updateReq.Policies
+	} else if err := json.Unmarshal(body, &rawMap); err != nil {
+		respondWithError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON body: %v", err))
+		return
+	}
+
+	newPolicies := make(map[string]domain.ToolPolicyValue)
+	for toolName, policyStr := range rawMap {
+		if !s.toolPolicyStore.IsValidTool(toolName) {
+			respondWithError(w, http.StatusBadRequest, fmt.Sprintf("Unknown tool %q", toolName))
+			return
+		}
+		if err := domain.ValidateToolPolicyValue(policyStr); err != nil {
+			respondWithError(w, http.StatusBadRequest, fmt.Sprintf("Invalid policy for tool %q: %v", toolName, err))
+			return
+		}
+		val := domain.ToolPolicyValue(policyStr)
+		if val != "" && val != domain.PolicyDefault {
+			newPolicies[toolName] = val
+		}
+	}
+
+	s.toolPolicyStore.Replace(newPolicies)
+	if err := s.toolPolicyStore.Save(); err != nil {
+		logger.Warning("Failed to persist tool policy: %v", err)
+	}
+
+	respondJSON(w, http.StatusOK, dto.Response{
+		Success: true,
+		Message: "MCP tool policy updated successfully",
 	})
 }

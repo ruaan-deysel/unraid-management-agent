@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -17,6 +18,22 @@ import (
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/logger"
 )
 
+// remoteShareCapacity caches the last successful statfs result for a remote share mount.
+type remoteShareCapacity struct {
+	size         uint64
+	used         uint64
+	free         uint64
+	usagePercent float64
+	updatedAt    time.Time
+}
+
+var (
+	remoteCapacityMu    sync.RWMutex
+	remoteCapacityCache = make(map[string]remoteShareCapacity)
+	remoteProbingMu     sync.Mutex
+	remoteProbing       = make(map[string]bool)
+)
+
 // UnassignedCollector collects information about unassigned devices
 type UnassignedCollector struct {
 	ctx *domain.Context
@@ -25,6 +42,17 @@ type UnassignedCollector struct {
 // NewUnassignedCollector creates a new unassigned devices collector
 func NewUnassignedCollector(ctx *domain.Context) *UnassignedCollector {
 	return &UnassignedCollector{ctx: ctx}
+}
+
+// CollectRemoteShares collects remote SMB/NFS/ISO shares mounted by the
+// Unassigned Devices plugin under /mnt/remotes/ and /mnt/disks/.
+func (c *UnassignedCollector) CollectRemoteShares() []dto.UnassignedRemoteShare {
+	return c.collectRemoteShares()
+}
+
+// CollectUnassignedDevices discovers and collects unassigned disk devices.
+func (c *UnassignedCollector) CollectUnassignedDevices() []dto.UnassignedDevice {
+	return c.collectUnassignedDevices()
 }
 
 // Start begins collecting unassigned device information
@@ -167,12 +195,70 @@ func (c *UnassignedCollector) collectRemoteShares() []dto.UnassignedRemoteShare 
 		shares = append(shares, parseISOMountsFromProc(procMounts, now)...)
 	}
 
-	// Populate capacity information for mounted shares via statfs.
+	// Populate capacity information for mounted shares asynchronously via cache and background probe.
+	activeMounts := make(map[string]bool, len(shares))
 	for i := range shares {
 		if shares[i].Status == "mounted" && shares[i].MountPoint != "" {
-			c.getRemoteShareSizeInfo(&shares[i], shares[i].MountPoint)
+			mp := shares[i].MountPoint
+			activeMounts[mp] = true
+
+			// Use cached capacity if available
+			remoteCapacityMu.RLock()
+			cached, hasCache := remoteCapacityCache[mp]
+			remoteCapacityMu.RUnlock()
+
+			const remoteCapacityMaxAge = 10 * time.Minute
+			if hasCache && time.Since(cached.updatedAt) <= remoteCapacityMaxAge {
+				shares[i].Size = cached.size
+				shares[i].Used = cached.used
+				shares[i].Free = cached.free
+				shares[i].UsagePercent = cached.usagePercent
+			}
+
+			// If no cache or cache older than 60s, schedule background probe if not already probing
+			if !hasCache || time.Since(cached.updatedAt) > 60*time.Second {
+				remoteProbingMu.Lock()
+				if !remoteProbing[mp] {
+					remoteProbing[mp] = true
+					go func(path string) {
+						defer func() {
+							if r := recover(); r != nil {
+								logger.Error("Unassigned: PANIC in background capacity probe for %s: %v", path, r)
+							}
+							remoteProbingMu.Lock()
+							delete(remoteProbing, path)
+							remoteProbingMu.Unlock()
+						}()
+
+						size, used, free, usagePercent, err := getFilesystemUsageTimed(path, remoteStatfsTimeout)
+						if err == nil {
+							remoteCapacityMu.Lock()
+							remoteCapacityCache[path] = remoteShareCapacity{
+								size:         size,
+								used:         used,
+								free:         free,
+								usagePercent: usagePercent,
+								updatedAt:    time.Now(),
+							}
+							remoteCapacityMu.Unlock()
+						} else {
+							logger.Debug("Unassigned: background capacity probe for %s failed: %v", path, err)
+						}
+					}(mp)
+				}
+				remoteProbingMu.Unlock()
+			}
 		}
 	}
+
+	// Purge capacity cache for shares that are unmounted
+	remoteCapacityMu.Lock()
+	for mp := range remoteCapacityCache {
+		if !activeMounts[mp] {
+			delete(remoteCapacityCache, mp)
+		}
+	}
+	remoteCapacityMu.Unlock()
 
 	return shares
 }
@@ -744,20 +830,4 @@ func getFilesystemUsageTimed(path string, timeout time.Duration) (size, used, fr
 	case <-time.After(timeout):
 		return 0, 0, 0, 0, fmt.Errorf("statfs on %s timed out after %v (unreachable network mount?)", path, timeout)
 	}
-}
-
-// getRemoteShareSizeInfo retrieves size information for a remote share. The
-// statfs probe is bounded so an unreachable SMB/NFS server cannot wedge the
-// collector (issue #123); on timeout the share keeps zero capacity fields.
-func (c *UnassignedCollector) getRemoteShareSizeInfo(share *dto.UnassignedRemoteShare, mountPoint string) {
-	size, used, free, usagePercent, err := getFilesystemUsageTimed(mountPoint, remoteStatfsTimeout)
-	if err != nil {
-		logger.Debug("Unassigned: skipping capacity for %s: %v", mountPoint, err)
-		return
-	}
-
-	share.Size = size
-	share.Used = used
-	share.Free = free
-	share.UsagePercent = usagePercent
 }
