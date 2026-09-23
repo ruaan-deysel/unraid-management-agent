@@ -386,8 +386,8 @@ func unescapeMountField(field string) string {
 // parseSMBSource splits a CIFS source ("//server/share") into server and share.
 func parseSMBSource(source string) (server, share string) {
 	trimmed := strings.TrimPrefix(source, "//")
-	if idx := strings.Index(trimmed, "/"); idx >= 0 {
-		return trimmed[:idx], trimmed[idx+1:]
+	if before, after, ok := strings.Cut(trimmed, "/"); ok {
+		return before, after
 	}
 	return trimmed, ""
 }

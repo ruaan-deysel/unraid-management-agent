@@ -85,9 +85,6 @@ type CacheProvider interface {
 	GetHealthStatus() map[string]any
 }
 
-// ptr returns a pointer to the given value. Used for optional ToolAnnotations fields.
-func ptr[T any](v T) *T { return &v }
-
 // SystemControllerInterface defines the methods required for system power operations.
 type SystemControllerInterface interface {
 	Reboot() error
@@ -980,7 +977,7 @@ func (s *Server) registerNewMonitoringTools() {
 		Description: "Force an immediate registry digest re-check for all containers and publish the result (updates cache, WebSocket, and alerts).",
 		Annotations: &mcp.ToolAnnotations{
 			IdempotentHint:  true,
-			DestructiveHint: ptr(false),
+			DestructiveHint: new(false),
 		},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ dto.MCPEmptyArgs) (*mcp.CallToolResult, any, error) {
 		logger.Info("MCP: Refreshing container updates")
@@ -1058,7 +1055,7 @@ func (s *Server) registerNewMonitoringTools() {
 		Description: "Force an immediate plugin update check for all installed plugins and publish the result (updates cache, WebSocket, and alerts).",
 		Annotations: &mcp.ToolAnnotations{
 			IdempotentHint:  true,
-			DestructiveHint: ptr(false),
+			DestructiveHint: new(false),
 		},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ dto.MCPEmptyArgs) (*mcp.CallToolResult, any, error) {
 		logger.Info("MCP: Refreshing plugin updates")
@@ -1211,7 +1208,7 @@ func (s *Server) registerControlTools() {
 		Name:        "container_action",
 		Description: "Perform an action on a Docker container (start, stop, restart, pause, unpause, remove). The remove action requires confirm=true.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPContainerActionArgs) (*mcp.CallToolResult, any, error) {
@@ -1255,7 +1252,7 @@ func (s *Server) registerControlTools() {
 		Name:        "set_container_autostart",
 		Description: "Enable or disable autostart for a Docker container. Writes to the Unraid autostart file (/var/lib/docker/unraid-autostart). The change persists across reboots and is reversible.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(false),
+			DestructiveHint: new(false),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPSetAutostartArgs) (*mcp.CallToolResult, any, error) {
@@ -1300,7 +1297,7 @@ func (s *Server) registerControlTools() {
 		Name:        "vm_action",
 		Description: "Perform an action on a virtual machine (start, stop, restart, pause, resume, hibernate, force-stop, reset). The reset action requires confirm=true.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPVMActionArgs) (*mcp.CallToolResult, any, error) {
@@ -1348,7 +1345,7 @@ func (s *Server) registerControlTools() {
 		Name:        "array_action",
 		Description: "Start or stop the Unraid array. CAUTION: Stopping the array will make all data inaccessible. Requires confirmation.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPArrayActionArgs) (*mcp.CallToolResult, any, error) {
@@ -1383,7 +1380,7 @@ func (s *Server) registerControlTools() {
 		Name:        "remote_share_action",
 		Description: "Mount or unmount an Unassigned Devices SMB/NFS remote share by its source (//server/share or server:/export, as reported by get_remote_shares).",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPRemoteShareActionArgs) (*mcp.CallToolResult, any, error) {
@@ -1416,7 +1413,7 @@ func (s *Server) registerControlTools() {
 		Name:        "parity_check_action",
 		Description: "Start a parity check operation on the Unraid array",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(false),
+			DestructiveHint: new(false),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPParityCheckArgs) (*mcp.CallToolResult, any, error) {
@@ -1442,7 +1439,7 @@ func (s *Server) registerControlTools() {
 		Name:        "system_reboot",
 		Description: "Reboot the Unraid server. CAUTION: This will restart the entire system. Requires confirmation.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPSystemActionArgs) (*mcp.CallToolResult, any, error) {
 		if !args.Confirm {
@@ -1467,7 +1464,7 @@ func (s *Server) registerControlTools() {
 		Name:        "system_shutdown",
 		Description: "Shutdown the Unraid server. CAUTION: This will power off the entire system. Requires confirmation.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPSystemActionArgs) (*mcp.CallToolResult, any, error) {
 		if !args.Confirm {
@@ -1492,7 +1489,7 @@ func (s *Server) registerControlTools() {
 		Name:        "parity_check_stop",
 		Description: "Stop a running parity check operation",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(false),
+			DestructiveHint: new(false),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, _ dto.MCPEmptyArgs) (*mcp.CallToolResult, any, error) {
@@ -1514,7 +1511,7 @@ func (s *Server) registerControlTools() {
 		Name:        "parity_check_pause",
 		Description: "Pause a running parity check operation",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(false),
+			DestructiveHint: new(false),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, _ dto.MCPEmptyArgs) (*mcp.CallToolResult, any, error) {
@@ -1536,7 +1533,7 @@ func (s *Server) registerControlTools() {
 		Name:        "parity_check_resume",
 		Description: "Resume a paused parity check operation",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(false),
+			DestructiveHint: new(false),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, _ dto.MCPEmptyArgs) (*mcp.CallToolResult, any, error) {
@@ -1558,7 +1555,7 @@ func (s *Server) registerControlTools() {
 		Name:        "disk_spin_down",
 		Description: "Spin down a specific disk to save power. The disk will spin up automatically when accessed.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(false),
+			DestructiveHint: new(false),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPDiskArgs) (*mcp.CallToolResult, any, error) {
@@ -1584,7 +1581,7 @@ func (s *Server) registerControlTools() {
 		Name:        "disk_spin_up",
 		Description: "Spin up a specific disk that is in standby mode",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(false),
+			DestructiveHint: new(false),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPDiskArgs) (*mcp.CallToolResult, any, error) {
@@ -1610,7 +1607,7 @@ func (s *Server) registerControlTools() {
 		Name:        "clear_disk_stats",
 		Description: "Clear all array disk I/O statistics system-wide. Uses the same mechanism as the Unraid WebUI 'Clear Stats' button (emhttpd clearStatistics). Safe and reversible — counters reset to zero and resume accumulating normally. Requires the emhttpd socket.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(false),
+			DestructiveHint: new(false),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, _ dto.MCPEmptyArgs) (*mcp.CallToolResult, any, error) {
@@ -1630,7 +1627,7 @@ func (s *Server) registerControlTools() {
 		Name:        "execute_user_script",
 		Description: "Execute a user script from the User Scripts plugin. Requires confirmation for safety.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPUserScriptArgs) (*mcp.CallToolResult, any, error) {
 		if !args.Confirm {
@@ -1657,7 +1654,7 @@ func (s *Server) registerControlTools() {
 		Name:        "collector_action",
 		Description: "Enable or disable a data collector at runtime. Note: some collectors like 'system' are required and cannot be disabled.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(false),
+			DestructiveHint: new(false),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPCollectorControlArgs) (*mcp.CallToolResult, any, error) {
@@ -1695,7 +1692,7 @@ func (s *Server) registerControlTools() {
 		Name:        "update_collector_interval",
 		Description: "Update the collection interval for a specific collector. Interval must be between 5 and 86400 seconds.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(false),
+			DestructiveHint: new(false),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPCollectorIntervalArgs) (*mcp.CallToolResult, any, error) {
@@ -1733,7 +1730,7 @@ func (s *Server) registerNewControlTools() {
 		Name:        "update_container",
 		Description: "Update a Docker container to the latest image. Stops the container, pulls the latest image, recreates with the same config, and starts it.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPContainerUpdateArgs) (*mcp.CallToolResult, any, error) {
@@ -1755,7 +1752,7 @@ func (s *Server) registerNewControlTools() {
 		Name:        "update_all_containers",
 		Description: "Update all Docker containers that have available image updates. Stops, pulls latest images, recreates, and starts each container.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPContainerUpdateArgs) (*mcp.CallToolResult, any, error) {
 		if !args.Confirm {
@@ -1776,7 +1773,7 @@ func (s *Server) registerNewControlTools() {
 		Name:        "update_plugin",
 		Description: "Update a specific Unraid plugin to the latest version.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPPluginUpdateArgs) (*mcp.CallToolResult, any, error) {
@@ -1803,7 +1800,7 @@ func (s *Server) registerNewControlTools() {
 		Name:        "update_all_plugins",
 		Description: "Update all installed Unraid plugins that have available updates.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPPluginUpdateArgs) (*mcp.CallToolResult, any, error) {
 		if !args.Confirm {
@@ -1823,7 +1820,7 @@ func (s *Server) registerNewControlTools() {
 		Name:        "create_vm_snapshot",
 		Description: "Create a snapshot of a virtual machine for backup or rollback purposes.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(false),
+			DestructiveHint: new(false),
 			IdempotentHint:  false,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPVMSnapshotArgs) (*mcp.CallToolResult, any, error) {
@@ -1845,7 +1842,7 @@ func (s *Server) registerNewControlTools() {
 		Name:        "delete_vm_snapshot",
 		Description: "Delete a snapshot of a virtual machine. This cannot be undone.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPVMSnapshotDeleteArgs) (*mcp.CallToolResult, any, error) {
 		if !args.Confirm {
@@ -1868,7 +1865,7 @@ func (s *Server) registerNewControlTools() {
 		Name:        "restore_vm_snapshot",
 		Description: "Restore a virtual machine to a previously created snapshot. WARNING: This reverts the VM to the snapshot state and the current state is lost.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPVMSnapshotRestoreArgs) (*mcp.CallToolResult, any, error) {
 		if !args.Confirm {
@@ -1891,7 +1888,7 @@ func (s *Server) registerNewControlTools() {
 		Name:        "clone_vm",
 		Description: "Clone a virtual machine including its disk images. The source VM must be shut off.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(false),
+			DestructiveHint: new(false),
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPVMCloneArgs) (*mcp.CallToolResult, any, error) {
 		if !args.Confirm {
@@ -1914,7 +1911,7 @@ func (s *Server) registerNewControlTools() {
 		Name:        "service_action",
 		Description: "Start, stop, or restart an Unraid system service (docker, libvirt, smb, nfs, ftp, sshd, nginx, syslog, ntpd, avahi, wireguard).",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPServiceActionArgs) (*mcp.CallToolResult, any, error) {
@@ -1954,7 +1951,7 @@ func (s *Server) registerRemediationTools() {
 			"To execute remediation actions set confirm=true AND provide the actions list from a previous report. " +
 			"Only executor-supported actions (start/stop/restart_container, start/stop/restart/force_stop_vm) are ever executed.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 			IdempotentHint:  false,
 		},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args dto.MCPHealthReportArgs) (*mcp.CallToolResult, any, error) {
@@ -2052,7 +2049,7 @@ func (s *Server) registerRemediationTools() {
 			"stopped/exited containers from the cache automatically.",
 		Annotations: &mcp.ToolAnnotations{
 			IdempotentHint:  true,
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 		},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args dto.MCPRunRunbookArgs) (*mcp.CallToolResult, any, error) {
 		targets := args.Targets
@@ -2236,7 +2233,7 @@ func (s *Server) registerAlertingTools() {
 		Name:        "create_alert_rule",
 		Description: "Create a new alert rule with an expr-lang expression that evaluates against system metrics. Available variables: CPU, RAMUsedPct, CPUTemp, MotherboardTemp, ArrayState, ArrayUsedPct, ParityValid, ContainerCount, RunningContainers, StoppedContainers, VMCount, RunningVMs, MaxDiskTemp, MaxDiskUsedPct, TotalDiskErrors, UPSStatus, UPSBatteryCharge, UPSLoadPercent, UPSRuntimeLeft",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(false),
+			DestructiveHint: new(false),
 			IdempotentHint:  false,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPCreateAlertRuleArgs) (*mcp.CallToolResult, any, error) {
@@ -2276,7 +2273,7 @@ func (s *Server) registerAlertingTools() {
 		Name:        "delete_alert_rule",
 		Description: "Delete an alert rule by ID. Requires confirm=true to proceed.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPDeleteAlertRuleArgs) (*mcp.CallToolResult, any, error) {
@@ -2358,7 +2355,7 @@ func (s *Server) registerAlertingTools() {
 		Name:        "enable_alert_template",
 		Description: "Enable a curated alert rule template by ID. Creates the alert rule if it does not exist, or updates it if it does (idempotent). Optional channels override the default 'unraid' system notification. Template IDs: tmpl-array-fill, tmpl-disk-temp-climb, tmpl-container-flapping, tmpl-smart-reallocated, tmpl-disk-errors-rising.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(false),
+			DestructiveHint: new(false),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPEnableAlertTemplateArgs) (*mcp.CallToolResult, any, error) {
@@ -2443,7 +2440,7 @@ func (s *Server) registerWatchdogTools() {
 		Name:        "create_health_check",
 		Description: "Create a new health check probe (HTTP, TCP, or container state). Probes run at configurable intervals with optional remediation actions on failure (notify, restart container, or webhook).",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(false),
+			DestructiveHint: new(false),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPCreateHealthCheckArgs) (*mcp.CallToolResult, any, error) {
@@ -2483,7 +2480,7 @@ func (s *Server) registerWatchdogTools() {
 		Name:        "delete_health_check",
 		Description: "Delete a health check by ID. Requires confirm=true to proceed.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPDeleteHealthCheckArgs) (*mcp.CallToolResult, any, error) {
@@ -2523,7 +2520,7 @@ func (s *Server) registerWatchdogTools() {
 		Name:        "run_health_check",
 		Description: "Manually trigger a specific health check probe and return the immediate result",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(false),
+			DestructiveHint: new(false),
 			IdempotentHint:  true,
 		},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args dto.MCPHealthCheckIDArgs) (*mcp.CallToolResult, any, error) {
@@ -3190,7 +3187,7 @@ func (s *Server) registerFanControlTools() {
 		Name:        "set_fan_speed",
 		Description: "Set the PWM speed for a specific fan. Requires fan control to be enabled. Speed is clamped to safety minimums.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPFanSpeedArgs) (*mcp.CallToolResult, any, error) {
@@ -3212,7 +3209,7 @@ func (s *Server) registerFanControlTools() {
 		Name:        "set_fan_mode",
 		Description: "Set the control mode for a specific fan (automatic = BIOS-controlled, manual = software-controlled)",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPFanModeArgs) (*mcp.CallToolResult, any, error) {
@@ -3234,7 +3231,7 @@ func (s *Server) registerFanControlTools() {
 		Name:        "set_fan_profile",
 		Description: "Assign a temperature curve profile to a fan. Built-in profiles: quiet, balanced, performance. Set source_type='hwmon' with temp_sensor_path, OR source_type='drives' with drive_ids (+ optional fallback_sensor_path) to curve on the max temperature of selected drives.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPFanProfileArgs) (*mcp.CallToolResult, any, error) {
@@ -3272,7 +3269,7 @@ func (s *Server) registerFanControlTools() {
 		Name:        "create_fan_profile",
 		Description: "Create a custom temperature curve profile. Provide curve_points as a JSON array of {\"temp_celsius\": N, \"speed_percent\": N} objects.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPCreateFanProfileArgs) (*mcp.CallToolResult, any, error) {
 		if !args.Confirm {
@@ -3305,7 +3302,7 @@ func (s *Server) registerFanControlTools() {
 		Name:        "restore_fan_defaults",
 		Description: "Restore all fans to automatic (BIOS-controlled) mode. Safe operation that returns control to hardware.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPRestoreFanDefaultsArgs) (*mcp.CallToolResult, any, error) {
@@ -3332,7 +3329,7 @@ func (s *Server) registerCPUControlTools() {
 		Name:        "set_cpu_governor",
 		Description: "Set the CPU scaling governor for all cores. Common governors: performance (max speed), powersave (power saving), ondemand/schedutil (dynamic). Equivalent to Unraid Tips & Tweaks CPU governor setting.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPSetCPUGovernorArgs) (*mcp.CallToolResult, any, error) {
@@ -3415,7 +3412,7 @@ func (s *Server) registerTuningTools() {
 		Name:        "set_turbo_boost",
 		Description: "Enable or disable Intel Turbo Boost / AMD Performance Boost. Affects CPU maximum frequency.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPSetTurboBoostArgs) (*mcp.CallToolResult, any, error) {
@@ -3441,7 +3438,7 @@ func (s *Server) registerTuningTools() {
 		Name:        "set_disk_cache",
 		Description: "Set Linux disk cache parameters (vm.dirty_*). Controls how aggressively dirty pages are written to disk. Higher ratios = more caching = better performance but more data at risk.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPSetDiskCacheArgs) (*mcp.CallToolResult, any, error) {
@@ -3468,7 +3465,7 @@ func (s *Server) registerTuningTools() {
 		Name:        "set_inotify_limits",
 		Description: "Set Linux inotify kernel limits. Increase max_user_watches if applications report 'too many open files' or inotify watch limit errors.",
 		Annotations: &mcp.ToolAnnotations{
-			DestructiveHint: ptr(true),
+			DestructiveHint: new(true),
 			IdempotentHint:  true,
 		},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, args dto.MCPSetInotifyLimitsArgs) (*mcp.CallToolResult, any, error) {

@@ -12,12 +12,10 @@ import (
 func setupPolicyServer(t *testing.T, policies map[string]domain.ToolPolicyValue, readOnly bool) (*Server, *MockCacheProvider, *domain.ToolPolicyStore) {
 	t.Helper()
 	ctx := &domain.Context{
-		Config: domain.Config{
-			Version:    "test-1.0.0",
-			Port:       8043,
-			ReadOnly:   readOnly,
-			ToolPolicy: policies,
-		},
+		Version:    "test-1.0.0",
+		Port:       8043,
+		ReadOnly:   readOnly,
+		ToolPolicy: policies,
 	}
 	mock := newMockCacheProvider()
 	server := NewServer(ctx, mock)

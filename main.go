@@ -322,19 +322,17 @@ func main() {
 
 	// Create application context with intervals from CLI/env
 	appCtx := &domain.Context{
-		Config: domain.Config{
-			Version:     Version,
-			Port:        cli.Port,
-			BindAddress: cli.BindAddress,
-			CORSOrigin:  cli.CORSOrigin,
-			APIToken:    cli.APIToken,
-			ReadOnly:    cli.ReadOnly,
-			TLSCertFile: cli.TLSCertFile,
-			TLSKeyFile:  cli.TLSKeyFile,
-			ToolPolicy:  toolPolicy,
-		},
-		Hub:      domain.NewEventBus(1024), // Buffer size for event bus
-		Platform: platform.NewRegistry(),
+		Version:     Version,
+		Port:        cli.Port,
+		BindAddress: cli.BindAddress,
+		CORSOrigin:  cli.CORSOrigin,
+		APIToken:    cli.APIToken,
+		ReadOnly:    cli.ReadOnly,
+		TLSCertFile: cli.TLSCertFile,
+		TLSKeyFile:  cli.TLSKeyFile,
+		ToolPolicy:  toolPolicy,
+		Hub:         domain.NewEventBus(1024), // Buffer size for event bus
+		Platform:    platform.NewRegistry(),
 		MQTTConfig: domain.MQTTConfig{
 			Enabled:             cli.MQTTEnabled,
 			Broker:              cli.MQTTBroker,

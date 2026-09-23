@@ -12,11 +12,9 @@ import (
 func setupReadOnlyServer(t *testing.T) (*Server, *MockCacheProvider) {
 	t.Helper()
 	ctx := &domain.Context{
-		Config: domain.Config{
-			Version:  "test-1.0.0",
-			Port:     8043,
-			ReadOnly: true,
-		},
+		Version:  "test-1.0.0",
+		Port:     8043,
+		ReadOnly: true,
 	}
 	mock := newMockCacheProvider()
 	server := NewServer(ctx, mock)

@@ -320,7 +320,7 @@ func isVersionNewer(latest, current string) bool {
 	cParts := strings.Split(currentBase, ".")
 
 	maxLen := max(len(lParts), len(cParts))
-	for i := 0; i < maxLen; i++ {
+	for i := range maxLen {
 		var lNum, cNum int
 		if i < len(lParts) {
 			_, _ = fmt.Sscanf(lParts[i], "%d", &lNum)
