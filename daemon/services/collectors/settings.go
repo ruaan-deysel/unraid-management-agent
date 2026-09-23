@@ -629,7 +629,7 @@ func (c *SettingsCollector) GetUpdateStatus() (*dto.UpdateStatus, error) {
 		status.LatestVersion = info.Version
 		if info.IsNewer != nil {
 			status.OSUpdateAvailable = *info.IsNewer
-		} else if info.Version != "" && status.CurrentVersion != "" && info.Version != status.CurrentVersion {
+		} else if isVersionNewer(info.Version, status.CurrentVersion) {
 			status.OSUpdateAvailable = true
 		}
 	}
