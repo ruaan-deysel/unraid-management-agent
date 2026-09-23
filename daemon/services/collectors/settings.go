@@ -623,7 +623,6 @@ func (c *SettingsCollector) GetUpdateStatus() (*dto.UpdateStatus, error) {
 	if err := c.parseUnraidVersion(status); err != nil {
 		logger.Debug("Settings: Could not read Unraid version: %v", err)
 	}
-
 	// Check local OS update availability
 	if info, found := readLocalLatestVersion(); found && info != nil {
 		status.LatestVersion = info.Version
