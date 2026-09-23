@@ -136,52 +136,118 @@ func TestOSUpdate_LatestEqualsCurrent_StatusUpToDate(t *testing.T) {
 	}
 }
 
-func TestOSUpdate_JSONResult_Available(t *testing.T) {
-	dir := setupOSUpdateTest(t)
-	writeVersionFile(t, filepath.Join(dir, "unraid-version"), "7.2.3")
-	writeLatestJSONFile(t, dir, "result.json", "7.3.2", true)
+func TestOSUpdate_JSONResult(t *testing.T) {
+	testCases := []struct {
+		name                string
+		currentVersion      string
+		jsonContent         string
+		wantStatus          string
+		wantUpdateAvailable bool
+		wantLatestVersion   string
+	}{
+		{
+			name:                "isNewer true",
+			currentVersion:      "7.2.3",
+			jsonContent:         `{"version":"7.3.2","isNewer":true}`,
+			wantStatus:          dto.OSUpdateStatusAvailable,
+			wantUpdateAvailable: true,
+			wantLatestVersion:   "7.3.2",
+		},
+		{
+			name:                "isNewer false with same version",
+			currentVersion:      "7.3.2",
+			jsonContent:         `{"version":"7.3.2","isNewer":false}`,
+			wantStatus:          dto.OSUpdateStatusUpToDate,
+			wantUpdateAvailable: false,
+			wantLatestVersion:   "7.3.2",
+		},
+		{
+			name:                "isNewer false despite differing version",
+			currentVersion:      "7.2.0",
+			jsonContent:         `{"version":"7.3.0","isNewer":false}`,
+			wantStatus:          dto.OSUpdateStatusUpToDate,
+			wantUpdateAvailable: false,
+			wantLatestVersion:   "7.3.0",
+		},
+		{
+			name:                "no isNewer property, candidate version is newer",
+			currentVersion:      "7.2.0",
+			jsonContent:         `{"version":"7.2.5"}`,
+			wantStatus:          dto.OSUpdateStatusAvailable,
+			wantUpdateAvailable: true,
+			wantLatestVersion:   "7.2.5",
+		},
+		{
+			name:                "no isNewer property, candidate version is older",
+			currentVersion:      "7.3.2",
+			jsonContent:         `{"version":"7.2.0"}`,
+			wantStatus:          dto.OSUpdateStatusUpToDate,
+			wantUpdateAvailable: false,
+			wantLatestVersion:   "7.2.0",
+		},
+		{
+			name:                "no isNewer property, candidate version is equal",
+			currentVersion:      "7.3.2",
+			jsonContent:         `{"version":"7.3.2"}`,
+			wantStatus:          dto.OSUpdateStatusUpToDate,
+			wantUpdateAvailable: false,
+			wantLatestVersion:   "7.3.2",
+		},
+	}
 
-	hub := domain.NewEventBus(16)
-	c := NewOSUpdateCollector(&domain.Context{Hub: hub})
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := setupOSUpdateTest(t)
+			writeVersionFile(t, filepath.Join(dir, "unraid-version"), tc.currentVersion)
+			path := filepath.Join(dir, "result.json")
+			if err := os.WriteFile(path, []byte(tc.jsonContent+"\n"), 0o600); err != nil {
+				t.Fatalf("write result.json: %v", err)
+			}
 
-	result, err := c.defaultCheck()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Status != dto.OSUpdateStatusAvailable {
-		t.Errorf("Status = %q, want %q", result.Status, dto.OSUpdateStatusAvailable)
-	}
-	if !result.UpdateAvailable {
-		t.Error("UpdateAvailable should be true")
-	}
-	if result.LatestVersion != "7.3.2" {
-		t.Errorf("LatestVersion = %q, want 7.3.2", result.LatestVersion)
-	}
-	if result.CurrentVersion != "7.2.3" {
-		t.Errorf("CurrentVersion = %q, want 7.2.3", result.CurrentVersion)
+			hub := domain.NewEventBus(16)
+			c := NewOSUpdateCollector(&domain.Context{Hub: hub})
+
+			result, err := c.defaultCheck()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if result.Status != tc.wantStatus {
+				t.Errorf("Status = %q, want %q", result.Status, tc.wantStatus)
+			}
+			if result.UpdateAvailable != tc.wantUpdateAvailable {
+				t.Errorf("UpdateAvailable = %v, want %v", result.UpdateAvailable, tc.wantUpdateAvailable)
+			}
+			if result.LatestVersion != tc.wantLatestVersion {
+				t.Errorf("LatestVersion = %q, want %q", result.LatestVersion, tc.wantLatestVersion)
+			}
+		})
 	}
 }
 
-func TestOSUpdate_JSONResult_UpToDate(t *testing.T) {
-	dir := setupOSUpdateTest(t)
-	writeVersionFile(t, filepath.Join(dir, "unraid-version"), "7.3.2")
-	writeLatestJSONFile(t, dir, "result.json", "7.3.2", false)
+func TestIsVersionNewer(t *testing.T) {
+	tests := []struct {
+		latest  string
+		current string
+		want    bool
+	}{
+		{"7.3.0", "7.2.0", true},
+		{"7.2.1", "7.2.0", true},
+		{"v7.2.1", "7.2.0", true},
+		{"7.2.0", "7.2.1", false},
+		{"7.2.0", "7.2.0", false},
+		{"7.1.0", "7.2.0", false},
+		{"7.0.0-beta.2", "7.0.0-beta.1", false},
+		{"", "7.2.0", false},
+		{"7.2.0", "", true},
+	}
 
-	hub := domain.NewEventBus(16)
-	c := NewOSUpdateCollector(&domain.Context{Hub: hub})
-
-	result, err := c.defaultCheck()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Status != dto.OSUpdateStatusUpToDate {
-		t.Errorf("Status = %q, want %q", result.Status, dto.OSUpdateStatusUpToDate)
-	}
-	if result.UpdateAvailable {
-		t.Error("UpdateAvailable should be false")
-	}
-	if result.LatestVersion != "7.3.2" {
-		t.Errorf("LatestVersion = %q, want 7.3.2", result.LatestVersion)
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%s vs %s", tt.latest, tt.current), func(t *testing.T) {
+			got := isVersionNewer(tt.latest, tt.current)
+			if got != tt.want {
+				t.Errorf("isVersionNewer(%q, %q) = %v, want %v", tt.latest, tt.current, got, tt.want)
+			}
+		})
 	}
 }
 
@@ -395,32 +461,3 @@ func TestOSUpdate_FallbackToSecondCandidatePath(t *testing.T) {
 		t.Errorf("LatestVersion = %q, want 7.2.2", result.LatestVersion)
 	}
 }
-
-func TestOSUpdate_JSONFileWithoutIsNewer_VersionComparison(t *testing.T) {
-	dir := setupOSUpdateTest(t)
-	writeVersionFile(t, filepath.Join(dir, "unraid-version"), "7.2.0")
-
-	// Write JSON candidate with version but no isNewer property
-	path := filepath.Join(dir, "result.json")
-	if err := os.WriteFile(path, []byte(`{"version":"7.2.5"}`+"\n"), 0o600); err != nil {
-		t.Fatalf("failed to write result.json: %v", err)
-	}
-
-	hub := domain.NewEventBus(16)
-	c := NewOSUpdateCollector(&domain.Context{Hub: hub})
-
-	result, err := c.defaultCheck()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Status != dto.OSUpdateStatusAvailable {
-		t.Errorf("Status = %q, want %q", result.Status, dto.OSUpdateStatusAvailable)
-	}
-	if !result.UpdateAvailable {
-		t.Error("UpdateAvailable should be true when version differs from current")
-	}
-	if result.LatestVersion != "7.2.5" {
-		t.Errorf("LatestVersion = %q, want 7.2.5", result.LatestVersion)
-	}
-}
-

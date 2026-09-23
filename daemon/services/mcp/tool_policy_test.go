@@ -33,7 +33,7 @@ func setupPolicyServer(t *testing.T, policies map[string]domain.ToolPolicyValue,
 func TestToolPolicyHiddenHidesFromListAndCall(t *testing.T) {
 	policies := map[string]domain.ToolPolicyValue{
 		"system_reboot": domain.PolicyHidden,
-		"get_disk_list": domain.PolicyHidden,
+		"list_disks":    domain.PolicyHidden,
 	}
 	server, _, _ := setupPolicyServer(t, policies, false)
 	cs, cleanup := connectClientToServer(t, server)
@@ -46,7 +46,7 @@ func TestToolPolicyHiddenHidesFromListAndCall(t *testing.T) {
 	}
 
 	for _, tool := range toolsRes.Tools {
-		if tool.Name == "system_reboot" || tool.Name == "get_disk_list" {
+		if tool.Name == "system_reboot" || tool.Name == "list_disks" {
 			t.Errorf("expected tool %q to be hidden from ListTools, but found it", tool.Name)
 		}
 	}
@@ -61,10 +61,10 @@ func TestToolPolicyHiddenHidesFromListAndCall(t *testing.T) {
 	}
 
 	_, err = cs.CallTool(ctx, &mcp.CallToolParams{
-		Name: "get_disk_list",
+		Name: "list_disks",
 	})
 	if err == nil {
-		t.Errorf("expected CallTool for hidden tool 'get_disk_list' to fail, but got nil err")
+		t.Errorf("expected CallTool for hidden tool 'list_disks' to fail, but got nil err")
 	}
 }
 
@@ -98,6 +98,9 @@ func TestToolPolicyAllowBypassesConfirm(t *testing.T) {
 		"system_reboot": domain.PolicyAllow,
 	}
 	server, _, _ := setupPolicyServer(t, policies, false)
+	mockSys := &mockSystemController{}
+	server.SetSystemController(mockSys)
+
 	cs, cleanup := connectClientToServer(t, server)
 	defer cleanup()
 
@@ -105,6 +108,9 @@ func TestToolPolicyAllowBypassesConfirm(t *testing.T) {
 	_, text := callToolJSON(t, cs, "system_reboot", map[string]any{"confirm": false})
 	if strings.Contains(text, "requires confirm=true") || strings.Contains(text, "To proceed, call this tool again with confirm=true") {
 		t.Errorf("expected confirm requirement to be bypassed when policy is 'allow', got: %s", text)
+	}
+	if !mockSys.rebootCalled {
+		t.Errorf("expected Reboot to be called on system controller under PolicyAllow")
 	}
 }
 

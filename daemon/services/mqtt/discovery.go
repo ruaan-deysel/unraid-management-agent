@@ -1701,7 +1701,6 @@ func (c *Client) publishUnassignedDiscovery(list *dto.UnassignedDeviceList) {
 		devTopic := c.buildTopic(fmt.Sprintf("unassigned/%s", devID))
 		if err := c.publishJSON(devTopic, dev); err != nil {
 			logger.Debug("MQTT: Failed to publish unassigned device %s: %v", devID, err)
-			continue
 		}
 		displayName := dev.Model
 		if displayName == "" {
@@ -1724,7 +1723,6 @@ func (c *Client) publishUnassignedDiscovery(list *dto.UnassignedDeviceList) {
 		shareTopic := c.buildTopic(fmt.Sprintf("unassigned/remote/%s", shareID))
 		if err := c.publishJSON(shareTopic, share); err != nil {
 			logger.Debug("MQTT: Failed to publish remote share %s: %v", shareID, err)
-			continue
 		}
 		ids := c.publishRemoteShareEntities(shareTopic, fmt.Sprintf("remote_share_%s", shareID), remoteShareDisplayName(share), shareID, share.Type)
 		currentIDs = append(currentIDs, ids...)
@@ -1745,14 +1743,8 @@ func (c *Client) publishRemoteShareStates() {
 	}
 	unassignedCollector := collectors.NewUnassignedCollector(c.domainCtx)
 	shares := unassignedCollector.CollectRemoteShares()
-	for _, share := range shares {
-		if share.MountPoint == "" {
-			continue
-		}
-		shareID := sanitizeID(share.MountPoint)
-		shareTopic := c.buildTopic(fmt.Sprintf("unassigned/remote/%s", shareID))
-		_ = c.publishJSON(shareTopic, share)
-	}
+
+	// Publish to event bus first so internal subscribers (API cache, WebSocket) get immediate updates
 	if c.domainCtx.Hub != nil {
 		deviceList := &dto.UnassignedDeviceList{
 			Devices:      unassignedCollector.CollectUnassignedDevices(),
@@ -1760,6 +1752,15 @@ func (c *Client) publishRemoteShareStates() {
 			Timestamp:    time.Now(),
 		}
 		domain.Publish(c.domainCtx.Hub, constants.TopicUnassignedDevicesUpdate, deviceList)
+	}
+
+	for _, share := range shares {
+		if share.MountPoint == "" {
+			continue
+		}
+		shareID := sanitizeID(share.MountPoint)
+		shareTopic := c.buildTopic(fmt.Sprintf("unassigned/remote/%s", shareID))
+		_ = c.publishJSON(shareTopic, share)
 	}
 }
 

@@ -20,6 +20,7 @@ import (
 
 // remoteShareCapacity caches the last successful statfs result for a remote share mount.
 type remoteShareCapacity struct {
+	source       string
 	size         uint64
 	used         uint64
 	free         uint64
@@ -36,7 +37,8 @@ var (
 
 // UnassignedCollector collects information about unassigned devices
 type UnassignedCollector struct {
-	ctx *domain.Context
+	ctx    *domain.Context
+	runCtx context.Context
 }
 
 // NewUnassignedCollector creates a new unassigned devices collector
@@ -64,6 +66,7 @@ func (c *UnassignedCollector) Start(ctx context.Context, interval time.Duration)
 		}
 	}()
 
+	c.runCtx = ctx
 	logger.Info("Starting unassigned devices collector (interval: %v)", interval)
 
 	// Initial collection with panic recovery
@@ -202,10 +205,13 @@ func (c *UnassignedCollector) collectRemoteShares() []dto.UnassignedRemoteShare 
 			mp := shares[i].MountPoint
 			activeMounts[mp] = true
 
-			// Use cached capacity if available
+			// Use cached capacity if available and matches share source
 			remoteCapacityMu.RLock()
 			cached, hasCache := remoteCapacityCache[mp]
 			remoteCapacityMu.RUnlock()
+			if hasCache && cached.source != shares[i].Source {
+				hasCache = false
+			}
 
 			const remoteCapacityMaxAge = 10 * time.Minute
 			if hasCache && time.Since(cached.updatedAt) <= remoteCapacityMaxAge {
@@ -220,7 +226,7 @@ func (c *UnassignedCollector) collectRemoteShares() []dto.UnassignedRemoteShare 
 				remoteProbingMu.Lock()
 				if !remoteProbing[mp] {
 					remoteProbing[mp] = true
-					go func(path string) {
+					go func(path, source string) {
 						defer func() {
 							if r := recover(); r != nil {
 								logger.Error("Unassigned: PANIC in background capacity probe for %s: %v", path, r)
@@ -230,10 +236,19 @@ func (c *UnassignedCollector) collectRemoteShares() []dto.UnassignedRemoteShare 
 							remoteProbingMu.Unlock()
 						}()
 
+						if c.runCtx != nil && c.runCtx.Err() != nil {
+							return
+						}
+
 						size, used, free, usagePercent, err := getFilesystemUsageTimed(path, remoteStatfsTimeout)
+						if c.runCtx != nil && c.runCtx.Err() != nil {
+							return
+						}
+
 						if err == nil {
 							remoteCapacityMu.Lock()
 							remoteCapacityCache[path] = remoteShareCapacity{
+								source:       source,
 								size:         size,
 								used:         used,
 								free:         free,
@@ -244,7 +259,7 @@ func (c *UnassignedCollector) collectRemoteShares() []dto.UnassignedRemoteShare 
 						} else {
 							logger.Debug("Unassigned: background capacity probe for %s failed: %v", path, err)
 						}
-					}(mp)
+					}(mp, shares[i].Source)
 				}
 				remoteProbingMu.Unlock()
 			}

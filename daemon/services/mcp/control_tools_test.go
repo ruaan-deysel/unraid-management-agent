@@ -634,7 +634,7 @@ func TestToolDeleteVMSnapshot_EmptyName(t *testing.T) {
 	}
 }
 
-func TestToolDeleteVMSnapshot(t *testing.T) {
+func TestToolDeleteVMSnapshot_Confirmed(t *testing.T) {
 	server, _ := setupInitializedServer(t)
 	cs, cleanup := connectClientToServer(t, server)
 	defer cleanup()
@@ -644,8 +644,8 @@ func TestToolDeleteVMSnapshot(t *testing.T) {
 		"snapshot_name": "snap1",
 		"confirm":       true,
 	})
-	if text == "" {
-		t.Error("Expected non-empty response")
+	if strings.Contains(text, "requires confirm=true") {
+		t.Errorf("Expected confirm requirement to be satisfied, got: %s", text)
 	}
 }
 
@@ -972,178 +972,118 @@ func TestToolRestoreVMSnapshot_Confirmed(t *testing.T) {
 
 // ===== Fan Control & Remote Share Tool Tests =====
 
-func TestToolSetFanSpeed_Unconfirmed(t *testing.T) {
+func TestFanAndRemoteShareConfirmation(t *testing.T) {
 	server, _ := setupInitializedServer(t)
 	cs, cleanup := connectClientToServer(t, server)
 	defer cleanup()
 
-	_, text := callToolJSON(t, cs, "set_fan_speed", map[string]any{
-		"fan_id":      "hwmon0_fan1",
-		"pwm_percent": 50,
-		"confirm":     false,
-	})
-	if !strings.Contains(text, "Setting fan speed requires confirm=true") {
-		t.Errorf("Expected 'Setting fan speed requires confirm=true' message, got: %s", text)
+	testCases := []struct {
+		name              string
+		tool              string
+		unconfirmedArgs   map[string]any
+		confirmedArgs     map[string]any
+		expectedPromptSub string
+	}{
+		{
+			name: "set_fan_speed",
+			tool: "set_fan_speed",
+			unconfirmedArgs: map[string]any{
+				"fan_id":      "hwmon0_fan1",
+				"pwm_percent": 50,
+				"confirm":     false,
+			},
+			confirmedArgs: map[string]any{
+				"fan_id":      "hwmon0_fan1",
+				"pwm_percent": 50,
+				"confirm":     true,
+			},
+			expectedPromptSub: "Setting fan speed requires confirm=true",
+		},
+		{
+			name: "set_fan_mode",
+			tool: "set_fan_mode",
+			unconfirmedArgs: map[string]any{
+				"fan_id":  "hwmon0_fan1",
+				"mode":    "manual",
+				"confirm": false,
+			},
+			confirmedArgs: map[string]any{
+				"fan_id":  "hwmon0_fan1",
+				"mode":    "manual",
+				"confirm": true,
+			},
+			expectedPromptSub: "Setting fan mode requires confirm=true",
+		},
+		{
+			name: "set_fan_profile",
+			tool: "set_fan_profile",
+			unconfirmedArgs: map[string]any{
+				"fan_id":       "hwmon0_fan1",
+				"profile_name": "quiet",
+				"confirm":      false,
+			},
+			confirmedArgs: map[string]any{
+				"fan_id":       "hwmon0_fan1",
+				"profile_name": "quiet",
+				"confirm":      true,
+			},
+			expectedPromptSub: "Setting fan profile requires confirm=true",
+		},
+		{
+			name: "create_fan_profile",
+			tool: "create_fan_profile",
+			unconfirmedArgs: map[string]any{
+				"name":         "custom_test",
+				"curve_points": `[{"temp_celsius": 40, "speed_percent": 30}]`,
+				"confirm":      false,
+			},
+			confirmedArgs: map[string]any{
+				"name":         "custom_test",
+				"curve_points": `[{"temp_celsius": 40, "speed_percent": 30}]`,
+				"confirm":      true,
+			},
+			expectedPromptSub: "Creating fan profile requires confirm=true",
+		},
+		{
+			name: "restore_fan_defaults",
+			tool: "restore_fan_defaults",
+			unconfirmedArgs: map[string]any{
+				"confirm": false,
+			},
+			confirmedArgs: map[string]any{
+				"confirm": true,
+			},
+			expectedPromptSub: "Restoring fan defaults requires confirm=true",
+		},
+		{
+			name: "remote_share_action",
+			tool: "remote_share_action",
+			unconfirmedArgs: map[string]any{
+				"source":  "//server/share",
+				"action":  "mount",
+				"confirm": false,
+			},
+			confirmedArgs: map[string]any{
+				"source":  "//server/share",
+				"action":  "mount",
+				"confirm": true,
+			},
+			expectedPromptSub: "Remote share action requires confirm=true",
+		},
 	}
-}
 
-func TestToolSetFanSpeed_Confirmed(t *testing.T) {
-	server, _ := setupInitializedServer(t)
-	cs, cleanup := connectClientToServer(t, server)
-	defer cleanup()
-
-	_, text := callToolJSON(t, cs, "set_fan_speed", map[string]any{
-		"fan_id":      "hwmon0_fan1",
-		"pwm_percent": 50,
-		"confirm":     true,
-	})
-	if text == "" {
-		t.Error("Expected non-empty response")
-	}
-}
-
-func TestToolSetFanMode_Unconfirmed(t *testing.T) {
-	server, _ := setupInitializedServer(t)
-	cs, cleanup := connectClientToServer(t, server)
-	defer cleanup()
-
-	_, text := callToolJSON(t, cs, "set_fan_mode", map[string]any{
-		"fan_id":  "hwmon0_fan1",
-		"mode":    "manual",
-		"confirm": false,
-	})
-	if !strings.Contains(text, "Setting fan mode requires confirm=true") {
-		t.Errorf("Expected 'Setting fan mode requires confirm=true' message, got: %s", text)
-	}
-}
-
-func TestToolSetFanMode_Confirmed(t *testing.T) {
-	server, _ := setupInitializedServer(t)
-	cs, cleanup := connectClientToServer(t, server)
-	defer cleanup()
-
-	_, text := callToolJSON(t, cs, "set_fan_mode", map[string]any{
-		"fan_id":  "hwmon0_fan1",
-		"mode":    "manual",
-		"confirm": true,
-	})
-	if text == "" {
-		t.Error("Expected non-empty response")
-	}
-}
-
-func TestToolSetFanProfile_Unconfirmed(t *testing.T) {
-	server, _ := setupInitializedServer(t)
-	cs, cleanup := connectClientToServer(t, server)
-	defer cleanup()
-
-	_, text := callToolJSON(t, cs, "set_fan_profile", map[string]any{
-		"fan_id":       "hwmon0_fan1",
-		"profile_name": "quiet",
-		"confirm":      false,
-	})
-	if !strings.Contains(text, "Setting fan profile requires confirm=true") {
-		t.Errorf("Expected 'Setting fan profile requires confirm=true' message, got: %s", text)
-	}
-}
-
-func TestToolSetFanProfile_Confirmed(t *testing.T) {
-	server, _ := setupInitializedServer(t)
-	cs, cleanup := connectClientToServer(t, server)
-	defer cleanup()
-
-	_, text := callToolJSON(t, cs, "set_fan_profile", map[string]any{
-		"fan_id":       "hwmon0_fan1",
-		"profile_name": "quiet",
-		"confirm":      true,
-	})
-	if text == "" {
-		t.Error("Expected non-empty response")
-	}
-}
-
-func TestToolCreateFanProfile_Unconfirmed(t *testing.T) {
-	server, _ := setupInitializedServer(t)
-	cs, cleanup := connectClientToServer(t, server)
-	defer cleanup()
-
-	_, text := callToolJSON(t, cs, "create_fan_profile", map[string]any{
-		"name":         "custom_test",
-		"curve_points": `[{"temp_celsius": 40, "speed_percent": 30}]`,
-		"confirm":      false,
-	})
-	if !strings.Contains(text, "Creating fan profile requires confirm=true") {
-		t.Errorf("Expected 'Creating fan profile requires confirm=true' message, got: %s", text)
-	}
-}
-
-func TestToolCreateFanProfile_Confirmed(t *testing.T) {
-	server, _ := setupInitializedServer(t)
-	cs, cleanup := connectClientToServer(t, server)
-	defer cleanup()
-
-	_, text := callToolJSON(t, cs, "create_fan_profile", map[string]any{
-		"name":         "custom_test",
-		"curve_points": `[{"temp_celsius": 40, "speed_percent": 30}]`,
-		"confirm":      true,
-	})
-	if text == "" {
-		t.Error("Expected non-empty response")
-	}
-}
-
-func TestToolRestoreFanDefaults_Unconfirmed(t *testing.T) {
-	server, _ := setupInitializedServer(t)
-	cs, cleanup := connectClientToServer(t, server)
-	defer cleanup()
-
-	_, text := callToolJSON(t, cs, "restore_fan_defaults", map[string]any{
-		"confirm": false,
-	})
-	if !strings.Contains(text, "Restoring fan defaults requires confirm=true") {
-		t.Errorf("Expected 'Restoring fan defaults requires confirm=true' message, got: %s", text)
-	}
-}
-
-func TestToolRestoreFanDefaults_Confirmed(t *testing.T) {
-	server, _ := setupInitializedServer(t)
-	cs, cleanup := connectClientToServer(t, server)
-	defer cleanup()
-
-	_, text := callToolJSON(t, cs, "restore_fan_defaults", map[string]any{
-		"confirm": true,
-	})
-	if text == "" {
-		t.Error("Expected non-empty response")
-	}
-}
-
-func TestToolRemoteShareAction_Unconfirmed(t *testing.T) {
-	server, _ := setupInitializedServer(t)
-	cs, cleanup := connectClientToServer(t, server)
-	defer cleanup()
-
-	_, text := callToolJSON(t, cs, "remote_share_action", map[string]any{
-		"source":  "//server/share",
-		"action":  "mount",
-		"confirm": false,
-	})
-	if !strings.Contains(text, "Remote share action requires confirm=true") {
-		t.Errorf("Expected 'Remote share action requires confirm=true' message, got: %s", text)
-	}
-}
-
-func TestToolRemoteShareAction_Confirmed(t *testing.T) {
-	server, _ := setupInitializedServer(t)
-	cs, cleanup := connectClientToServer(t, server)
-	defer cleanup()
-
-	_, text := callToolJSON(t, cs, "remote_share_action", map[string]any{
-		"source":  "//server/share",
-		"action":  "mount",
-		"confirm": true,
-	})
-	if text == "" {
-		t.Error("Expected non-empty response")
+	for _, tc := range testCases {
+		t.Run(tc.name+"/unconfirmed", func(t *testing.T) {
+			_, text := callToolJSON(t, cs, tc.tool, tc.unconfirmedArgs)
+			if !strings.Contains(text, tc.expectedPromptSub) {
+				t.Errorf("expected %q in unconfirmed response, got: %s", tc.expectedPromptSub, text)
+			}
+		})
+		t.Run(tc.name+"/confirmed", func(t *testing.T) {
+			_, text := callToolJSON(t, cs, tc.tool, tc.confirmedArgs)
+			if strings.Contains(text, "requires confirm=true") {
+				t.Errorf("expected confirmation gate to be satisfied, got: %s", text)
+			}
+		})
 	}
 }

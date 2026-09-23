@@ -36,12 +36,17 @@ if (file_exists($policy_file)) {
     $tool_policies = json_decode(file_get_contents($policy_file), true) ?: [];
 }
 $tool_policy_cfg = $config['TOOL_POLICY'] ?? '';
-if (empty($tool_policies) && !empty($tool_policy_cfg)) {
+if (!file_exists($policy_file) && !empty($tool_policy_cfg)) {
     $pairs = explode(',', $tool_policy_cfg);
+    $allowed_policies = ['default', 'hidden', 'read_only', 'allow', 'ask'];
     foreach ($pairs as $p) {
         $kv = explode('=', trim($p), 2);
-        if (count($kv) === 2 && !empty($kv[0])) {
-            $tool_policies[trim($kv[0])] = trim($kv[1]);
+        if (count($kv) === 2) {
+            $tool = trim($kv[0]);
+            $pol = trim($kv[1]);
+            if (preg_match('/^[a-zA-Z0-9_.-]+$/', $tool) && in_array($pol, $allowed_policies, true) && $pol !== 'default') {
+                $tool_policies[$tool] = $pol;
+            }
         }
     }
 }
@@ -1021,18 +1026,39 @@ function copyToken() {
     if (!val) {
         return;
     }
+    var markCopied = function() {
+        var btn = document.getElementById('uma-btn-token-copy');
+        if (!btn) return;
+        var orig = btn.value;
+        btn.value = 'Copied!';
+        btn.disabled = true;
+        setTimeout(function() {
+            btn.value = orig;
+            btn.disabled = false;
+        }, 2000);
+    };
+
     if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(val).then(function() {
-            var btn = document.getElementById('uma-btn-token-copy');
-            var orig = btn.value;
-            btn.value = 'Copied!';
-            btn.disabled = true;
-            setTimeout(function() {
-                btn.value = orig;
-                btn.disabled = false;
-            }, 2000);
+        navigator.clipboard.writeText(val).then(markCopied).catch(function() {
+            fallbackCopy(field, markCopied);
         });
+    } else {
+        fallbackCopy(field, markCopied);
     }
+}
+
+function fallbackCopy(field, callback) {
+    var prevType = field.type;
+    field.type = 'text';
+    field.select();
+    field.setSelectionRange(0, 99999);
+    try {
+        var successful = document.execCommand('copy');
+        if (successful && callback) callback();
+    } catch (e) {
+        // ignore
+    }
+    field.type = prevType;
 }
 
 function clearToken() {
@@ -1085,7 +1111,8 @@ function loadToolCatalog() {
             umaToolCatalog = data.tools;
         }
         if (data && data.policies && typeof data.policies === 'object') {
-            umaActivePolicies = Object.assign({}, data.policies, umaActivePolicies);
+            umaActivePolicies = Object.assign({}, data.policies);
+            syncToolPolicyFormInputs();
         }
         populateCategoryFilter();
         renderToolPolicyTable();

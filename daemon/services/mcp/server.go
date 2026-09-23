@@ -2071,9 +2071,7 @@ func (s *Server) registerRemediationTools() {
 
 		// Read-only mode: always behave as a dry-run, even with confirm=true.
 		confirm := args.Confirm
-		if effectivePolicy == domain.PolicyAllow {
-			confirm = true
-		} else if effectivePolicy == domain.PolicyReadOnly || s.ctx.ReadOnly {
+		if effectivePolicy == domain.PolicyReadOnly || s.ctx.ReadOnly {
 			if confirm {
 				logger.Warning("MCP: blocked run_runbook execution: read-only mode")
 			}

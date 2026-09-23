@@ -110,6 +110,7 @@ case "$raw_api_token" in
     "'"*"'")
         raw_api_token=${raw_api_token#\'}
         raw_api_token=${raw_api_token%\'}
+        raw_api_token=$(printf '%s' "$raw_api_token" | sed "s/'\\\\''/'/g")
         ;;
 esac
 if [ "$raw_api_token" != "$API_TOKEN" ]; then

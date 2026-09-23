@@ -851,11 +851,11 @@ The agent supports fine-grained, per-tool access policy configuration to control
 
 | Policy | Effect on `tools/list` | Effect on `tools/call` | Typical Use Case |
 | ------ | --------------------- | ---------------------- | ---------------- |
-| `default` | Visible | Default behavior (safe tools execute; destructive tools require `confirm: true`) | Standard operations |
+| `default` | Visible | Standard plugin behavior: safe tools execute directly; destructive tools require `confirm: true` | Standard operations |
 | `hidden` | Omitted from catalog | Blocked as unknown tool (`"tool \"<name>\" not found"`) | Prevent AI agent from discovering or invoking high-risk tools |
-| `read_only` | Visible | Write/state-changing tools are blocked (`"Blocked by tool access policy"`); read tools execute normally | Allow agent to inspect state without making changes |
+| `read_only` | Visible | Write/state-changing tools are blocked (`"Blocked by tool access policy"`); read-only tools execute normally | Allow agent to inspect state without making changes |
 | `allow` | Visible | Destructive tools execute immediately without requiring `confirm: true` | Trusted automated autonomous workflows |
-| `ask` | Visible | Tool always requires explicit `confirm: true` before execution | Enforce human confirmation on all actions |
+| `ask` | Visible | State-changing tools always require explicit `confirm: true` before execution (read-only tools execute normally) | Enforce human confirmation on state-changing actions |
 
 ### Policy Precedence
 
@@ -884,13 +884,14 @@ Navigate to **Settings → Unraid Management Agent → AI Agent Access (MCP)**. 
   ```
 
 #### 3. Persistent File Storage
-Saved in `/boot/config/plugins/unraid-management-agent/tool_policy.json` across reboots.
+Saved in `/boot/config/plugins/unraid-management-agent/tool_policy.json` across reboots. When this file exists on disk, its policies take precedence over CLI flags and environment variables.
 
 #### 4. Environment Variable / CLI Flag
 Set `TOOL_POLICY` or `--tool-policy` as comma-separated `tool=policy` pairs:
 ```bash
 TOOL_POLICY="system_reboot=ask,container_action=read_only,delete_vm_snapshot=hidden"
 ```
+*Note: If `tool_policy.json` exists on disk, it takes precedence over `TOOL_POLICY`.*
 
 ## Limitations
 

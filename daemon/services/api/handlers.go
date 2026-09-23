@@ -2807,7 +2807,9 @@ func (s *Server) handleUpdateStatus(w http.ResponseWriter, _ *http.Request) {
 		if cached.LatestVersion != "" {
 			status.LatestVersion = cached.LatestVersion
 		}
-		status.OSUpdateAvailable = cached.UpdateAvailable
+		if cached.Status != dto.OSUpdateStatusUnknown {
+			status.OSUpdateAvailable = cached.UpdateAvailable
+		}
 	}
 
 	respondJSON(w, http.StatusOK, status)
@@ -5045,10 +5047,17 @@ func (s *Server) handleGetMCPToolPolicy(w http.ResponseWriter, _ *http.Request) 
 	}
 
 	catalog := s.toolPolicyStore.GetCatalog(s.ctx.ReadOnly)
+	validTools := make(map[string]struct{}, len(catalog))
+	for _, item := range catalog {
+		validTools[item.Name] = struct{}{}
+	}
+
 	rawPolicies := s.toolPolicyStore.GetAll()
-	policies := make(map[string]string, len(rawPolicies))
+	policies := make(map[string]string)
 	for k, v := range rawPolicies {
-		policies[k] = string(v)
+		if _, ok := validTools[k]; ok {
+			policies[k] = string(v)
+		}
 	}
 
 	respondJSON(w, http.StatusOK, dto.MCPToolPolicyResponse{
@@ -5068,13 +5077,16 @@ func (s *Server) handleGetMCPToolPolicy(w http.ResponseWriter, _ *http.Request) 
 //	@Param			request	body		dto.MCPToolPolicyUpdateRequest	true	"Tool policy configuration"
 //	@Success		200		{object}	dto.Response					"Policy updated successfully"
 //	@Failure		400		{object}	dto.Response					"Invalid tool name or policy value"
-//	@Failure		500		{object}	dto.Response					"Store not initialized"
+//	@Failure		500		{object}	dto.Response					"Store not initialized or persistence failure"
 //	@Router			/mcp/tool-policy [put]
 func (s *Server) handleUpdateMCPToolPolicy(w http.ResponseWriter, r *http.Request) {
 	if s.toolPolicyStore == nil {
 		respondWithError(w, http.StatusInternalServerError, "Tool policy store not initialized")
 		return
 	}
+
+	// Limit request body to 1 MiB to prevent unbounded memory allocation
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -5086,8 +5098,13 @@ func (s *Server) handleUpdateMCPToolPolicy(w http.ResponseWriter, r *http.Reques
 	var rawMap map[string]string
 	if err := json.Unmarshal(body, &updateReq); err == nil && updateReq.Policies != nil {
 		rawMap = updateReq.Policies
-	} else if err := json.Unmarshal(body, &rawMap); err != nil {
-		respondWithError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON body: %v", err))
+	} else if err := json.Unmarshal(body, &rawMap); err == nil && rawMap != nil {
+		if _, ok := rawMap["policies"]; !ok && len(rawMap) == 0 {
+			respondWithError(w, http.StatusBadRequest, "Invalid JSON body: policies field is required")
+			return
+		}
+	} else {
+		respondWithError(w, http.StatusBadRequest, "Invalid JSON body: policies field is required")
 		return
 	}
 
@@ -5109,7 +5126,9 @@ func (s *Server) handleUpdateMCPToolPolicy(w http.ResponseWriter, r *http.Reques
 
 	s.toolPolicyStore.Replace(newPolicies)
 	if err := s.toolPolicyStore.Save(); err != nil {
-		logger.Warning("Failed to persist tool policy: %v", err)
+		logger.Error("Failed to persist tool policy: %v", err)
+		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to persist tool policy: %v", err))
+		return
 	}
 
 	respondJSON(w, http.StatusOK, dto.Response{

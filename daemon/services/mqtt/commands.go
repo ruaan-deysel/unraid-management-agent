@@ -338,6 +338,8 @@ func (c *Client) safePublishRemoteShareStates() {
 			logger.LogPanicWithStack("MQTT publishRemoteShareStates", r)
 		}
 	}()
+	c.remoteSharePublishMu.Lock()
+	defer c.remoteSharePublishMu.Unlock()
 	c.publishRemoteShareStates()
 }
 

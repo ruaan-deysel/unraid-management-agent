@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/ruaan-deysel/unraid-management-agent/daemon/domain"
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/dto"
 )
 
@@ -658,11 +659,7 @@ func ValidateNotificationImportance(importance string) error {
 
 // ValidateToolPolicyValue validates that a policy string is one of the supported values:
 // "default", "hidden", "read_only", "allow", "ask".
+// Delegates to domain.ValidateToolPolicyValue as the canonical source of truth.
 func ValidateToolPolicyValue(val string) error {
-	switch val {
-	case "default", "hidden", "read_only", "allow", "ask", "":
-		return nil
-	default:
-		return fmt.Errorf("invalid tool policy value %q (must be one of: default, hidden, read_only, allow, ask)", val)
-	}
+	return domain.ValidateToolPolicyValue(val)
 }

@@ -112,7 +112,8 @@ func (o *Orchestrator) Run() error {
 	// Uses the official MCP Go SDK for protocol compliance with Claude, ChatGPT, Cursor, Copilot, etc.
 	toolPolicyStore := domain.NewToolPolicyStore("", o.ctx.ToolPolicy)
 	if err := toolPolicyStore.Load(); err != nil {
-		logger.Warning("Failed to load tool policy: %v", err)
+		apiServer.Stop()
+		return fmt.Errorf("failed to load tool policy: %w", err)
 	}
 	apiServer.SetToolPolicyStore(toolPolicyStore)
 
@@ -373,7 +374,11 @@ func (o *Orchestrator) RunMCPStdio() error {
 	// Initialize MCP server
 	toolPolicyStore := domain.NewToolPolicyStore("", o.ctx.ToolPolicy)
 	if err := toolPolicyStore.Load(); err != nil {
-		logger.Warning("Failed to load tool policy: %v", err)
+		cancel()
+		o.collectorManager.StopAll()
+		apiServer.Stop()
+		wg.Wait()
+		return fmt.Errorf("failed to load tool policy: %w", err)
 	}
 	apiServer.SetToolPolicyStore(toolPolicyStore)
 

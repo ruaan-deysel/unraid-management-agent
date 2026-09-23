@@ -21,7 +21,7 @@ This file is created automatically after the first installation and persists acr
 | `--port`                   | `8043`   | HTTP API port                                                                                      |
 | `--bind-address`           | -        | IP to bind the HTTP server to (empty = all). mDNS advertises it. Loopback rejected; invalid → all. |
 | `--read-only`              | `false`  | Block state-changing MCP tools (AI agents read-only; REST API unaffected)                          |
-| `--tool-policy`            | -        | Comma-separated per-tool MCP policies (`tool=policy`), e.g. `system_reboot=ask,docker_start=read_only` |
+| `--tool-policy`            | -        | Comma-separated per-tool MCP policies (`tool=policy`), e.g. `system_reboot=ask,container_action=read_only`. If `tool_policy.json` exists on disk, it takes precedence. |
 | `--api-token`              | -        | Require `Authorization: Bearer <token>` on the HTTP API and `/mcp` (empty = no authentication)     |
 | `--debug`                  | `false`  | Enable debug logging                                                                               |
 | `--mqtt-enabled`           | `false`  | Enable MQTT publishing                                                                             |

@@ -54,6 +54,10 @@ type Client struct {
 	// unassigned discovery publish.
 	remoteShareMu      sync.RWMutex
 	remoteShareSources map[string]string
+
+	// remoteSharePublishMu serializes background remote-share state republishing
+	// to ensure rapid command sequences (e.g. mount/unmount) publish in correct order.
+	remoteSharePublishMu sync.Mutex
 }
 
 // setRemoteShareSources atomically replaces the remote-share ID→source map.

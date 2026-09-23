@@ -388,5 +388,5 @@ type MCPToolPolicyResponse struct {
 
 // MCPToolPolicyUpdateRequest represents the request payload for PUT /api/v1/mcp/tool-policy.
 type MCPToolPolicyUpdateRequest struct {
-	Policies map[string]string `json:"policies"`
+	Policies map[string]string `json:"policies" binding:"required"`
 }

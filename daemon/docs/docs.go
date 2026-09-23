@@ -3053,7 +3053,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Store not initialized",
+                        "description": "Store not initialized or persistence failure",
                         "schema": {
                             "$ref": "#/definitions/dto.Response"
                         }
@@ -8267,6 +8267,9 @@ const docTemplate = `{
         },
         "dto.MCPToolPolicyUpdateRequest": {
             "type": "object",
+            "required": [
+                "policies"
+            ],
             "properties": {
                 "policies": {
                     "type": "object",

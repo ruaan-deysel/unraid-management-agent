@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -181,7 +182,7 @@ func (c *OSUpdateCollector) defaultCheck() (*dto.OSUpdateStatus, error) {
 		} else {
 			result.Status = dto.OSUpdateStatusUpToDate
 		}
-	} else if info.Version != "" && info.Version != current {
+	} else if isVersionNewer(info.Version, current) {
 		result.UpdateAvailable = true
 		result.Status = dto.OSUpdateStatusAvailable
 	} else {
@@ -298,4 +299,41 @@ func looksLikeVersion(s string) bool {
 	}
 	// Must contain at least one dot
 	return strings.ContainsRune(s, '.')
+}
+
+// isVersionNewer compares semver-like version strings (e.g. "7.2.1" vs "7.2.0").
+// Returns true if latest is strictly newer than current.
+func isVersionNewer(latest, current string) bool {
+	latest = strings.TrimPrefix(strings.TrimSpace(latest), "v")
+	current = strings.TrimPrefix(strings.TrimSpace(current), "v")
+	if latest == "" || latest == current {
+		return false
+	}
+	if current == "" {
+		return true
+	}
+
+	latestBase, _, _ := strings.Cut(latest, "-")
+	currentBase, _, _ := strings.Cut(current, "-")
+
+	lParts := strings.Split(latestBase, ".")
+	cParts := strings.Split(currentBase, ".")
+
+	maxLen := max(len(lParts), len(cParts))
+	for i := 0; i < maxLen; i++ {
+		var lNum, cNum int
+		if i < len(lParts) {
+			_, _ = fmt.Sscanf(lParts[i], "%d", &lNum)
+		}
+		if i < len(cParts) {
+			_, _ = fmt.Sscanf(cParts[i], "%d", &cNum)
+		}
+		if lNum > cNum {
+			return true
+		}
+		if lNum < cNum {
+			return false
+		}
+	}
+	return false
 }

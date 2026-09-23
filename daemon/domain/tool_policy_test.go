@@ -101,7 +101,9 @@ func TestToolPolicyStore_LoadInvalidFileFallsBack(t *testing.T) {
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, ToolPolicyConfigFile)
 	// Write file with one invalid policy value and one valid
-	_ = os.WriteFile(filePath, []byte(`{"tool_good": "allow", "tool_bad": "superadmin"}`), 0o644)
+	if err := os.WriteFile(filePath, []byte(`{"tool_good": "allow", "tool_bad": "superadmin"}`), 0o644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
 
 	store := NewToolPolicyStore(tempDir, nil)
 	if err := store.Load(); err != nil {
@@ -116,18 +118,55 @@ func TestToolPolicyStore_LoadInvalidFileFallsBack(t *testing.T) {
 	}
 }
 
-func TestValidateToolPolicyValue(t *testing.T) {
-	valid := []string{"default", "hidden", "read_only", "allow", "ask", ""}
-	for _, v := range valid {
-		if err := ValidateToolPolicyValue(v); err != nil {
-			t.Errorf("expected %q to be valid, got %v", v, err)
-		}
+func TestToolPolicyStore_LoadReplacesSeededPolicies(t *testing.T) {
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, ToolPolicyConfigFile)
+	if err := os.WriteFile(filePath, []byte(`{"tool_a": "hidden"}`), 0o644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	invalid := []string{"invalid", "deny", "admin", "read", "WRITE"}
-	for _, v := range invalid {
-		if err := ValidateToolPolicyValue(v); err == nil {
-			t.Errorf("expected %q to be invalid, got nil", v)
-		}
+	store := NewToolPolicyStore(tempDir, map[string]ToolPolicyValue{
+		"tool_b": PolicyAllow,
+	})
+	if err := store.Load(); err != nil {
+		t.Fatalf("load failed: %v", err)
+	}
+
+	if store.GetPolicy("tool_a") != PolicyHidden {
+		t.Errorf("expected tool_a to be hidden, got %v", store.GetPolicy("tool_a"))
+	}
+	if store.GetPolicy("tool_b") != PolicyDefault {
+		t.Errorf("expected tool_b to be reset to default, got %v", store.GetPolicy("tool_b"))
+	}
+}
+
+func TestValidateToolPolicyValue(t *testing.T) {
+	tests := []struct {
+		val     string
+		wantErr bool
+	}{
+		{"default", false},
+		{"hidden", false},
+		{"read_only", false},
+		{"allow", false},
+		{"ask", false},
+		{"", false},
+		{"invalid", true},
+		{"deny", true},
+		{"admin", true},
+		{"read", true},
+		{"WRITE", true},
+		{" ALLOW ", true},
+		{"allow ", true},
+		{"\tread_only", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.val, func(t *testing.T) {
+			err := ValidateToolPolicyValue(tt.val)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateToolPolicyValue(%q) err = %v, wantErr %v", tt.val, err, tt.wantErr)
+			}
+		})
 	}
 }

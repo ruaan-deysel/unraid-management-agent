@@ -165,8 +165,23 @@ func TestHandleUpdateMCPToolPolicy_ValidationErrors(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
+			name:       "missing policies field",
+			body:       "{}",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
 			name:       "unknown tool",
 			body:       `{"policies":{"unknown_nonexistent_tool":"read_only"}}`,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "path traversal tool name",
+			body:       `{"policies":{"../../etc/passwd":"read_only"}}`,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "shell metacharacter tool name",
+			body:       `{"policies":{"system_reboot;rm -rf /":"read_only"}}`,
 			wantStatus: http.StatusBadRequest,
 		},
 		{
@@ -187,6 +202,25 @@ func TestHandleUpdateMCPToolPolicy_ValidationErrors(t *testing.T) {
 				t.Errorf("expected status %d, got %d: %s", tc.wantStatus, rr.Code, rr.Body.String())
 			}
 		})
+	}
+}
+
+func TestHandleUpdateMCPToolPolicy_SaveFailureReturns500(t *testing.T) {
+	// Setup server with a tool policy store pointing to a read-only path that cannot be written
+	server, _ := setupTestServer()
+	// /dev/null/cannot_create_dir is an unwritable path
+	unwritableStore := domain.NewToolPolicyStore("/dev/null/impossible", nil)
+	unwritableStore.RegisterTool("container_action", "Docker action", false, true)
+	server.SetToolPolicyStore(unwritableStore)
+
+	body := `{"policies":{"container_action":"read_only"}}`
+	req := httptest.NewRequest("PUT", "/api/v1/mcp/tool-policy", bytes.NewReader([]byte(body)))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	server.router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("expected status 500 when save fails, got %d: %s", rr.Code, rr.Body.String())
 	}
 }
 

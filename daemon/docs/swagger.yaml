@@ -1787,6 +1787,8 @@ definitions:
         additionalProperties:
           type: string
         type: object
+    required:
+    - policies
     type: object
   dto.MQTTPublishRequest:
     properties:
@@ -6071,7 +6073,7 @@ paths:
           schema:
             $ref: '#/definitions/dto.Response'
         "500":
-          description: Store not initialized
+          description: Store not initialized or persistence failure
           schema:
             $ref: '#/definitions/dto.Response'
       summary: Update MCP tool access policy

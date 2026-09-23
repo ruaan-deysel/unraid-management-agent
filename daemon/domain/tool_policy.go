@@ -65,6 +65,7 @@ func (s *ToolPolicyStore) Load() error {
 		return fmt.Errorf("parsing tool policy file: %w", err)
 	}
 
+	loaded := make(map[string]ToolPolicyValue, len(saved))
 	for k, v := range saved {
 		if err := ValidateToolPolicyValue(v); err != nil {
 			logger.Warning("ToolPolicyStore: invalid policy %q for tool %q in %s, ignoring: %v", v, k, s.filePath, err)
@@ -72,9 +73,10 @@ func (s *ToolPolicyStore) Load() error {
 		}
 		val := ToolPolicyValue(v)
 		if val != "" && val != PolicyDefault {
-			s.policies[k] = val
+			loaded[k] = val
 		}
 	}
+	s.policies = loaded
 	return nil
 }
 
@@ -172,12 +174,18 @@ func (s *ToolPolicyStore) GetEffectivePolicy(name string, globalReadOnly bool) T
 	return PolicyDefault
 }
 
-// GetAll returns a copy of all configured non-default policies.
+// GetAll returns a copy of all configured non-default policies for registered catalog tools.
+// If the catalog is empty (before tools are registered), it returns all non-default policies.
 func (s *ToolPolicyStore) GetAll() map[string]ToolPolicyValue {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	res := make(map[string]ToolPolicyValue, len(s.policies))
 	for k, v := range s.policies {
+		if len(s.catalog) > 0 {
+			if _, ok := s.catalog[k]; !ok {
+				continue
+			}
+		}
 		if v != "" && v != PolicyDefault {
 			res[k] = v
 		}
@@ -289,13 +297,13 @@ func CategorizeMCPTool(name string) string {
 	}
 }
 
-// ValidateToolPolicyValue validates that a policy string is one of the supported values:
-// "default", "hidden", "read_only", "allow", "ask".
+// ValidateToolPolicyValue validates that a policy string is one of the supported values.
 func ValidateToolPolicyValue(val string) error {
 	switch ToolPolicyValue(val) {
 	case PolicyDefault, PolicyHidden, PolicyReadOnly, PolicyAllow, PolicyAsk, "":
 		return nil
 	default:
-		return fmt.Errorf("invalid tool policy value %q (must be one of: default, hidden, read_only, allow, ask)", val)
+		return fmt.Errorf("invalid tool policy value %q (must be one of: %s, %s, %s, %s, %s)",
+			val, PolicyDefault, PolicyHidden, PolicyReadOnly, PolicyAllow, PolicyAsk)
 	}
 }

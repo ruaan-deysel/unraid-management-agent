@@ -143,6 +143,19 @@ switch ($action) {
             }
         }
 
+        // Update live agent first if running
+        $url = "$base/api/v1/mcp/tool-policy";
+        $payload_for_daemon = json_encode(['policies' => (object)$clean_policies]);
+        $cmd = "curl -fsS -m 10 -X PUT -H 'Content-Type: application/json' $auth_header -d " . escapeshellarg($payload_for_daemon) . ' ' . escapeshellarg($url) . ' 2>&1';
+        $out = [];
+        $rc = 0;
+        exec($cmd, $out, $rc);
+        if ($rc === 22) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Live agent rejected policy update', 'details' => implode("\n", $out)]);
+            exit;
+        }
+
         // Save to file on disk
         $policy_file = "/boot/config/plugins/$plugin/tool_policy.json";
         @mkdir(dirname($policy_file), 0750, true);
@@ -153,11 +166,22 @@ switch ($action) {
             exit;
         }
 
-        // Also update live agent if running
-        $url = "$base/api/v1/mcp/tool-policy";
-        $payload_for_daemon = json_encode(['policies' => (object)$clean_policies]);
-        $cmd = "curl -fsS -m 10 -X PUT -H 'Content-Type: application/json' $auth_header -d " . escapeshellarg($payload_for_daemon) . ' ' . escapeshellarg($url) . ' 2>/dev/null';
-        exec($cmd, $out, $rc);
+        // Keep TOOL_POLICY in config.cfg synchronized
+        if (file_exists($config_file)) {
+            $pairs = [];
+            foreach ($clean_policies as $k => $v) {
+                $pairs[] = "$k=$v";
+            }
+            $tool_policy_str = implode(',', $pairs);
+            $cfg_content = file_get_contents($config_file);
+            if (preg_match('/^TOOL_POLICY=.*$/m', $cfg_content)) {
+                $cfg_content = preg_replace('/^TOOL_POLICY=.*$/m', 'TOOL_POLICY="' . addcslashes($tool_policy_str, '"\\$') . '"', $cfg_content);
+            } else {
+                $cfg_content .= "\nTOOL_POLICY=\"" . addcslashes($tool_policy_str, '"\\$') . "\"\n";
+            }
+            @file_put_contents($config_file, $cfg_content);
+        }
+
         echo json_encode([
             'success'     => true,
             'live_update' => ($rc === 0),
