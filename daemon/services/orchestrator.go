@@ -125,9 +125,9 @@ func (o *Orchestrator) Run() error {
 		// Mount exact /mcp, /mcp/, and optional /mcp/<secret> routes on the stateful StreamableHTTPHandler
 		apiServer.RegisterMCPRoutes(mcpServer.GetHTTPHandler())
 		if o.ctx.MCPConnectSecret != "" {
-			logger.Success("MCP server initialized at /mcp and /mcp/<redacted> (official SDK, per-session protocol negotiation up to 2025-11-25)")
+			logger.Success("MCP server initialized at /mcp and /mcp/<redacted> (official SDK, per-session protocol negotiation: 2026-07-28, 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05)")
 		} else {
-			logger.Success("MCP server initialized at /mcp endpoint (official SDK, per-session protocol negotiation up to 2025-11-25)")
+			logger.Success("MCP server initialized at /mcp endpoint (official SDK, per-session protocol negotiation: 2026-07-28, 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05)")
 		}
 	}
 

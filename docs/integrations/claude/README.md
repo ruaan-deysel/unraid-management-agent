@@ -41,7 +41,7 @@ The agent serves a Streamable HTTP MCP endpoint at `/mcp` (and optionally a priv
 Claude Code accepts the URL directly (copy the ready-made snippet from the Unraid WebGUI):
 
 ```bash
-# Using a zero-header Connect URL (when API_TOKEN / MCP_CONNECT_SECRET is enabled):
+# Using a zero-header Connect URL (when MCP_CONNECT_SECRET is enabled):
 claude mcp add --transport http unraid "http://<unraid-ip>:8043/mcp/<connect-secret>"
 
 # Or using the base endpoint when authentication is disabled:

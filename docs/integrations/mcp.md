@@ -1,8 +1,8 @@
 # Model Context Protocol (MCP) Integration
 
 > **Status: Production-Ready (GA)** — Built on the
-> [official MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk) v1.5.0
-> with per-session protocol negotiation (`2025-06-18`, `2025-03-26`, `2024-11-05`).
+> [official MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk) v1.8.0
+> with per-session protocol negotiation (`2026-07-28`, `2025-11-25`, `2025-06-18`, `2025-03-26`, `2024-11-05`).
 
 The Unraid Management Agent includes an embedded
 [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that starts automatically with the plugin,
@@ -32,7 +32,7 @@ claude mcp add --transport http unraid "http://<unraid-ip>:8043/mcp/<connect-sec
 
 - **No custom headers required**: Works in clients that only accept a single server URL.
 - **Safe log redaction**: The secret value in `/mcp/<segment>` is never written to log files or diagnostic bundles; logs record the redacted path `/mcp/<redacted>`.
-- **Instant revocation**: Clicking **Regenerate** or **Clear** in the WebGUI immediately invalidates the old URL (`404 Not Found`).
+- **Revocation**: Clicking **Regenerate** or **Clear** takes effect after clicking **Apply** and restarting the daemon. The old URL then returns `404 Not Found`.
 
 ## Overview
 
@@ -928,9 +928,9 @@ TOOL_POLICY="system_reboot=ask,container_action=read_only,delete_vm_snapshot=hid
 | **Streamable HTTP** ⭐ | Remote AI clients over the network | Request/response, SSE streaming, session management     |
 | **STDIO**              | Local AI clients on the server     | Newline-delimited JSON over stdin/stdout, zero overhead |
 
-### Streamable HTTP Transport Details (`2025-06-18` / `2025-03-26` / `2024-11-05`)
+### Streamable HTTP Transport Details (`2026-07-28` / `2025-11-25` / `2025-06-18` / `2025-03-26` / `2024-11-05`)
 
-Built on the [official MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk) v1.5.0,
+Built on the [official MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk) v1.8.0,
 the Streamable HTTP transport at `/mcp` (and `/mcp/<connect-secret>`) supports:
 
 - **POST**: Send JSON-RPC requests and notifications
@@ -992,7 +992,7 @@ UMA records connection lifecycle counters in Prometheus (`/metrics`) under `mcp_
 | --- | --- | --- | --- | --- |
 | Missing or invalid `Bearer` token on `/mcp` | `401 Unauthorized` | `event="auth_rejected"` | `MCP connection rejected: category=auth method=<METHOD> path=/mcp` | Pass `Authorization: Bearer <API_TOKEN>` or use your `/mcp/<connect-secret>` Connect URL |
 | Mistyped or rotated `/mcp/<secret>` URL | `404 Not Found` | `event="not_found"` | `MCP connection rejected: category=not_found method=<METHOD> path=/mcp/<redacted>` | Copy the current Connect URL from **Settings → Unraid Management Agent → AI Agent Access (MCP)** and click **Apply** |
-| Disallowed browser `Origin` header | `403 Forbidden` | `event="origin_rejected"` | `MCP connection rejected: category=origin method=<METHOD> path=/mcp` | Ensure `CORS_ORIGINS` includes your custom web UI origin (non-browser CLI/desktop MCP clients omit `Origin` and are allowed automatically) |
+| Disallowed browser `Origin` header | `403 Forbidden` | `event="origin_rejected"` | `MCP connection rejected: category=origin method=<METHOD> path=/mcp` | Ensure `CORS_ORIGIN` includes your custom web UI origin (non-browser CLI/desktop MCP clients omit `Origin` and are allowed automatically) |
 | Client probes `GET /mcp` without `Mcp-Session-Id` | `405 Method Not Allowed` (`Allow: POST, DELETE`) | — (normal spec probe) | `GET /mcp 405` | Expected per MCP Streamable HTTP specification; compliant clients automatically proceed with `POST /mcp` |
 | `GET /mcp` with `Mcp-Session-Id` hangs behind reverse proxy | Connection timeout | `event="initialize_ok"` (no SSE frames received) | `GET /mcp 200` | Add `proxy_buffering off; proxy_cache off; proxy_read_timeout 3600s;` to your Nginx/Traefik `/mcp` location block |
 | Healthy client handshake | `200 OK` | `event="initialize_ok"` + `event="tools_list_ok"` | `MCP session initialized: client=<name> version=<ver> requested_protocol=<proto> negotiated_protocol=<proto> category=initialize_ok` followed by `MCP session tools/list completed: visible_tools=<N> category=tools_list_ok` | Connection is healthy and ready for tool invocations |

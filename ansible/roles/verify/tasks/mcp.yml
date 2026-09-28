@@ -46,7 +46,7 @@
     that:
       - mcp_session_id | length > 0
       - mcp_init_data.result is defined
-      - mcp_init_data.result.protocolVersion in ['2025-06-18', '2025-03-26', '2024-11-05']
+      - mcp_init_data.result.protocolVersion in ['2026-07-28', '2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05']
       - mcp_init_data.result.capabilities.tools is defined
     fail_msg: "MCP initialize missing Mcp-Session-Id or invalid protocol/capabilities"
     success_msg: "MCP initialize negotiated protocol {{ mcp_init_data.result.protocolVersion }} (session {{ mcp_session_id }})"

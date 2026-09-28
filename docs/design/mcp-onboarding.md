@@ -39,17 +39,17 @@ This design adopts the best onboarding ergonomics from `ha-mcp` while eliminatin
 ### 3.1 Daemon (`daemon/`)
 
 - **Configuration (`domain/config.go`, `domain/fileconfig.go`, `main.go`)**:
-  - Added `MCPConnectSecret` (`--mcp-connect-secret` / `MCP_CONNECT_SECRET` / `mcp_connect_secret` in `config.json`).
+  - Added `MCPConnectSecret` (`--mcp-connect-secret` / `MCP_CONNECT_SECRET` / `mcp_connect_secret` in `config.yml`).
   - Validated at startup via `lib.ValidateMCPConnectSecret`: requires 32–256 characters matching `^[A-Za-z0-9_-]+$`. Invalid values log a warning and disable the secret path without failing daemon startup.
 - **Routing & Auth Middleware (`services/api/server.go`, `services/api/middleware.go`)**:
   - `RegisterMCPRoutes` registers exact routes `/mcp`, `/mcp/`, and (when valid) `/mcp/<secret>`.
-  - `authMiddlewareWithMCPSecret` allows `/mcp/<secret>` via constant-time `subtle.ConstantTimeCompare` even when `API_TOKEN` is enabled, while plain `/mcp` continues to require `Authorization: Bearer <API_TOKEN>`.
-  - Any unconfigured or non-matching `/mcp/<other>` path falls through to `s.router.NotFoundHandler`, returning `404 Not Found` and incrementing `mcp_connection_events_total{event="not_found"}`.
+  - `authMiddlewareWithMCPSecret` allows `/mcp/<secret>` via constant-time SHA-256 digest comparison (`subtle.ConstantTimeCompare`) even when `API_TOKEN` is enabled, while plain `/mcp` continues to require `Authorization: Bearer <API_TOKEN>`.
+  - Any unconfigured or non-matching `/mcp/<other>` path returns `404 Not Found` and increments `mcp_connection_events_total{event="not_found"}`.
   - `redactMCPPath` masks any `/mcp/<segment>` path to `/mcp/<redacted>` across all HTTP request logs and warnings so secrets never leak to `/var/log/unraid-management-agent.log` or diagnostics bundles.
 - **Streamable HTTP Transport (`services/mcp/server.go`, `services/api/middleware.go`)**:
   - `statusRecorder` implements `http.Flusher` and `Unwrap() http.ResponseWriter` so `http.NewResponseController(w)` can reach the underlying connection.
   - `GetHTTPHandler()` wraps the SDK `StreamableHTTPHandler`:
-    - `GET` without `Mcp-Session-Id` returns HTTP `405 Method Not Allowed` (`Allow: POST, DELETE`, `Content-Length`, `Connection: keep-alive`).
+    - `GET` without `Mcp-Session-Id` returns HTTP `405 Method Not Allowed` (`Allow: POST, DELETE`, `Content-Length`, and `Connection: keep-alive` on HTTP/1.x).
     - `GET` with `Mcp-Session-Id` clears `ReadDeadline` and `WriteDeadline` via `http.NewResponseController(w)` so long-lived server-to-client SSE notification streams are not terminated after 30 seconds.
 - **Discovery (`services/discovery/service.go`)**:
   - Advertises `mcp_path=/mcp`, `mcp_transport=streamable-http`, and `mcp_auth=bearer|none` in `_unraid-agent._tcp` mDNS TXT records.
@@ -71,10 +71,10 @@ This design adopts the best onboarding ergonomics from `ha-mcp` while eliminatin
 1. **Does an Unraid server on a typical home LAN have HTTPS / DNS needed for Streamable HTTP clients, or do some clients refuse plain `http://`?**
    - **Decision**: Local desktop and CLI clients (Claude Code, VS Code, Cursor, Codex CLI, Gemini CLI, and `mcp-remote`) allow `http://<lan-ip>:8043/mcp` on RFC1918 LAN addresses and `.local` mDNS hostnames. However, cloud-hosted connectors (`claude.ai` web connectors and ChatGPT web connectors) require a publicly reachable HTTPS endpoint. The WebGUI and documentation explicitly distinguish local LAN HTTP/HTTPS usage from cloud connectors (which require Cloudflare Tunnel or Tailscale Funnel).
 2. **How should authentication work if UMA has bearer/API key auth enabled?**
-   - **Decision**: Adopt `ha-mcp`'s private path secret pattern (`/mcp/<MCP_CONNECT_SECRET>`) alongside standard `Authorization: Bearer <API_TOKEN>` on `/mcp`. Users with clients that support headers can use `Bearer <API_TOKEN>` on `/mcp`; users with URL-only clients can use `/mcp/<MCP_CONNECT_SECRET>`. Both can be active simultaneously, and rotating `MCP_CONNECT_SECRET` immediately invalidates the old URL (`404 Not Found`).
+   - **Decision**: Adopt `ha-mcp`'s private path secret pattern (`/mcp/<MCP_CONNECT_SECRET>`) alongside standard `Authorization: Bearer <API_TOKEN>` on `/mcp`. Users with clients that support headers can use `Bearer <API_TOKEN>` on `/mcp`; users with URL-only clients can use `/mcp/<MCP_CONNECT_SECRET>`. Both can be active simultaneously, and rotating `MCP_CONNECT_SECRET` (followed by clicking **Apply** to restart the daemon) invalidates the old URL (`404 Not Found`).
 3. **Should UMA ship an optional thin `npx unraid-mcp` launcher?**
    - **Decision**: Not required as a separate npm package to maintain. Every modern MCP client either supports Streamable HTTP natively (Claude Code, VS Code, Cursor, Codex CLI, Gemini CLI) or supports the standard `npx -y mcp-remote <url>` bridge (Claude Desktop `claude_desktop_config.json`), which the WebGUI generates out-of-the-box.
 4. **Which MCP spec version (`2024-11-05` vs `2025-03-26` vs `2025-06-18`) does `daemon/services/mcp/` advertise, and does it match Tier-1 clients?**
-   - **Decision**: UMA uses `github.com/modelcontextprotocol/go-sdk` v1.5.0, which negotiates protocol versions per session across `2025-06-18`, `2025-03-26`, and `2024-11-05`. Startup logs and Ansible verification tests explicitly verify per-session protocol negotiation.
+   - **Decision**: UMA uses `github.com/modelcontextprotocol/go-sdk` v1.8.0, which negotiates protocol versions per session across `2026-07-28`, `2025-11-25`, `2025-06-18`, `2025-03-26`, and `2024-11-05`. Startup logs and Ansible verification tests explicitly verify per-session protocol negotiation.
 5. **Can we emit a one-click Setup Wizard card in the Unraid WebGUI under Settings -> Management Agent?**
    - **Decision**: Yes—implemented directly inside `meta/plugin/unraid-management-agent.page` under **AI Agent Access (MCP)** (`#uma-mcp-onboarding`), with instant client snippet generation and one-click copy buttons.

@@ -376,6 +376,9 @@ func (s *Server) GetHTTPHandler() http.Handler {
 				w.Header().Set("Allow", "POST, DELETE")
 				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 				w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+				if r.ProtoMajor == 1 {
+					w.Header().Set("Connection", "keep-alive")
+				}
 				w.WriteHeader(http.StatusMethodNotAllowed)
 				_, _ = io.WriteString(w, body)
 				return

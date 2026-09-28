@@ -2,6 +2,7 @@ package api
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"crypto/subtle"
 	"fmt"
 	"net"
@@ -74,7 +75,8 @@ func isMCPPath(u *url.URL) bool {
 }
 
 // isMCPConnectSecretExempt reports whether u.Path is the exact single-segment
-// path "/mcp/<secret>" matching expectedSecret in constant time.
+// path "/mcp/<secret>" matching expectedSecret in constant time without leaking
+// the configured secret's length.
 func isMCPConnectSecretExempt(u *url.URL, expectedSecret []byte) bool {
 	if u == nil || len(expectedSecret) == 0 || !strings.HasPrefix(u.Path, "/mcp/") {
 		return false
@@ -83,7 +85,9 @@ func isMCPConnectSecretExempt(u *url.URL, expectedSecret []byte) bool {
 	if seg == "" || strings.Contains(seg, "/") {
 		return false
 	}
-	return subtle.ConstantTimeCompare([]byte(seg), expectedSecret) == 1
+	segHash := sha256.Sum256([]byte(seg))
+	expectedHash := sha256.Sum256(expectedSecret)
+	return subtle.ConstantTimeCompare(segHash[:], expectedHash[:]) == 1
 }
 
 // redactMCPPath replaces any credential segment after "/mcp/" with "/mcp/<redacted>"
