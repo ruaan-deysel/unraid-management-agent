@@ -77,6 +77,14 @@ func isMCPPath(u *url.URL) bool {
 // isMCPConnectSecretExempt reports whether u.Path is the exact single-segment
 // path "/mcp/<secret>" matching expectedSecret in constant time without leaking
 // the configured secret's length.
+//
+// Security note: MCP_CONNECT_SECRET enables header-free access to the MCP
+// endpoint only (it is not equivalent to API_TOKEN and never grants access to
+// REST API routes). Because the secret is carried in the URL path, it acts as a
+// reusable bearer credential that may be stored in client configs or proxy logs
+// and exposed on the wire over plain HTTP; use HTTPS for remote connections and
+// enable read_only mode (or per-tool policies) if connected AI clients should
+// not invoke state-changing MCP tools.
 func isMCPConnectSecretExempt(u *url.URL, expectedSecret []byte) bool {
 	if u == nil || len(expectedSecret) == 0 || !strings.HasPrefix(u.Path, "/mcp/") {
 		return false

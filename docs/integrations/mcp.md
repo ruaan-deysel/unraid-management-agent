@@ -75,6 +75,8 @@ When `API_TOKEN` is configured (see [Configuration → Authentication](../guides
 
 Set `MCP_CONNECT_SECRET` (32–256 characters of `[A-Za-z0-9_-]`) in the Unraid WebGUI or environment. Requests to `http(s)://<unraid-ip>:8043/mcp/<connect-secret>` are authenticated in constant time without needing an `Authorization` header, while plain `/mcp` still enforces `Authorization: Bearer <API_TOKEN>` and any unknown `/mcp/<other>` path returns `404 Not Found`.
 
+> **Security Note:** `MCP_CONNECT_SECRET` authenticates `/mcp/<connect-secret>` only and is not equivalent to `API_TOKEN` (it never grants access to `/api/v1/*` REST routes). Because the secret is embedded in the URL path, it acts as a reusable credential that may be recorded by client configurations or intermediaries and transmitted in cleartext over plain HTTP. Use HTTPS (`TLS_CERT_FILE` / `TLS_KEY_FILE` or a TLS-terminating reverse proxy) for remote connections, and enable `READ_ONLY=true` (or per-tool policies) unless connected AI agents should be allowed to invoke state-changing tools.
+
 #### Option 2: Standard Bearer Token Header (`Authorization: Bearer <token>`)
 
 Clients that support custom HTTP headers can connect to `/mcp` with `Authorization: Bearer <API_TOKEN>`:
