@@ -247,20 +247,24 @@ func (s *Server) Initialize() error {
 					visibleCount = len(lr.Tools)
 				}
 				api.RecordMCPConnectionEvent("tools_list_ok")
-				sessKey := "default"
 				var sess mcp.Session
+				var sessKey any = "default"
 				if req != nil && req.GetSession() != nil {
 					sess = req.GetSession()
 					if id := sess.ID(); id != "" {
 						sessKey = id
+					} else {
+						sessKey = sess
 					}
 				}
 				if _, loaded := s.toolsListLoggedSessions.LoadOrStore(sessKey, struct{}{}); !loaded {
-					if ss, ok := sess.(*mcp.ServerSession); ok && sessKey != "default" {
-						go func(session *mcp.ServerSession, key string) {
+					if ss, ok := sess.(*mcp.ServerSession); ok {
+						go func(session *mcp.ServerSession, key any) {
 							_ = session.Wait()
 							s.toolsListLoggedSessions.Delete(key)
 						}(ss, sessKey)
+					} else {
+						s.toolsListLoggedSessions.Delete(sessKey)
 					}
 					logger.Info("MCP session tools/list completed: visible_tools=%d category=tools_list_ok", visibleCount)
 					if s.ctx != nil && s.ctx.DiagnosticLogger != nil {

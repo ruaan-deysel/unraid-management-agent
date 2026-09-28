@@ -57,6 +57,7 @@
     cmd: >
       curl -s -D - --max-time 5
       -H "Accept: text/event-stream"
+      {{ ('-H "Authorization: Bearer ' ~ api_token ~ '"') if (api_token is defined and (api_token | length > 0)) else '' }}
       http://{{ ansible_host }}:{{ api_port }}/mcp
   register: mcp_get_no_session
   changed_when: false
@@ -76,6 +77,7 @@
       curl -s -N --max-time 2
       -H "Accept: text/event-stream"
       -H "Mcp-Session-Id: {{ mcp_session_id }}"
+      {{ ('-H "Authorization: Bearer ' ~ api_token ~ '"') if (api_token is defined and (api_token | length > 0)) else '' }}
       http://{{ ansible_host }}:{{ api_port }}/mcp
   register: mcp_get_sse
   changed_when: false
