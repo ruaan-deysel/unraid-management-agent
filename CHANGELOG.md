@@ -23,6 +23,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no trailing newline, redaction) and ZIP archive error paths (failing writer,
   unsupported JSON values, nonexistent output directory, partial-file removal and
   empty-log omission). ([#192](https://github.com/ruaan-deysel/unraid-management-agent/issues/192)).
+- **Coverage uplift part 2 (issue #192)** — added further host-safe unit tests
+  covering pure functions. `daemon/domain` rose to ~88% (from ~58%) via tests for
+  the tool-policy store (`IsValidTool`, `GetAll`, `GetCatalog`, `CategorizeMCPTool`),
+  the typed event bus (`Topic.TopicName`, `EventBus.SubTopics`) and file-config
+  loading (`LoadConfigFile` happy/missing/malformed paths, `DefaultDiscoveryConfig`).
+  Added `daemon/services/controllers` tests for the pure fan-safety PWM clamp
+  (`ValidatePWM` boundaries and default-minimum normalization), fan-curve
+  interpolation (`interpolateSpeed` below/above/midpoint and zero-width segments),
+  and the Docker/IPMI string helpers (`shortDigest`, `sanitizeFanName`).
+  ([#192](https://github.com/ruaan-deysel/unraid-management-agent/issues/192)).
 
 ### Added
 
