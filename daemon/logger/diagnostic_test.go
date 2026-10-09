@@ -213,4 +213,23 @@ func TestDiagnosticLoggerConcurrentWrites(t *testing.T) {
 	if len(entries) != goroutines*perGoroutine {
 		t.Fatalf("expected %d entries, got %d", goroutines*perGoroutine, len(entries))
 	}
+
+	// Verify every (g, i) pair appears exactly once, so a missing write masked
+	// by a duplicate cannot slip through on the total count alone.
+	seen := make(map[[2]int]int, goroutines*perGoroutine)
+	for _, e := range entries {
+		gv, gok := e.Context["g"].(float64)
+		iv, iok := e.Context["i"].(float64)
+		if !gok || !iok {
+			t.Fatalf("entry missing numeric g/i context: %v", e.Context)
+		}
+		seen[[2]int{int(gv), int(iv)}]++
+	}
+	for g := range goroutines {
+		for i := range perGoroutine {
+			if n := seen[[2]int{g, i}]; n != 1 {
+				t.Errorf("pair (g=%d, i=%d) appeared %d times, want 1", g, i, n)
+			}
+		}
+	}
 }
