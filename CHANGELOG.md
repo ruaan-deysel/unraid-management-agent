@@ -36,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Enforced GitHub issue forms for triage quality** — replaced legacy markdown
+  issue templates with structured GitHub Issue Forms (`01-bug-report.yml` and
+  `02-enhancement-request.yml`) based on the `vault` repository setup, with
+  required fields and required confirmations to read `CONTRIBUTING.md` and
+  `AGENTS.md`. Updated `.github/ISSUE_TEMPLATE/config.yml` contact links for
+  Discussions, private security disclosure, and contribution rules.
 - **Automated PR governance checks** — added GitHub Actions workflow enforcing
   PR template completeness, exempting bots and draft PRs, stripping HTML comments
   during section validation, and validating issue references (supporting issue
