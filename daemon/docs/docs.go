@@ -9143,7 +9143,19 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "status": {
-                    "$ref": "#/definitions/dto.NUTStatus"
+                    "description": "Status of the first device in Devices (the primary UPS), kept for\nclients that only know one device. It is also the first entry of\nStatuses when that device answered.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/dto.NUTStatus"
+                        }
+                    ]
+                },
+                "statuses": {
+                    "description": "Statuses has the detailed status of every device in Devices that\nanswered, in the same order (e.g. a second UPS or an ATS).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.NUTStatus"
+                    }
                 },
                 "timestamp": {
                     "type": "string"
@@ -9161,29 +9173,36 @@ const docTemplate = `{
                     }
                 },
                 "apparent_power_nominal_va": {
-                    "type": "number"
+                    "type": "number",
+                    "x-nullable": true
                 },
                 "apparent_power_va": {
-                    "type": "number"
+                    "type": "number",
+                    "x-nullable": true
                 },
                 "battery_charge_low_percent": {
-                    "type": "number"
+                    "type": "number",
+                    "x-nullable": true
                 },
                 "battery_charge_percent": {
                     "description": "Battery info",
-                    "type": "number"
+                    "type": "number",
+                    "x-nullable": true
                 },
                 "battery_charge_warning_percent": {
-                    "type": "number"
+                    "type": "number",
+                    "x-nullable": true
                 },
                 "battery_mfr_date": {
                     "type": "string"
                 },
                 "battery_runtime_low_seconds": {
-                    "type": "integer"
+                    "type": "integer",
+                    "x-nullable": true
                 },
                 "battery_runtime_seconds": {
-                    "type": "integer"
+                    "type": "integer",
+                    "x-nullable": true
                 },
                 "battery_status": {
                     "type": "string"
@@ -9193,10 +9212,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "battery_voltage": {
-                    "type": "number"
+                    "type": "number",
+                    "x-nullable": true
                 },
                 "battery_voltage_nominal": {
-                    "type": "number"
+                    "type": "number",
+                    "x-nullable": true
                 },
                 "beeper_status": {
                     "description": "e.g., \"enabled\", \"disabled\"",
@@ -9208,10 +9229,12 @@ const docTemplate = `{
                 },
                 "delay_shutdown_seconds": {
                     "description": "Timing",
-                    "type": "integer"
+                    "type": "integer",
+                    "x-nullable": true
                 },
                 "delay_start_seconds": {
-                    "type": "integer"
+                    "type": "integer",
+                    "x-nullable": true
                 },
                 "device_name": {
                     "description": "e.g., \"ups\"",
@@ -9240,27 +9263,34 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "input_current": {
-                    "type": "number"
+                    "type": "number",
+                    "x-nullable": true
                 },
                 "input_frequency": {
-                    "type": "number"
+                    "type": "number",
+                    "x-nullable": true
                 },
                 "input_transfer_high": {
-                    "type": "number"
+                    "type": "number",
+                    "x-nullable": true
                 },
                 "input_transfer_low": {
-                    "type": "number"
+                    "type": "number",
+                    "x-nullable": true
                 },
                 "input_voltage": {
                     "description": "Input power",
-                    "type": "number"
+                    "type": "number",
+                    "x-nullable": true
                 },
                 "input_voltage_nominal": {
-                    "type": "number"
+                    "type": "number",
+                    "x-nullable": true
                 },
                 "load_percent": {
                     "description": "Load and power",
-                    "type": "number"
+                    "type": "number",
+                    "x-nullable": true
                 },
                 "manufacturer": {
                     "description": "UPS identification",
@@ -9270,14 +9300,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "output_current": {
-                    "type": "number"
+                    "type": "number",
+                    "x-nullable": true
                 },
                 "output_frequency": {
-                    "type": "number"
+                    "type": "number",
+                    "x-nullable": true
                 },
                 "output_voltage": {
                     "description": "Output power",
-                    "type": "number"
+                    "type": "number",
+                    "x-nullable": true
                 },
                 "product_id": {
                     "type": "string"
@@ -9290,10 +9323,12 @@ const docTemplate = `{
                     }
                 },
                 "realpower_nominal_watts": {
-                    "type": "number"
+                    "type": "number",
+                    "x-nullable": true
                 },
                 "realpower_watts": {
-                    "type": "number"
+                    "type": "number",
+                    "x-nullable": true
                 },
                 "serial": {
                     "type": "string"
@@ -9314,10 +9349,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "timer_shutdown": {
-                    "type": "integer"
+                    "type": "integer",
+                    "x-nullable": true
                 },
                 "timer_start": {
-                    "type": "integer"
+                    "type": "integer",
+                    "x-nullable": true
                 },
                 "timestamp": {
                     "description": "Metadata",
@@ -11578,15 +11615,24 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "battery_charge_percent": {
+                    "description": "Battery charge percentage; null when the UPS does not report it",
                     "type": "number",
+                    "x-nullable": true,
                     "example": 100
                 },
                 "connected": {
                     "type": "boolean",
                     "example": true
                 },
+                "device_name": {
+                    "description": "NUT device name (upsc -l) when the data comes from NUT; empty for apcupsd.\nGET /nut lists every NUT device; this is the first one.",
+                    "type": "string",
+                    "example": "ups"
+                },
                 "load_percent": {
+                    "description": "Load percentage; null when the UPS does not report it",
                     "type": "number",
+                    "x-nullable": true,
                     "example": 25.5
                 },
                 "model": {
@@ -11594,15 +11640,21 @@ const docTemplate = `{
                     "example": "APC Smart-UPS 1500"
                 },
                 "nominal_power_watts": {
+                    "description": "Nominal power in watts; null when the UPS does not report it",
                     "type": "number",
+                    "x-nullable": true,
                     "example": 1000
                 },
                 "power_watts": {
+                    "description": "Real power draw in watts; null unless the UPS reports it or both nominal power and load",
                     "type": "number",
+                    "x-nullable": true,
                     "example": 250.5
                 },
                 "runtime_left_seconds": {
+                    "description": "Battery runtime remaining in seconds; null when the UPS does not report it",
                     "type": "integer",
+                    "x-nullable": true,
                     "example": 3600
                 },
                 "status": {
