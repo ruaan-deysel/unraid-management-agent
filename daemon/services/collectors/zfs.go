@@ -19,11 +19,14 @@ import (
 // ZFSCollector collects ZFS pool, dataset, and ARC statistics
 type ZFSCollector struct {
 	ctx *domain.Context
+
+	// execOutput runs `zpool status`; injectable so tests can feed captured output.
+	execOutput func(command string, args ...string) (string, error)
 }
 
 // NewZFSCollector creates a new ZFS collector
 func NewZFSCollector(ctx *domain.Context) *ZFSCollector {
-	return &ZFSCollector{ctx: ctx}
+	return &ZFSCollector{ctx: ctx, execOutput: lib.ExecCommandOutput}
 }
 
 // Start begins the ZFS collection loop
@@ -263,7 +266,7 @@ func (c *ZFSCollector) enrichPoolProperties(pool *dto.ZFSPool) error {
 
 // parsePoolStatus parses 'zpool status' output for vdevs, errors, and scrub info
 func (c *ZFSCollector) parsePoolStatus(pool *dto.ZFSPool) error {
-	output, err := lib.ExecCommandOutput(constants.ZpoolBin, "status", "-v", pool.Name)
+	output, err := c.execOutput(constants.ZpoolBin, "status", "-v", pool.Name)
 	if err != nil {
 		return err
 	}
@@ -296,18 +299,19 @@ func (c *ZFSCollector) parsePoolStatus(pool *dto.ZFSPool) error {
 			continue
 		}
 
-		// Collect corrupted-file paths in the errors section.
+		// Collect corrupted-file paths in the errors section. OpenZFS
+		// print_error_log() prints the header, a blank line, then one path per
+		// line as "%7s %s" (8 spaces of indent), so a blank line does not end
+		// the list; any other line does.
 		if inErrors {
 			if trimmed == "" {
-				inErrors = false
 				continue
 			}
-			// Skip the introductory sentence ("Permanent errors have been detected...").
-			if strings.HasSuffix(trimmed, ":") || strings.HasPrefix(trimmed, "Permanent errors") {
+			if path, found := strings.CutPrefix(line, "        "); found {
+				pool.CorruptedFiles = append(pool.CorruptedFiles, path)
 				continue
 			}
-			pool.CorruptedFiles = append(pool.CorruptedFiles, trimmed)
-			continue
+			inErrors = false
 		}
 
 		// Parse config section (vdev tree)
