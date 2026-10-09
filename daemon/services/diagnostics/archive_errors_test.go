@@ -12,7 +12,7 @@ import (
 	"github.com/ruaan-deysel/unraid-management-agent/daemon/dto"
 )
 
-// failingWriter returns an error after allowing okBytes bytes through.
+// failingWriter returns an error after allowing remaining bytes through.
 type failingWriter struct {
 	remaining int
 }
