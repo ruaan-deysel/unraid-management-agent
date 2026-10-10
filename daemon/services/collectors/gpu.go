@@ -428,7 +428,30 @@ func (c *GPUCollector) collectNvidiaGPU() ([]*dto.GPUMetrics, error) {
 		return nil, fmt.Errorf("nvidia-smi query failed: %w", err)
 	}
 
-	// Parse CSV output
+	gpus, err := parseNvidiaGPUCSV(output)
+	if err != nil {
+		return nil, err
+	}
+
+	// Driver version is identical for all GPUs, so query it once and apply it.
+	if len(gpus) > 0 {
+		if driverVersion, err := c.getNvidiaDriverVersion(); err == nil {
+			for _, gpu := range gpus {
+				gpu.DriverVersion = driverVersion
+			}
+		}
+	}
+
+	return gpus, nil
+}
+
+// parseNvidiaGPUCSV parses nvidia-smi CSV output (noheader,nounits) with the
+// query column order
+// index,pci.bus_id,uuid,name,temperature.gpu,utilization.gpu,memory.used,
+// memory.total,power.draw,fan.speed into GPU metrics. Memory values are
+// converted from MiB to bytes and memory utilization is derived. Records with
+// fewer than 10 fields are skipped; unparseable numeric fields are left at zero.
+func parseNvidiaGPUCSV(output string) ([]*dto.GPUMetrics, error) {
 	reader := csv.NewReader(strings.NewReader(output))
 	records, err := reader.ReadAll()
 	if err != nil {
@@ -493,15 +516,6 @@ func (c *GPUCollector) collectNvidiaGPU() ([]*dto.GPUMetrics, error) {
 		// Fan Speed (%)
 		if fanSpeed, err := strconv.ParseFloat(strings.TrimSpace(record[9]), 64); err == nil {
 			gpu.FanSpeed = fanSpeed
-		}
-
-		// Get driver version (same for all GPUs, only query once)
-		if len(gpus) == 0 {
-			if driverVersion, err := c.getNvidiaDriverVersion(); err == nil {
-				gpu.DriverVersion = driverVersion
-			}
-		} else {
-			gpu.DriverVersion = gpus[0].DriverVersion
 		}
 
 		gpus = append(gpus, gpu)
