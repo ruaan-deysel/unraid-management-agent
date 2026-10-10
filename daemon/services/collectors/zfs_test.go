@@ -603,3 +603,21 @@ func TestZFSVdevTypes(t *testing.T) {
 		})
 	}
 }
+
+func TestZFSParseOutput_EmptyLinesAndEdgeCases(t *testing.T) {
+	pools, err := parseZPoolListOutput("   \n\n   ")
+	if err != nil || len(pools) != 0 {
+		t.Errorf("expected 0 pools, got %v, err %v", pools, err)
+	}
+
+	datasets, err := parseZFSDatasetListOutput("   \n\n   ")
+	if err != nil || len(datasets) != 0 {
+		t.Errorf("expected 0 datasets, got %v, err %v", datasets, err)
+	}
+
+	snaps, err := parseZFSSnapshotListOutput("   \n\n   ")
+	if err != nil || len(snaps) != 0 {
+		t.Errorf("expected 0 snaps, got %v, err %v", snaps, err)
+	}
+}
+

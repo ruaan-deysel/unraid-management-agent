@@ -54,7 +54,7 @@ test-coverage:
 	go test -covermode=atomic -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
-	@go tool cover -func=coverage.out | grep -v 'daemon/docs' | grep -v '/tests/' | tail -n 1
+	@grep -v 'daemon/docs' coverage.out | grep -v '/tests/' > coverage_filtered.out && go tool cover -func=coverage_filtered.out | tail -n 1 && rm -f coverage_filtered.out
 
 clean:
 	@echo "Cleaning build artifacts..."

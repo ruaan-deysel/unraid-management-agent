@@ -235,3 +235,11 @@ func TestVMControllerMockOperations(t *testing.T) {
 		}
 	})
 }
+
+func TestVMController_NilSeams(t *testing.T) {
+	vc := &VMController{} // nil exec and execOutput
+	_ = vc.pmWakeup("test-vm")
+	_, _ = vc.ListSnapshots("test-vm")
+	_ = vc.CloneVM("test-vm", "test-clone")
+}
+

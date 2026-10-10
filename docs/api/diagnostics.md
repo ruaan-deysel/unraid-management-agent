@@ -50,7 +50,7 @@ Checks the health of all platform data sources and capabilities.
 
 ### 2. Download Diagnostics Bundle
 
-Generates and downloads a complete, redacted ZIP archive containing host metrics, disk status, container states, VM states, recent system logs, and sanitized configuration. Sensitive information (such as MQTT passwords and API tokens) is automatically stripped.
+Generates and downloads a ZIP archive containing host metrics, disk status, container states, VM states, recent system logs, and configuration with known sensitive values redacted. Review the archive for sensitive data before sharing it publicly.
 
 - **Method**: `GET`
 - **Path**: `/api/v1/diagnostics/bundle`

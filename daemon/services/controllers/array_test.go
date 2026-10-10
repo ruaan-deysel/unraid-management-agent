@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -243,5 +244,74 @@ func TestArrayDiskClearStats(t *testing.T) {
 			t.Errorf("expected socket-unavailable error, got: %v", err)
 		}
 		t.Logf("ClearDiskStats (no socket) correctly returned: %v", err)
+	})
+}
+
+func TestArrayController_SeamFallbacksAndErrors(t *testing.T) {
+	t.Run("spin fallback to mdcmd when emhttpd socket unavailable", func(t *testing.T) {
+		var mdcmdCalled bool
+		c := &ArrayController{
+			isEmhttpdAvailable:   func() bool { return false },
+			isProcMdcmdAvailable: func() bool { return true },
+			mdcmdWrite: func(args ...string) error {
+				mdcmdCalled = true
+				return nil
+			},
+		}
+		if err := c.SpinUpDisk("disk1"); err != nil || !mdcmdCalled {
+			t.Errorf("expected fallback to mdcmdWrite, err: %v, called: %v", err, mdcmdCalled)
+		}
+	})
+
+	t.Run("spin error when emhttpdRequest fails", func(t *testing.T) {
+		c := &ArrayController{
+			isEmhttpdAvailable: func() bool { return true },
+			readStartState:     func() string { return "" },
+			emhttpdRequest: func(params map[string]string) error {
+				return errors.New("emhttpd fail")
+			},
+		}
+		if err := c.SpinDownDisk("disk1"); err == nil {
+			t.Error("expected error from emhttpd fail")
+		}
+	})
+
+	t.Run("ClearDiskStats success when socket available", func(t *testing.T) {
+		var reqSent bool
+		c := &ArrayController{
+			isEmhttpdAvailable: func() bool { return true },
+			emhttpdRequest: func(params map[string]string) error {
+				if params["clearStatistics"] == "true" {
+					reqSent = true
+				}
+				return nil
+			},
+		}
+		if err := c.ClearDiskStats(); err != nil || !reqSent {
+			t.Errorf("ClearDiskStats err: %v, reqSent: %v", err, reqSent)
+		}
+	})
+
+	t.Run("ClearDiskStats error when emhttpdRequest fails", func(t *testing.T) {
+		c := &ArrayController{
+			isEmhttpdAvailable: func() bool { return true },
+			emhttpdRequest: func(params map[string]string) error {
+				return errors.New("clear fail")
+			},
+		}
+		if err := c.ClearDiskStats(); err == nil {
+			t.Error("expected error from clear fail")
+		}
+	})
+
+	t.Run("mdcmd fallback when proc mdcmd unavailable", func(t *testing.T) {
+		c := &ArrayController{
+			isProcMdcmdAvailable: func() bool { return false },
+			execCommand: func(cmd string, args ...string) ([]string, error) {
+				return nil, nil
+			},
+		}
+		// In test env, mdcmd binary is not in /usr/local/sbin, so guard returns error
+		_ = c.StartArray()
 	})
 }

@@ -359,7 +359,7 @@ There are two primary ways to export diagnostics depending on whether you are sh
 
 ### 1. Redacted Diagnostics Bundle (Recommended for Bug Reports)
 
-The agent provides a built-in diagnostic bundling service that exports a redacted ZIP archive. All sensitive secrets—such as API tokens, MCP connect secret, MQTT credentials, and passwords—are automatically sanitized, making it safe to attach to GitHub issues and bug reports.
+The agent provides a built-in diagnostic bundling service that exports a ZIP archive with known sensitive values (API tokens, MCP connect secret, MQTT credentials, and passwords) redacted. Review the archive for sensitive data before attaching it to GitHub issues and bug reports.
 
 **Via HTTP API:**
 ```bash

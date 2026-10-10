@@ -161,3 +161,29 @@ func TestHandleDiagnosticsBundle_WriteArchiveError(t *testing.T) {
 	}
 }
 
+func TestHandleDiagnosticsBundle_DefaultWriteArchive(t *testing.T) {
+	mockBundle := &dto.DiagnosticBundle{
+		Metadata: dto.BundleMetadata{
+			Hostname: "testhost",
+		},
+	}
+	s := &Server{
+		ctx: &domain.Context{},
+		collectDiagnosticsFn: func(_ context.Context, _ *domain.Context) (*dto.DiagnosticBundle, error) {
+			return mockBundle, nil
+		},
+		// writeArchiveFn is nil, exercising diagnostics.WriteArchive fallback
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/diagnostics/bundle", nil)
+	rec := httptest.NewRecorder()
+	s.handleDiagnosticsBundle(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "application/zip" {
+		t.Errorf("Content-Type = %q, want application/zip", ct)
+	}
+}
+
