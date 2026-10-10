@@ -51,9 +51,10 @@ test:
 
 test-coverage:
 	@echo "Running tests with coverage..."
-	go test -v -coverprofile=coverage.out ./...
+	go test -covermode=atomic -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
+	@go tool cover -func=coverage.out | grep -v 'daemon/docs' | grep -v '/tests/' | tail -n 1
 
 clean:
 	@echo "Cleaning build artifacts..."

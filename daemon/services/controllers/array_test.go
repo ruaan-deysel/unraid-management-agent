@@ -61,97 +61,133 @@ func TestArrayControllerInterface(t *testing.T) {
 	})
 }
 
-func TestArrayControllerParityCheckModes(t *testing.T) {
-	// Skip if not in integration test mode
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
+func TestArrayControllerCommandsWithMocks(t *testing.T) {
+	var lastCmd []string
+	ac := &ArrayController{
+		isProcMdcmdAvailable: func() bool { return true },
+		mdcmdWrite: func(args ...string) error {
+			lastCmd = args
+			return nil
+		},
 	}
 
-	ctx := &domain.Context{}
-	ac := NewArrayController(ctx)
+	if err := ac.StartArray(); err != nil {
+		t.Fatalf("StartArray failed: %v", err)
+	}
+	if len(lastCmd) != 1 || lastCmd[0] != "start" {
+		t.Errorf("StartArray wrote %v, want ['start']", lastCmd)
+	}
 
-	// Test that different parity check modes are called correctly
-	// These will fail without mdcmd but test the logic paths
+	if err := ac.StopArray(); err != nil {
+		t.Fatalf("StopArray failed: %v", err)
+	}
+	if len(lastCmd) != 1 || lastCmd[0] != "stop" {
+		t.Errorf("StopArray wrote %v, want ['stop']", lastCmd)
+	}
 
-	t.Run("StartParityCheck with correcting=true", func(t *testing.T) {
-		err := ac.StartParityCheck(true)
-		// Will fail without mdcmd, but tests the code path
-		if err == nil {
-			t.Log("Note: No error - mdcmd might be available")
-		}
-	})
+	if err := ac.StartParityCheck(true); err != nil {
+		t.Fatalf("StartParityCheck(true) failed: %v", err)
+	}
+	if len(lastCmd) != 2 || lastCmd[0] != "check" || lastCmd[1] != "CORRECT" {
+		t.Errorf("StartParityCheck(true) wrote %v, want ['check', 'CORRECT']", lastCmd)
+	}
 
-	t.Run("StartParityCheck with correcting=false", func(t *testing.T) {
-		err := ac.StartParityCheck(false)
-		// Will fail without mdcmd, but tests the code path
-		if err == nil {
-			t.Log("Note: No error - mdcmd might be available")
-		}
-	})
+	if err := ac.StartParityCheck(false); err != nil {
+		t.Fatalf("StartParityCheck(false) failed: %v", err)
+	}
+	if len(lastCmd) != 2 || lastCmd[0] != "check" || lastCmd[1] != "NOCORRECT" {
+		t.Errorf("StartParityCheck(false) wrote %v, want ['check', 'NOCORRECT']", lastCmd)
+	}
 
-	t.Run("StartArray", func(t *testing.T) {
-		err := ac.StartArray()
-		// Will fail without mdcmd, but tests the code path
-		if err == nil {
-			t.Log("Note: No error - mdcmd might be available")
-		}
-	})
+	if err := ac.StopParityCheck(); err != nil {
+		t.Fatalf("StopParityCheck failed: %v", err)
+	}
+	if len(lastCmd) != 1 || lastCmd[0] != "nocheck" {
+		t.Errorf("StopParityCheck wrote %v, want ['nocheck']", lastCmd)
+	}
 
-	t.Run("StopArray", func(t *testing.T) {
-		err := ac.StopArray()
-		// Will fail without mdcmd, but tests the code path
-		if err == nil {
-			t.Log("Note: No error - mdcmd might be available")
-		}
-	})
+	if err := ac.PauseParityCheck(); err != nil {
+		t.Fatalf("PauseParityCheck failed: %v", err)
+	}
+	if len(lastCmd) != 1 || lastCmd[0] != "pause" {
+		t.Errorf("PauseParityCheck wrote %v, want ['pause']", lastCmd)
+	}
 
-	t.Run("StopParityCheck", func(t *testing.T) {
-		err := ac.StopParityCheck()
-		// Will fail without mdcmd, but tests the code path
-		if err == nil {
-			t.Log("Note: No error - mdcmd might be available")
-		}
-	})
-
-	t.Run("PauseParityCheck", func(t *testing.T) {
-		err := ac.PauseParityCheck()
-		// Will fail without mdcmd, but tests the code path
-		if err == nil {
-			t.Log("Note: No error - mdcmd might be available")
-		}
-	})
-
-	t.Run("ResumeParityCheck", func(t *testing.T) {
-		err := ac.ResumeParityCheck()
-		// Will fail without mdcmd, but tests the code path
-		if err == nil {
-			t.Log("Note: No error - mdcmd might be available")
-		}
-	})
+	if err := ac.ResumeParityCheck(); err != nil {
+		t.Fatalf("ResumeParityCheck failed: %v", err)
+	}
+	if len(lastCmd) != 1 || lastCmd[0] != "resume" {
+		t.Errorf("ResumeParityCheck wrote %v, want ['resume']", lastCmd)
+	}
 }
 
-func TestArrayControllerDiskOperations(t *testing.T) {
-	// Skip if not in integration test mode
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
+func TestArrayControllerDiskOperationsWithMocks(t *testing.T) {
+	t.Run("emhttpd socket path with startState", func(t *testing.T) {
+		var lastParams map[string]string
+		ac := &ArrayController{
+			isEmhttpdAvailable: func() bool { return true },
+			readStartState:     func() string { return "STARTED" },
+			emhttpdRequest: func(params map[string]string) error {
+				lastParams = params
+				return nil
+			},
+		}
 
-	ctx := &domain.Context{}
-	ac := NewArrayController(ctx)
+		if err := ac.SpinUpDisk("disk1"); err != nil {
+			t.Fatalf("SpinUpDisk failed: %v", err)
+		}
+		if lastParams["cmdSpinup"] != "disk1" || lastParams["startState"] != "STARTED" {
+			t.Errorf("SpinUpDisk params = %v, want cmdSpinup=disk1, startState=STARTED", lastParams)
+		}
 
-	t.Run("SpinDownDisk with invalid disk", func(t *testing.T) {
-		err := ac.SpinDownDisk("nonexistent-disk")
-		// Will fail without mdcmd
-		if err == nil {
-			t.Log("Note: No error - mdcmd might be available")
+		if err := ac.SpinDownDisk("disk1"); err != nil {
+			t.Fatalf("SpinDownDisk failed: %v", err)
+		}
+		if lastParams["cmdSpindown"] != "disk1" || lastParams["startState"] != "STARTED" {
+			t.Errorf("SpinDownDisk params = %v, want cmdSpindown=disk1, startState=STARTED", lastParams)
 		}
 	})
 
-	t.Run("SpinUpDisk with invalid disk", func(t *testing.T) {
-		err := ac.SpinUpDisk("nonexistent-disk")
-		// Will fail without mdcmd
-		if err == nil {
-			t.Log("Note: No error - mdcmd might be available")
+	t.Run("fallback to proc mdcmd when socket unavailable", func(t *testing.T) {
+		var lastCmd []string
+		ac := &ArrayController{
+			isEmhttpdAvailable:   func() bool { return false },
+			isProcMdcmdAvailable: func() bool { return true },
+			mdcmdWrite: func(args ...string) error {
+				lastCmd = args
+				return nil
+			},
+		}
+
+		if err := ac.SpinUpDisk("disk2"); err != nil {
+			t.Fatalf("SpinUpDisk fallback failed: %v", err)
+		}
+		if len(lastCmd) != 2 || lastCmd[0] != "spinup" || lastCmd[1] != "disk2" {
+			t.Errorf("SpinUpDisk wrote %v, want ['spinup', 'disk2']", lastCmd)
+		}
+
+		if err := ac.SpinDownDisk("disk2"); err != nil {
+			t.Fatalf("SpinDownDisk fallback failed: %v", err)
+		}
+		if len(lastCmd) != 2 || lastCmd[0] != "spindown" || lastCmd[1] != "disk2" {
+			t.Errorf("SpinDownDisk wrote %v, want ['spindown', 'disk2']", lastCmd)
+		}
+	})
+
+	t.Run("ClearDiskStats with emhttpd", func(t *testing.T) {
+		var lastParams map[string]string
+		ac := &ArrayController{
+			isEmhttpdAvailable: func() bool { return true },
+			emhttpdRequest: func(params map[string]string) error {
+				lastParams = params
+				return nil
+			},
+		}
+		if err := ac.ClearDiskStats(); err != nil {
+			t.Fatalf("ClearDiskStats failed: %v", err)
+		}
+		if lastParams["clearStatistics"] != "true" {
+			t.Errorf("ClearDiskStats params = %v, want clearStatistics=true", lastParams)
 		}
 	})
 }
@@ -168,7 +204,8 @@ func TestEmcmdSpinRejectsWhitespaceDiskNames(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := emcmdSpin("cmdSpinup", "spinup", tt.diskName)
+			controller := &ArrayController{}
+			err := controller.emcmdSpin("cmdSpinup", "spinup", tt.diskName)
 			if err == nil {
 				t.Fatalf("emcmdSpin(%q) expected error for whitespace disk name", tt.diskName)
 			}
