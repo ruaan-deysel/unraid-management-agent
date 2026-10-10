@@ -226,17 +226,24 @@ func TestToolPolicyStore_GetCatalog(t *testing.T) {
 	// Global read-only forces the write tool to read_only but leaves the
 	// read-only tool at default.
 	catalogRO := store.GetCatalog(true)
+	if len(catalogRO) != 2 {
+		t.Fatalf("GetCatalog(true) returned %d items, want 2", len(catalogRO))
+	}
+	roByName := make(map[string]string, len(catalogRO))
 	for _, item := range catalogRO {
-		switch item.Name {
-		case "container_start":
-			if item.EffectivePolicy != string(PolicyReadOnly) {
-				t.Errorf("container_start effective under global RO = %q, want read_only", item.EffectivePolicy)
-			}
-		case "get_system_info":
-			if item.EffectivePolicy != string(PolicyDefault) {
-				t.Errorf("get_system_info effective under global RO = %q, want default", item.EffectivePolicy)
-			}
-		}
+		roByName[item.Name] = item.EffectivePolicy
+	}
+	if _, ok := roByName["container_start"]; !ok {
+		t.Error("GetCatalog(true) missing container_start")
+	}
+	if _, ok := roByName["get_system_info"]; !ok {
+		t.Error("GetCatalog(true) missing get_system_info")
+	}
+	if roByName["container_start"] != string(PolicyReadOnly) {
+		t.Errorf("container_start effective under global RO = %q, want read_only", roByName["container_start"])
+	}
+	if roByName["get_system_info"] != string(PolicyDefault) {
+		t.Errorf("get_system_info effective under global RO = %q, want default", roByName["get_system_info"])
 	}
 }
 

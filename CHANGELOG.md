@@ -30,7 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   loading (`LoadConfigFile` happy/missing/malformed paths, `DefaultDiscoveryConfig`).
   Added `daemon/services/controllers` tests for the pure fan-safety PWM clamp
   (`ValidatePWM` boundaries and default-minimum normalization), fan-curve
-  interpolation (`interpolateSpeed` below/above/midpoint and zero-width segments),
+  interpolation (`interpolateSpeed` below/above/midpoint and the duplicate
+  lowest-boundary clamp),
   and the Docker/IPMI string helpers (`shortDigest`, `sanitizeFanName`).
   ([#192](https://github.com/ruaan-deysel/unraid-management-agent/issues/192)).
 

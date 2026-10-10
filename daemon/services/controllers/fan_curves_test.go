@@ -94,9 +94,10 @@ func TestInterpolateSpeed(t *testing.T) {
 	}
 }
 
-func TestInterpolateSpeedZeroWidthSegment(t *testing.T) {
-	// Two points at the same temperature must not divide by zero; the upper
-	// point's speed is returned.
+func TestInterpolateSpeedDuplicateLowestBoundary(t *testing.T) {
+	// When tempC equals the lowest point's temperature, interpolateSpeed hits
+	// the "at/below lowest" clamp and returns the first point's speed before any
+	// interpolation runs — even if the next point shares the same temperature.
 	points := []dto.FanCurvePoint{
 		{TempCelsius: 40, SpeedPercent: 30},
 		{TempCelsius: 40, SpeedPercent: 80},
