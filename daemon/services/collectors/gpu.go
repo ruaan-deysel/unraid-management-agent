@@ -22,11 +22,21 @@ import (
 // It gathers temperature, utilization, memory usage, and power consumption data.
 type GPUCollector struct {
 	ctx *domain.Context
+	// nvidiaExec runs nvidia-smi. Nil means lib.ExecCommandOutput; tests inject a fake.
+	nvidiaExec func(name string, args ...string) (string, error)
 }
 
 // NewGPUCollector creates a new GPU metrics collector with the given context.
 func NewGPUCollector(ctx *domain.Context) *GPUCollector {
 	return &GPUCollector{ctx: ctx}
+}
+
+// runNvidia invokes nvidia-smi via the injected executor, defaulting to lib.ExecCommandOutput.
+func (c *GPUCollector) runNvidia(args ...string) (string, error) {
+	if c.nvidiaExec != nil {
+		return c.nvidiaExec("nvidia-smi", args...)
+	}
+	return lib.ExecCommandOutput("nvidia-smi", args...)
 }
 
 // Start begins the GPU collector's periodic data collection.
@@ -419,8 +429,7 @@ func (c *GPUCollector) getIntelDriverVersion() (string, error) {
 func (c *GPUCollector) collectNvidiaGPU() ([]*dto.GPUMetrics, error) {
 	// Query nvidia-smi with CSV output for easy parsing
 	// Added: pci.bus_id, uuid, fan.speed
-	output, err := lib.ExecCommandOutput(
-		"nvidia-smi",
+	output, err := c.runNvidia(
 		"--query-gpu=index,pci.bus_id,uuid,name,temperature.gpu,utilization.gpu,memory.used,memory.total,power.draw,fan.speed",
 		"--format=csv,noheader,nounits",
 	)
@@ -453,6 +462,9 @@ func (c *GPUCollector) collectNvidiaGPU() ([]*dto.GPUMetrics, error) {
 // fewer than 10 fields are skipped; unparseable numeric fields are left at zero.
 func parseNvidiaGPUCSV(output string) ([]*dto.GPUMetrics, error) {
 	reader := csv.NewReader(strings.NewReader(output))
+	// Tolerate variable field counts so a single malformed/short row is skipped
+	// per-record instead of failing the whole parse with a field-count error.
+	reader.FieldsPerRecord = -1
 	records, err := reader.ReadAll()
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse CSV output: %w", err)
@@ -526,7 +538,7 @@ func parseNvidiaGPUCSV(output string) ([]*dto.GPUMetrics, error) {
 
 // getNvidiaDriverVersion gets NVIDIA driver version
 func (c *GPUCollector) getNvidiaDriverVersion() (string, error) {
-	output, err := lib.ExecCommandOutput("nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader")
+	output, err := c.runNvidia("--query-gpu=driver_version", "--format=csv,noheader")
 	if err != nil {
 		return "", err
 	}

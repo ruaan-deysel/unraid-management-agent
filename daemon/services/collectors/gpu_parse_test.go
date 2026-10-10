@@ -1,6 +1,7 @@
 package collectors
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -113,4 +114,68 @@ func TestParseNvidiaGPUCSV(t *testing.T) {
 			t.Errorf("expected 0 GPUs, got %d", len(gpus))
 		}
 	})
+
+	t.Run("short record mixed with valid record keeps the valid one", func(t *testing.T) {
+		// A short row must not abort the whole parse (FieldsPerRecord = -1);
+		// the 10-field record is retained and the short one skipped.
+		out := "0, 00000000:01:00.0, GPU-a, Card A, 50, 10, 1024, 8192, 100, 30\n" +
+			"1, short, record\n"
+		gpus, err := parseNvidiaGPUCSV(out)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(gpus) != 1 {
+			t.Fatalf("expected 1 GPU (short record skipped), got %d", len(gpus))
+		}
+		if gpus[0].Name != "Card A" {
+			t.Errorf("retained GPU name = %q, want Card A", gpus[0].Name)
+		}
+	})
 }
+
+func TestCollectNvidiaGPU(t *testing.T) {
+	metricsCSV := "0, 00000000:01:00.0, GPU-a, Card A, 50, 10, 1024, 8192, 100, 30\n" +
+		"1, 00000000:02:00.0, GPU-b, Card B, 60, 20, 2048, 8192, 150, 50\n"
+
+	c := &GPUCollector{
+		nvidiaExec: func(_ string, args ...string) (string, error) {
+			for _, a := range args {
+				if strings.Contains(a, "driver_version") {
+					return "535.104.05\n", nil
+				}
+			}
+			return metricsCSV, nil
+		},
+	}
+
+	gpus, err := c.collectNvidiaGPU()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(gpus) != 2 {
+		t.Fatalf("expected 2 GPUs, got %d", len(gpus))
+	}
+	// Driver version is queried once and applied to every GPU.
+	for i, g := range gpus {
+		if g.DriverVersion != "535.104.05" {
+			t.Errorf("gpu[%d] DriverVersion = %q, want 535.104.05", i, g.DriverVersion)
+		}
+	}
+}
+
+func TestCollectNvidiaGPUQueryError(t *testing.T) {
+	c := &GPUCollector{
+		nvidiaExec: func(_ string, _ ...string) (string, error) {
+			return "", errFakeNvidia
+		},
+	}
+	if _, err := c.collectNvidiaGPU(); err == nil {
+		t.Fatal("expected error when nvidia-smi query fails, got nil")
+	}
+}
+
+var errFakeNvidia = errFake("nvidia-smi not available")
+
+type errFake string
+
+func (e errFake) Error() string { return string(e) }
