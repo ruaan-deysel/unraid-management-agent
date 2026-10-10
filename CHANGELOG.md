@@ -34,6 +34,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lowest-boundary clamp),
   and the Docker/IPMI string helpers (`shortDigest`, `sanitizeFanName`).
   ([#192](https://github.com/ruaan-deysel/unraid-management-agent/issues/192)).
+- **Coverage uplift part 3 (issue #192)** — extracted the `/proc/net/dev` and
+  `disks.ini` parsers in `daemon/services/collectors` into pure,
+  `io.Reader`-based helpers (`parseNetDevStats`, `parseDisksINIFrom`) with the
+  existing collector methods kept as thin file-opening wrappers, then added
+  table-driven fixture tests covering multi-record parsing, header skipping,
+  malformed/short rows, non-numeric counters, content before the first section,
+  and final-section capture. No collector behavior changed.
+  ([#192](https://github.com/ruaan-deysel/unraid-management-agent/issues/192)).
 
 ### Added
 
