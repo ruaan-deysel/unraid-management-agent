@@ -45,6 +45,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Mandatory pre-submission governance for pull requests** — added a required
+  "Pre-Submission Governance" section to the PR template with mandatory
+  confirmation checkboxes (built and ran locally, `make test` passes,
+  `make pre-commit-run` passes, real verification output pasted, not a duplicate
+  or back-to-back spam PR, and human sign-off for AI-assisted PRs). The PR
+  Governance workflow now fails any PR that leaves these boxes unchecked, and
+  `CONTRIBUTING.md` documents the enforced rules. These apply to all authors,
+  including AI agents and automation.
+- **CI runner spam protection** — added a `concurrency` group with
+  `cancel-in-progress` to the PR Governance workflow and gated the Coverage
+  workflow to skip draft PRs, so rapid back-to-back pushes cancel superseded
+  runs instead of piling up and exhausting CI runners.
 - **Enforced GitHub issue forms for triage quality** — replaced legacy markdown
   issue templates with structured GitHub Issue Forms (`01-bug-report.yml` and
   `02-enhancement-request.yml`) based on the `vault` repository setup, with
