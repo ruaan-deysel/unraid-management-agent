@@ -22,7 +22,7 @@ concurrency:
 
 env:
   # OIDC is unavailable to fork and Dependabot PRs; those fall back to tokenless uploads.
-  CODECOV_OIDC: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork) && github.actor != 'dependabot[bot]' }}
+  CODECOV_OIDC: ${{ !(github.event_name == 'pull_request' && (github.event.pull_request.head.repo.fork || github.event.pull_request.user.login == 'dependabot[bot]')) }}
 
 jobs:
   test-and-upload:
@@ -53,7 +53,7 @@ jobs:
           go tool cover -func=coverage.out | tail -n 1
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           slug: ${{ github.repository }}
           files: ./coverage.out
@@ -65,7 +65,7 @@ jobs:
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           report_type: test_results
           slug: ${{ github.repository }}
