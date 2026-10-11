@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Contribution governance: issues without a `bug` or `enhancement` label are labeled automatically so CodeRabbit can plan them, PRs that conflict with the default branch are labeled and their authors notified, and stale issues and PRs are closed (stale after 14 days, closed 30 days later). PR governance no longer passes silently when a bot edits the PR description. Codecov patch coverage must now reach 90%.
 - Configured Codecov GitHub Actions workflow for tokenless coverage uploads
 
 ### Tests
