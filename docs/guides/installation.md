@@ -37,10 +37,10 @@ The Unraid Management Agent is installed as a **Community Applications** plugin 
 
 ### Method 2: Manual Installation
 
-1. **Download the .plg file** from GitHub releases:
+1. **Download the .plg file** from the repository:
 
    ```bash
-   wget https://github.com/tinkerologie/unraid-management-agent/releases/latest/download/unraid-management-agent.plg
+   wget https://raw.githubusercontent.com/tinkerologie/unraid-management-agent/main/unraid-management-agent.plg
    ```
 
 2. **Install via command line**:
@@ -173,7 +173,7 @@ wscat -c ws://localhost:8043/api/v1/ws
 
 ```bash
 # Download latest .plg
-wget https://github.com/tinkerologie/unraid-management-agent/releases/latest/download/unraid-management-agent.plg -O /boot/config/plugins/unraid-management-agent.plg
+wget https://raw.githubusercontent.com/tinkerologie/unraid-management-agent/main/unraid-management-agent.plg -O /boot/config/plugins/unraid-management-agent.plg
 
 # Remove old version
 /usr/local/emhttp/plugins/dynamix.plugin.manager/scripts/plugin remove unraid-management-agent
