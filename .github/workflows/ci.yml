@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read # jobs request only what they need
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -22,6 +23,9 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
 
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # check out the repository
+      id-token: write # Codecov OIDC upload
     # Skip the expensive coverage run on draft PRs to conserve runner capacity;
     # it still runs on pushes to main, workflow_dispatch, and ready (non-draft) PRs.
     steps:
@@ -39,7 +43,7 @@ jobs:
 
       - name: Run tests with coverage and JUnit output
         run: |
-          $(go env GOPATH)/bin/gotestsum \
+          "$(go env GOPATH)/bin/gotestsum" \
             --junitfile junit.xml \
             --format standard-quiet \
             -- -covermode=atomic -coverprofile=coverage.out ./...
@@ -65,5 +69,3 @@ jobs:
           files: ./junit.xml
           use_oidc: ${{ env.CODECOV_OIDC == 'true' }}
           fail_ci_if_error: ${{ env.CODECOV_OIDC == 'true' }}
-    permissions:
-      contents: read # check out the repository
