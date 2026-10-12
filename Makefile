@@ -43,11 +43,8 @@ package: release
 	COPYFILE_DISABLE=1 cp -r $(PLUGIN_DIR)/. $(BUILD_DIR)/usr/local/emhttp/plugins/$(BINARY)/
 	find $(BUILD_DIR)/usr/local/emhttp/plugins/$(BINARY) -name '._*' -delete 2>/dev/null || true
 	@# Archive entries must be owned by root so extraction never chowns system dirs (#242)
-	cd $(BUILD_DIR) && \
-		if tar --version 2>/dev/null | grep -q 'GNU tar'; then OWNER_FLAGS='--owner=0 --group=0 --numeric-owner'; \
-		elif tar --version 2>/dev/null | grep -q 'bsdtar'; then OWNER_FLAGS='--uid 0 --gid 0 --numeric-owner'; \
-		else echo 'Unsupported tar: need GNU tar or bsdtar' >&2; exit 1; fi; \
-		COPYFILE_DISABLE=1 tar $$OWNER_FLAGS -czf $(BINARY)-$(VERSION).tgz usr/
+	OWNER_FLAGS=$$(sh scripts/tar-owner-flags.sh) && \
+		cd $(BUILD_DIR) && COPYFILE_DISABLE=1 tar $$OWNER_FLAGS -czf $(BINARY)-$(VERSION).tgz usr/
 	@echo "Package created: $(BUILD_DIR)/$(BINARY)-$(VERSION).tgz"
 
 test:
@@ -56,6 +53,7 @@ test:
 
 test-packaging: package
 	@echo "Running bundle packaging tests..."
+	bash scripts/test-bundle-extraction.sh check-tar-flags
 	bash scripts/test-bundle-extraction.sh check-owners $(BUILD_DIR)/$(BINARY)-$(VERSION).tgz
 	sudo bash scripts/test-bundle-extraction.sh
 

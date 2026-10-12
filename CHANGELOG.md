@@ -35,8 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   those directories and the plugin directory when an earlier install changed them, and
   `make package` builds the archive with numeric owner `0/0` on GNU tar and bsdtar. The
   release workflow refuses to publish a bundle with any other owner, and a new
-  `Bundle Ownership` CI job (`make test-packaging`) runs the `.plg` extraction command as root
-  against a uid-1001 archive. Reported in #239.
+  `Bundle Ownership` CI job (`make test-packaging`) runs the `.plg` extraction command and
+  repair loop as root against a uid-1001 archive and checks tar flag selection. Reported in #239.
   ([#242](https://github.com/tinkerologie/unraid-management-agent/issues/242)).
 
 ### Changed

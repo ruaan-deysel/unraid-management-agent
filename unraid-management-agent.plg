@@ -197,7 +197,11 @@ fi
 # Restore root ownership that earlier bundles set on shared directories (#242)
 for DIR in /usr /usr/local /usr/local/emhttp /usr/local/emhttp/plugins "${INSTALL_DIR}"; do
     if [ -d "$DIR" ] && [ "$(stat -c '%u:%g' "$DIR")" != "0:0" ]; then
-        chown root:root "$DIR" && echo "✓ Restored root ownership of ${DIR}"
+        if chown root:root "$DIR"; then
+            echo "✓ Restored root ownership of ${DIR}"
+        else
+            echo "⚠ Could not restore root ownership of ${DIR}"
+        fi
     fi
 done
 
