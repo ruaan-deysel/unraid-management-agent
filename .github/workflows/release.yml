@@ -27,6 +27,8 @@ on:
 
 permissions:
   contents: read # jobs request only what they need
+
+# Never run two releases at once (e.g. a tag push racing the auto-detection).
 concurrency:
   group: release
   cancel-in-progress: false
@@ -43,13 +45,15 @@ jobs:
       prerelease: ${{ steps.decide.outputs.prerelease }}
       checkout_ref: ${{ steps.decide.outputs.checkout_ref }}
 
+    permissions:
+      contents: read # check out the repository
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-
           persist-credentials: false
+
       - name: Decide whether to release
         id: decide
         env:
@@ -115,8 +119,6 @@ jobs:
 
           echo "should_release=$SHOULD_RELEASE tag=$TAG version=$VERSION prerelease=$PRERELEASE"
 
-    permissions:
-      contents: read # check out the repository
   release:
     name: Release
     # Track the newest supported Ubuntu GitHub-hosted runner image.
@@ -124,20 +126,23 @@ jobs:
     if: needs.detect.outputs.should_release == 'true'
 
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub release and tag
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.detect.outputs.checkout_ref }}
           fetch-depth: 0
-
           persist-credentials: false
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
 
           cache: false
+
       - name: Verify VERSION file matches tag
         env:
           DETECT_VERSION: ${{ needs.detect.outputs.version }}
@@ -328,5 +333,3 @@ jobs:
           else
             echo "**Type:** Stable release" >> $GITHUB_STEP_SUMMARY
           fi
-    permissions:
-      contents: write # create the GitHub release and tag
