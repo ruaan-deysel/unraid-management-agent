@@ -285,11 +285,23 @@ jobs:
           echo "Root PLG MD5:"
           grep "ENTITY md5" unraid-management-agent.plg
 
+      # main requires pull requests; the Unraid plugin manager and Community Applications read
+      # the .plg from main, so its new hash is pushed with the Tinkerologie-Release app, the
+      # only actor the ruleset lets bypass that rule (GITHUB_TOKEN cannot be a bypass actor).
+      - name: Mint Tinkerologie-Release token
+        id: release-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.TINKER_RELEASE_CLIENT_ID }}
+          private-key: ${{ secrets.TINKER_RELEASE_PRIVATE_KEY }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write # push the PLG hash commit to main
+
       - name: Commit and push PLG updates
         env:
           CHECKSUM_MD5: ${{ steps.checksum.outputs.md5 }}
           DETECT_VERSION: ${{ needs.detect.outputs.version }}
-          GITHUB_TOKEN: ${{ github.token }}
+          PLG_PUSH_TOKEN: ${{ steps.release-token.outputs.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -309,7 +321,7 @@ jobs:
 
             git add unraid-management-agent.plg
             git commit -m "chore: update PLG MD5 hash for v${DETECT_VERSION} [skip ci]"
-            git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" main
+            git push "https://x-access-token:${PLG_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" main
             echo "✅ Committed and pushed PLG update"
           fi
 
