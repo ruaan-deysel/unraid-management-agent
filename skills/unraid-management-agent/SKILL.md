@@ -139,9 +139,10 @@ references on demand.
   notifications, parity history, logs, collectors, settings, unassigned devices,
   remote SMB/NFS shares.
 - **Control:** container & VM lifecycle, array start/stop, parity check
-  start/stop/pause/resume, disk spin up/down, container & plugin updates, VM
-  snapshot create/delete/restore, VM clone, service start/stop/restart, user
-  scripts, collector enable/disable + intervals, reboot/shutdown.
+  start/stop/pause/resume, disk spin up/down, container updates, plugin update
+  checks (read-only), VM snapshot create/delete/restore, VM clone, service
+  start/stop/restart, user scripts, collector enable/disable + intervals,
+  reboot/shutdown.
 - **Observability & automation:** alert rules (expr-lang) + templates, health
   checks (HTTP/TCP/container), remediation runbooks, an optional autonomous
   agent, fan control (profiles/curves), CPU governor, and system tuning (turbo
