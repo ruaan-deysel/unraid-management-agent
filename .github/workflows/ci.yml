@@ -8,9 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  id-token: write
-
+  contents: read # jobs request only what they need
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -67,3 +65,5 @@ jobs:
           files: ./junit.xml
           use_oidc: ${{ env.CODECOV_OIDC == 'true' }}
           fail_ci_if_error: ${{ env.CODECOV_OIDC == 'true' }}
+    permissions:
+      contents: read # check out the repository
