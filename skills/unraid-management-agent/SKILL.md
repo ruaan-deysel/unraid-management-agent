@@ -126,7 +126,7 @@ references on demand.
 | File | When to read |
 | --- | --- |
 | `references/connection.md` | Connecting any client (Claude Code/Desktop, claude.ai, Cursor, Copilot, Gemini CLI, ChatGPT) via MCP HTTP/STDIO; troubleshooting connectivity |
-| `references/mcp-tools.md` | The full catalog of all 125 MCP tools grouped by category, with read/write (destructive) flags and arguments |
+| `references/mcp-tools.md` | The full catalog of all 126 MCP tools grouped by category, with read/write (destructive) flags and arguments |
 | `references/diagnostics.md` | The 6 diagnostic prompts and 5 real-time resources — what each analyses and when to use it |
 | `references/rest-api.md` | REST API surface for non-MCP clients (Custom GPT Actions, scripts): base path, key endpoints, path/body conventions |
 | `references/workflows.md` | Natural-language request → tool/endpoint mappings and end-to-end examples (monitoring, container/VM/array control, maintenance) |
