@@ -109,6 +109,12 @@ test_extraction() {
 
     echo "✓ Extraction preserved existing directories and installed files as root"
 
+    echo "not a gzip archive" >"${work}/corrupt.tgz"
+    if BUNDLE="${work}/corrupt.tgz" FIXTURE_ROOT="$root" bash -c "$cmd" >/dev/null 2>&1; then
+        fail "Extraction of a corrupt bundle succeeded"
+    fi
+    echo "✓ Extraction of a corrupt bundle fails"
+
     # Run the production repair loop from the .plg against the fixture root
     loop=$(sed -n '/^# Restore root ownership/,/^done/p' "$PLG")
     [ -n "$loop" ] || fail "Ownership repair loop not found in ${PLG}"
@@ -125,6 +131,22 @@ test_extraction() {
         fail "Expected exactly two directories to be repaired"
 
     echo "✓ Repair loop restored root ownership only on non-root directories, modes unchanged"
+
+    # A failing chown must warn and move on; a missing directory must be skipped
+    fakebin="${work}/fakebin"
+    mkdir -p "$fakebin"
+    printf '#!/bin/sh\nexit 1\n' >"${fakebin}/chown"
+    chmod +x "${fakebin}/chown"
+    chown 1001:1001 "${root}/usr/local" "${root}/usr/local/emhttp/plugins"
+    out=$(PATH="${fakebin}:${PATH}" FIXTURE_ROOT="$root" INSTALL_DIR="${work}/missing" bash -c "$loop") ||
+        fail "Repair loop exited non-zero when chown failed"
+    echo "$out"
+    [ "$(printf '%s\n' "$out" | grep -c 'Could not restore root ownership')" -eq 2 ] ||
+        fail "Expected a warning for each directory chown could not repair"
+    if printf '%s\n' "$out" | grep -q "${work}/missing"; then
+        fail "Repair loop acted on a missing directory"
+    fi
+    echo "✓ Repair loop warns on chown failure, continues, and skips missing directories"
 }
 
 case "${1:-}" in
