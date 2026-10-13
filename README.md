@@ -438,7 +438,7 @@ curl -X POST http://localhost:8043/mcp \
   -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_system_info","arguments":{}},"id":1}'
 ```
 
-For full MCP documentation including all 126 tools, 5 resources, and 3 prompts, see [docs/integrations/mcp.md](docs/integrations/mcp.md).
+For full MCP documentation including all 126 tools, 5 resources, and 6 prompts, see [docs/integrations/mcp.md](docs/integrations/mcp.md).
 
 ### Example API Usage
 
