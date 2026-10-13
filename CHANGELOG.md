@@ -326,6 +326,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`config.yml` overrode command-line flags and environment variables** — `applyFileConfig` set
+  every field the YAML file contains after flags and env were parsed, so for example
+  `read_only: false` in `config.yml` overrode `READ_ONLY=true`. Settings given on the command line or
+  through a non-empty environment variable now take precedence, as documented: CLI flag > env var >
+  config file > default. An empty environment variable does not count, so the plugin start script's
+  empty `API_TOKEN=""` no longer discards a token from `config.yml`. On plugin installs, values from
+  `config.cfg` (exported as environment variables) now win over a `config.yml`.
+  ([#257](https://github.com/tinkerologie/unraid-management-agent/issues/257)).
 - **UPS/NUT readings the UPS does not report were sent as 0** — numeric fields in
   `UPSStatus` (`/ups`, `ups_status_update`) and `NUTStatus` (`/nut`, `nut_status_update`)
   are now nullable and serialised as `null` when apcupsd/NUT does not report the variable
