@@ -2,6 +2,7 @@ package collectors
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -171,5 +172,67 @@ func TestNewNetworkAccessDiscoveryDefaults(t *testing.T) {
 	}
 	if NewNetworkAccessDiscovery(false).WANLookupEnabled() {
 		t.Error("WANLookupEnabled() = true for a disabled discovery")
+	}
+}
+
+// stubDoer answers every request with resp and err.
+type stubDoer struct {
+	resp *http.Response
+	err  error
+}
+
+func (s stubDoer) Do(*http.Request) (*http.Response, error) { return s.resp, s.err }
+
+// stubBody is a response body whose Read and Close return the given errors.
+type stubBody struct {
+	data     string
+	readErr  error
+	closeErr error
+	read     bool
+}
+
+func (b *stubBody) Read(p []byte) (int, error) {
+	if b.readErr != nil {
+		return 0, b.readErr
+	}
+	if b.read {
+		return 0, io.EOF
+	}
+	b.read = true
+	return copy(p, b.data), io.EOF
+}
+
+func (b *stubBody) Close() error { return b.closeErr }
+
+func TestQueryWANServiceFailures(t *testing.T) {
+	tests := []struct {
+		name    string
+		service string
+		doer    httpDoer
+		want    string
+	}{
+		{"malformed service URL", "://not a url", stubDoer{err: errors.New("unreachable")}, ""},
+		{"client error", "https://wan.example.invalid", stubDoer{err: errors.New("dial failed")}, ""},
+		{"body read error", "https://wan.example.invalid",
+			stubDoer{resp: &http.Response{StatusCode: http.StatusOK, Body: &stubBody{readErr: errors.New("reset")}}}, ""},
+		{"body close error still returns the IP", "https://wan.example.invalid",
+			stubDoer{resp: &http.Response{StatusCode: http.StatusOK, Body: &stubBody{data: "203.0.113.60", closeErr: errors.New("close failed")}}},
+			"203.0.113.60"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := discovery(true, networkCfg(t, ""), tt.service)
+			d.client = tt.doer
+			if got := d.queryWANService(tt.service); got != tt.want {
+				t.Errorf("queryWANService() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestConfiguredWANIPRejectsInvalidValue(t *testing.T) {
+	d := discovery(false, networkCfg(t, "WANIP=\"not-an-ip\"\nOTHER=1\n"))
+	if got := d.configuredWANIP(); got != "" {
+		t.Errorf("configuredWANIP() = %q, want empty for an invalid WANIP", got)
 	}
 }
