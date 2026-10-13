@@ -13,6 +13,7 @@ func zfsTime(year int, month time.Month, day, h, m, s int) time.Time {
 	return time.Date(year, month, day, h, m, s, 0, time.Local)
 }
 
+// TestParseScanInfoFormats covers every scan line format zpool prints (#185).
 func TestParseScanInfoFormats(t *testing.T) {
 	end := zfsTime(2026, time.September, 17, 22, 6, 13)
 	tests := []struct {
@@ -93,6 +94,8 @@ func TestParseScanInfoFormats(t *testing.T) {
 	}
 }
 
+// TestParseZPoolStatusScanProgress checks the indented progress lines of an
+// in-progress and a paused scrub.
 func TestParseZPoolStatusScanProgress(t *testing.T) {
 	inProgress := `  pool: tank
  state: ONLINE
@@ -141,6 +144,7 @@ config:
 	}
 }
 
+// TestParseZFSSize covers zfs_nicenum sizes and invalid input.
 func TestParseZFSSize(t *testing.T) {
 	tests := map[string]uint64{"0B": 0, "512B": 512, "4K": 4096, "1.5M": 1572864, "2G": 2 << 30, "1T": 1 << 40}
 	for in, want := range tests {
@@ -155,6 +159,7 @@ func TestParseZFSSize(t *testing.T) {
 	}
 }
 
+// TestParseScanDuration covers HH:MM:SS and "N days HH:MM:SS" durations.
 func TestParseScanDuration(t *testing.T) {
 	tests := map[string]time.Duration{
 		"00:00:01":        time.Second,
@@ -215,6 +220,38 @@ config:
 config:
 `,
 			status: "scrub completed", pct: 100, end: zfsTime(2026, time.September, 18, 8, 0, 0),
+		},
+		{
+			name: "older finished scan is replaced by a newer canceled one",
+			output: `  pool: tank
+ state: ONLINE
+  scan: scrub repaired 0B in 01:00:00 with 0 errors on Thu Sep 17 22:06:13 2026
+  scan: resilver canceled on Fri Sep 18 08:00:00 2026
+config:
+`,
+			status: "resilver canceled", end: zfsTime(2026, time.September, 18, 8, 0, 0),
+		},
+		{
+			name: "two active scans: the first stays current",
+			output: `  pool: tank
+ state: DEGRADED
+  scan: resilver (draid1-0) in progress since Thu Sep 17 22:06:13 2026
+	1.00T resilvered, 10.00% done, 05:00:00 to go
+  scan: resilver (draid1-1) in progress since Fri Sep 18 08:00:00 2026
+	2.00T resilvered, 90.00% done, 00:10:00 to go
+config:
+`,
+			status: "resilver in progress", pct: 10,
+		},
+		{
+			name: "unrecognised scan line is ignored",
+			output: `  pool: tank
+ state: ONLINE
+  scan: something new from a future OpenZFS
+  scan: scrub repaired 0B in 01:00:00 with 0 errors on Thu Sep 17 22:06:13 2026
+config:
+`,
+			status: "scrub completed", pct: 100, end: zfsTime(2026, time.September, 17, 22, 6, 13),
 		},
 		{
 			name: "scan block at end of output is kept",
