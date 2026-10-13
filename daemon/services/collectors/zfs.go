@@ -329,6 +329,16 @@ func parseZPoolStatusOutput(pool *dto.ZFSPool, output string) error {
 	inErrors := false
 	var currentVdev *dto.ZFSVdev
 	inScan := false
+	// zpool prints a scan: line for the scrub and another for a resilver, or
+	// one per top-level vdev for sequential rebuilds. Each is parsed on its
+	// own and the most relevant one becomes the pool's scan status.
+	var scan *dto.ZFSPool
+	commitScan := func() {
+		if scan != nil {
+			mergeScan(pool, scan)
+			scan = nil
+		}
+	}
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -340,7 +350,7 @@ func parseZPoolStatusOutput(pool *dto.ZFSPool, output string) error {
 			if trimmed == "" || zpoolStatusKeyRe.MatchString(line) {
 				inScan = false
 			} else {
-				parseScanDetail(pool, trimmed)
+				parseScanDetail(scan, trimmed)
 				continue
 			}
 		}
@@ -352,8 +362,12 @@ func parseZPoolStatusOutput(pool *dto.ZFSPool, output string) error {
 
 		// Parse scan/scrub info
 		if strings.HasPrefix(trimmed, "scan:") {
-			parseScanInfo(pool, trimmed)
-			inScan = pool.ScanState == "scanning" || pool.ScanState == "paused"
+			commitScan()
+			scan = &dto.ZFSPool{}
+			parseScanInfo(scan, trimmed)
+			inScan = scan.ScanState == "scanning" || scan.ScanState == "paused"
+		} else if !inScan {
+			commitScan()
 		}
 
 		// Parse errors line. When permanent errors exist, `zpool status -v`
@@ -424,6 +438,8 @@ func parseZPoolStatusOutput(pool *dto.ZFSPool, output string) error {
 			}
 		}
 	}
+
+	commitScan()
 
 	// Add last vdev if exists
 	if currentVdev != nil {
@@ -503,6 +519,41 @@ func parseScanInfo(pool *dto.ZFSPool, line string) {
 		pool.ScanStatus = "scrub paused"
 		pool.ScanState = "paused"
 	}
+}
+
+// scanRank orders scan states: an active scan outranks a paused one, which
+// outranks a finished or canceled one.
+func scanRank(state string) int {
+	switch state {
+	case "scanning":
+		return 3
+	case "paused":
+		return 2
+	case "finished", "canceled":
+		return 1
+	}
+	return 0
+}
+
+// mergeScan copies the scan fields of candidate into pool when candidate is
+// more relevant than what pool already holds: a higher-ranked state, or the
+// later end time between two finished/canceled scans. On a tie the first
+// scan printed is kept.
+func mergeScan(pool, candidate *dto.ZFSPool) {
+	have, got := scanRank(pool.ScanState), scanRank(candidate.ScanState)
+	if got == 0 || got < have {
+		return
+	}
+	if got == have && (got != 1 || !candidate.ScanEndTime.After(pool.ScanEndTime)) {
+		return
+	}
+	pool.ScanStatus = candidate.ScanStatus
+	pool.ScanState = candidate.ScanState
+	pool.ScanErrors = candidate.ScanErrors
+	pool.ScanRepairedBytes = candidate.ScanRepairedBytes
+	pool.ScanStartTime = candidate.ScanStartTime
+	pool.ScanEndTime = candidate.ScanEndTime
+	pool.ScanProgressPct = candidate.ScanProgressPct
 }
 
 // parseScanDetail parses an indented line that follows an in-progress or

@@ -170,3 +170,73 @@ func TestParseScanDuration(t *testing.T) {
 		t.Error("parseScanDuration accepted invalid input")
 	}
 }
+
+// TestParseZPoolStatusMultipleScanLines covers zpool printing a scrub line and
+// a resilver line, or one rebuild line per top-level vdev (#185).
+func TestParseZPoolStatusMultipleScanLines(t *testing.T) {
+	tests := []struct {
+		name   string
+		output string
+		status string
+		pct    float64
+		end    time.Time
+	}{
+		{
+			name: "active rebuild before a completed rebuild stays current",
+			output: `  pool: tank
+ state: DEGRADED
+  scan: resilver (draid1-0) in progress since Thu Sep 17 22:06:13 2026
+	1.00T / 4.00T scanned, 1.00T / 4.00T issued
+	1.00T resilvered, 25.00% done, 03:00:00 to go
+  scan: resilvered (draid1-1) 2G in 00:10:00 with 0 errors on Fri Sep 18 08:00:00 2026
+config:
+`,
+			status: "resilver in progress", pct: 25,
+		},
+		{
+			name: "completed scrub then active resilver: resilver is current",
+			output: `  pool: tank
+ state: DEGRADED
+  scan: scrub repaired 0B in 01:00:00 with 0 errors on Thu Sep 17 22:06:13 2026
+  scan: resilver in progress since Fri Sep 18 08:00:00 2026
+	100G / 400G scanned, 100G / 400G issued
+	100G resilvered, 25.00% done, 01:00:00 to go
+config:
+`,
+			status: "resilver in progress", pct: 25,
+		},
+		{
+			name: "two finished scans: the later end time wins",
+			output: `  pool: tank
+ state: ONLINE
+  scan: scrub repaired 0B in 01:00:00 with 0 errors on Fri Sep 18 08:00:00 2026
+  scan: resilvered 2G in 00:10:00 with 0 errors on Thu Sep 17 22:06:13 2026
+config:
+`,
+			status: "scrub completed", pct: 100, end: zfsTime(2026, time.September, 18, 8, 0, 0),
+		},
+		{
+			name: "scan block at end of output is kept",
+			output: `  pool: tank
+ state: ONLINE
+  scan: scrub in progress since Thu Sep 17 22:06:13 2026
+	1.00T / 4.00T scanned, 1.00T / 4.00T issued
+	0B repaired, 50.00% done, 01:00:00 to go`,
+			status: "scrub in progress", pct: 50,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool := &dto.ZFSPool{}
+			if err := parseZPoolStatusOutput(pool, tt.output); err != nil {
+				t.Fatal(err)
+			}
+			if pool.ScanStatus != tt.status || pool.ScanProgressPct != tt.pct {
+				t.Errorf("status/pct = %q/%v, want %q/%v", pool.ScanStatus, pool.ScanProgressPct, tt.status, tt.pct)
+			}
+			if !tt.end.IsZero() && !pool.ScanEndTime.Equal(tt.end) {
+				t.Errorf("end = %v, want %v", pool.ScanEndTime, tt.end)
+			}
+		})
+	}
+}

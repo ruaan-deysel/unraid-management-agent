@@ -330,7 +330,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `scan_end_time`, `scan_repaired_bytes` and `scan_progress_percent` in `/api/v1/zfs/pools` were
   never filled in. The `zpool status` scan line is now parsed for every OpenZFS format: completed,
   canceled and in-progress scrubs and resilvers (including vdev-qualified sequential rebuilds
-  such as `resilver (draid1-0) in progress`), and paused scrubs. The end time comes from the
+  such as `resilver (draid1-0) in progress`), and paused scrubs. When zpool prints several scan
+  lines (a scrub plus a resilver, or one rebuild per vdev), an active scan wins over a paused one,
+  and that over a finished or canceled one; between finished scans the latest end time wins. The end time comes from the
   timestamp (local time) and the start time from the end time minus the printed duration (or the
   "since" / "scrub started on" time); progress and repaired bytes come from the indented lines of
   an in-progress or paused scan. `scan_status` now uses the documented values (`scrub in progress`,
