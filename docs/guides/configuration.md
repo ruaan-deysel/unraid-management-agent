@@ -436,8 +436,33 @@ Claude Desktop.
 ### Authentication
 
 Set an API token to require `Authorization: Bearer <token>`. When the token is
-empty (the default) the API stays unauthenticated, so upgrading an existing
-install changes nothing until you opt in.
+empty (the default) network clients can read data without authentication, but
+every state-changing request is refused:
+
+- REST `POST`, `PUT`, `PATCH` and `DELETE` requests return `403 Forbidden` with
+  `{"error": "Write access is disabled because no API token is configured. Set API_TOKEN in the plugin settings (or the API_TOKEN environment variable) and send it as 'Authorization: Bearer <token>'."}`
+- HTTP MCP (`/mcp` and `/mcp/<connect-secret>`) treats every write tool as
+  read-only. STDIO MCP (`mcp-stdio`) runs locally and is not affected.
+
+`GET`, `HEAD` and `OPTIONS` requests, WebSocket subscriptions and MCP read tools
+keep working, so monitoring clients need no token.
+
+#### Allow write access without a token (not recommended)
+
+`ALLOW_UNAUTHENTICATED_WRITES` restores the behaviour of earlier releases: with
+no token, anyone who can reach the agent can control the server. It has no
+effect once a token is set.
+
+| Setting | CLI flag | Env var | Config key |
+| ------- | -------- | ------- | ---------- |
+| Allow writes without a token | `--allow-unauthenticated-writes` | `ALLOW_UNAUTHENTICATED_WRITES` | `allow_unauthenticated_writes` (YAML) / `ALLOW_UNAUTHENTICATED_WRITES` (`config.cfg`) |
+
+Plugin installs that were upgraded from an earlier release without a token get
+`ALLOW_UNAUTHENTICATED_WRITES="true"` once, so their existing clients keep
+working, and the settings page shows a warning. Set a token, add it to your
+clients, then turn the option off. Fresh installs start with it off. Daemons
+started directly (CLI, environment or YAML) are not migrated: set `API_TOKEN`,
+or the opt-out, to keep write access.
 
 #### Plugin Settings Page (Recommended)
 
@@ -448,7 +473,8 @@ The easiest way to configure authentication is through the Unraid WebGUI:
 4. Click **Copy** to copy the token to your clipboard.
 5. Click **Apply** at the bottom of the page. The plugin saves the token and restarts the service automatically.
 
-To disable authentication, click **Clear** and then **Apply**.
+Clicking **Clear** and then **Apply** removes the token, which makes network
+access read-only again (see above).
 
 #### Manual Configuration (SSH / config.cfg)
 

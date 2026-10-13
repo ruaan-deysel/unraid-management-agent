@@ -230,7 +230,11 @@ mqtt:
 
 ## REST API Control (Recommended)
 
-Instead of MQTT commands, use Home Assistant's RESTful switches for better control:
+Instead of MQTT commands, use Home Assistant's RESTful switches for better control.
+
+> **Note:** control requests need an API token. Without one the agent answers
+> them with `403 Forbidden` (see [Configuration → Authentication](../guides/configuration.md#authentication)).
+> Add `headers: { Authorization: "Bearer <your-token>" }` to each switch.
 
 ```yaml
 switch:

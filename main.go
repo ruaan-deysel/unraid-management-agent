@@ -72,7 +72,7 @@ var cli struct {
 	// API token - when set, requests must present "Authorization: Bearer <token>",
 	// except the health endpoint and the Swagger UI. Prefer API_TOKEN or the config
 	// file over the flag: command-line arguments are visible in the process list.
-	APIToken string `default:"" env:"API_TOKEN" help:"require bearer-token auth on the HTTP API and /mcp; the health endpoint and Swagger UI stay open (empty = no authentication). Prefer the API_TOKEN env var or config file: flags are visible in the process list"`
+	APIToken string `default:"" env:"API_TOKEN" help:"require bearer-token auth on the HTTP API and /mcp; the health endpoint and Swagger UI stay open (empty = unauthenticated reads, network writes refused). Prefer the API_TOKEN env var or config file: flags are visible in the process list"`
 
 	// MCPConnectSecret enables an optional secret-bearing MCP path (/mcp/<secret>)
 	// for URL-only MCP clients (ha-mcp style onboarding) without exposing full REST API access.

@@ -44,8 +44,8 @@ type Config struct {
 	// APIToken, when non-empty, requires HTTP requests to present
 	// "Authorization: Bearer <token>". The health endpoint and the Swagger UI
 	// are exempt so uptime monitoring and the docs page keep working. Empty
-	// (the default) leaves the API unauthenticated, preserving the behaviour
-	// of earlier releases.
+	// (the default) leaves reads unauthenticated and refuses network writes
+	// unless AllowUnauthenticatedWrites is set (see WritesLocked).
 	// The field name contains "token", so lib.RedactStruct masks it in
 	// diagnostics output automatically.
 	APIToken string `json:"api_token,omitempty"`
