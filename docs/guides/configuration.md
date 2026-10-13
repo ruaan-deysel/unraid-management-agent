@@ -59,12 +59,83 @@ Control how often data is collected (in seconds):
 | Storage Topology   | `--interval-storage-topology` | 0s (disabled; 300s recommended) | 0s  | 86400s |
 | Network Cards      | `--interval-nic`              | 0s (disabled; 60s recommended)  | 0s  | 86400s |
 
+The plugin starts these hardware-dependent collectors in automatic mode by
+default; see [Hardware Auto-Detection](#hardware-auto-detection).
+
 **Disable a collector**: Set interval to `0`
 
 ```bash
 # Example: Disable GPU collector
 --interval-gpu 0
 ```
+
+### Hardware Auto-Detection
+
+The agent detects which optional hardware the server has and runs the matching
+collectors only when that hardware exists
+([#261](https://github.com/tinkerologie/unraid-management-agent/issues/261)).
+Detection is read-only: it reads sysfs, procfs and config files, runs no
+commands, never wakes spun-down disks, and the NIC check reads at most 16
+module EEPROMs (only when no NIC temperature sensor is found).
+
+| Capability                  | Collector          | Detected when                                                                                                                       |
+| --------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `hardware.nic_optics`       | `nic`              | A wired PCI network card has a NIC-owned hwmon temperature sensor, or a port has a plugged SFP/QSFP-class module                    |
+| `hardware.storage_topology` | `storage_topology` | `/sys/class/enclosure` has an entry, a SCSI generic device is an SES enclosure, or a SAS HBA or Broadcom/LSI RAID controller exists |
+| `hardware.gpu`              | `gpu`              | A DRM card is driven by `i915`, `xe`, `amdgpu` or `nvidia`, or `/dev/nvidia<N>` exists (GPUs bound to `vfio-pci` do not count)      |
+| `hardware.ups`              | `ups`              | apcupsd is running or enabled in Unraid's UPS settings, or NUT is detected                                                          |
+| `hardware.nut`              | `nut`              | The NUT plugin is installed and enabled or running                                                                                  |
+| `hardware.zfs`              | `zfs`              | The ZFS module is loaded and at least one pool is imported                                                                          |
+| `hardware.fan_control`      | —                  | A hwmon chip has a `pwmN` output with `pwmN_enable`, or an IPMI device exists (reported only)                                       |
+
+Plain onboard NICs without sensors or optics (for example Intel I219-V and
+I211) and Wi-Fi cards (for example Intel 3168NGW) do not count as
+"Network Cards & Optics". An empty SFP cage on a card without temperature
+sensors is not detected until a module is inserted, because sysfs does not
+expose cages.
+
+Each class is `present`, `absent` or `unknown` (a read error or timeout).
+Results are re-checked at startup, every 15 minutes, and on demand with
+`GET /api/v1/capabilities?refresh=true` (at most every 30 seconds) or the
+**Re-check hardware** button on the plugin settings page.
+
+**Automatic mode.** On the plugin settings page the six hardware-dependent
+collectors offer **Auto**, the default. The plugin
+passes those collectors to the agent as `UNRAID_AUTO_COLLECTORS`
+(`--auto-collectors`, `auto_collectors` in `config.yml`). A collector in
+automatic mode:
+
+- stays off (interval `0`) while its hardware is absent, and its settings row
+  is hidden;
+- is enabled at 300 seconds (1200 seconds in low power mode) as soon as its
+  hardware is detected;
+- is turned off again after two consecutive `absent` results, so a single
+  flaky check does not stop it;
+- is left alone on an `unknown` result.
+
+Explicit settings always win:
+
+- An explicit interval keeps the collector running at that interval even when
+  its hardware is absent; its row stays visible.
+- **Disabled** (`0`) keeps the collector off even when its hardware is
+  present; its row is hidden while the hardware is absent.
+- A collector in `UNRAID_DISABLE_COLLECTORS`, or with an interval in
+  `config.yml`, is never in automatic mode.
+- Enabling, disabling or changing a collector's interval at runtime (REST or
+  MCP) ends automatic mode for that collector until the agent restarts.
+  `GET /api/v1/collectors/status` shows `"auto": true` while a collector is in
+  automatic mode.
+
+**Show all collectors** on the settings page only reveals hidden rows; it
+never turns a collector on. If hardware detection is unavailable (for example
+the agent is stopped), the page shows every row.
+
+**Upgrades.** On the first install of this release, each hardware-dependent
+interval that is missing or still equals a previously shipped default
+(NIC `60` or `0`, Storage Topology `300` or `0`, GPU `60`, UPS `60`, NUT `0`,
+ZFS `0` or `30`) is switched to **Auto**. Any other value is kept. To opt out,
+choose an explicit interval or **Disabled** for that collector and click
+**Apply**.
 
 ## Configuration Methods
 

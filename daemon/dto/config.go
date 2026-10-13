@@ -81,6 +81,10 @@ type CollectorStatus struct {
 	LastRun    *time.Time `json:"last_run,omitempty"`
 	ErrorCount int        `json:"error_count"`
 	Required   bool       `json:"required"` // true if collector cannot be disabled
+	// Auto is true while the collector is in automatic mode: it runs only while
+	// its hardware is detected. A manual enable, disable or interval change ends
+	// automatic mode until the agent restarts.
+	Auto bool `json:"auto"`
 }
 
 // CollectorsStatusResponse is the response for /collectors/status

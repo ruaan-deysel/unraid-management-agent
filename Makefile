@@ -57,6 +57,7 @@ test-packaging: package
 	bash scripts/test-bundle-extraction.sh check-owners $(BUILD_DIR)/$(BINARY)-$(VERSION).tgz
 	sudo bash scripts/test-bundle-extraction.sh
 	bash scripts/test-secure-defaults-migration.sh
+	bash scripts/test-auto-intervals-migration.sh
 	bash scripts/test-plg-checksums.sh
 	bash scripts/test-plugin-settings.sh
 

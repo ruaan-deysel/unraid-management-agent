@@ -16,7 +16,6 @@ import (
 	"github.com/tinkerologie/unraid-management-agent/daemon/domain"
 	"github.com/tinkerologie/unraid-management-agent/daemon/dto"
 	"github.com/tinkerologie/unraid-management-agent/daemon/logger"
-	"github.com/tinkerologie/unraid-management-agent/daemon/platform"
 	"github.com/tinkerologie/unraid-management-agent/daemon/services/agent"
 	"github.com/tinkerologie/unraid-management-agent/daemon/services/alerting"
 	"github.com/tinkerologie/unraid-management-agent/daemon/services/api"
@@ -68,20 +67,9 @@ func (o *Orchestrator) Run() error {
 	// Initialize collector manager
 	o.collectorManager = NewCollectorManager(o.ctx, &wg)
 
-	// OS-resilience: detect capabilities and wire the status-change notifier to the bus.
-	caps := platform.Detect(resilienceProbes())
-	o.ctx.Platform.SetCapabilities(caps)
-	o.ctx.Platform.SetNotifier(func(s dto.SourceStatus) {
-		domain.Publish(o.ctx.Hub, constants.TopicSourceStatusChanged, s)
-	})
-	degraded := 0
-	for _, c := range caps.Items {
-		if !c.Available {
-			degraded++
-		}
-	}
-	logger.Info("Resilience: Unraid version %q, %d/%d probed capabilities unavailable",
-		caps.UnraidVersion, degraded, len(caps.Items))
+	// OS-resilience: detect capabilities (OS sources and hardware, #261) and
+	// wire the status-change notifier to the bus.
+	refresher := o.detectCapabilities()
 
 	// Register all collectors with their configured intervals
 	o.collectorManager.RegisterAllCollectors()
@@ -231,6 +219,11 @@ func (o *Orchestrator) Run() error {
 	// Start all enabled collectors
 	enabledCount := o.collectorManager.StartAll()
 
+	// Apply the automatic collector policy to the startup snapshot, then keep
+	// capabilities current in the background.
+	o.startCapabilityRefresher(ctx, &wg, refresher)
+	apiServer.SetCapabilityRefresher(refresher)
+
 	// Log status
 	status := o.collectorManager.GetAllStatus()
 	logger.Success("%d collectors started", enabledCount)
@@ -278,6 +271,42 @@ func (o *Orchestrator) Run() error {
 	o.shutdown(apiServer, &wg)
 
 	return nil
+}
+
+// detectCapabilities takes the startup capability snapshot and wires the
+// source-status notifier. It returns the refresher that keeps the snapshot current.
+func (o *Orchestrator) detectCapabilities() *CapabilityRefresher {
+	refresher := NewCapabilityRefresher(o.ctx.Platform, capabilityProbes)
+	caps := refresher.Refresh(context.Background())
+	o.ctx.Platform.SetNotifier(func(s dto.SourceStatus) {
+		domain.Publish(o.ctx.Hub, constants.TopicSourceStatusChanged, s)
+	})
+	degraded := 0
+	for _, c := range caps.Items {
+		if !c.Available {
+			degraded++
+		}
+	}
+	logger.Info("Resilience: Unraid version %q, %d/%d probed capabilities unavailable",
+		caps.UnraidVersion, degraded, len(caps.Items))
+	return refresher
+}
+
+// startCapabilityRefresher applies the automatic collector policy to the
+// current snapshot, hooks it to every refresh, and starts periodic refreshes.
+// Collectors must be registered and started first.
+func (o *Orchestrator) startCapabilityRefresher(ctx context.Context, wg *sync.WaitGroup, refresher *CapabilityRefresher) {
+	policy := newCollectorAutoPolicy(o.collectorManager, o.ctx.LowPowerMode)
+	policy.Apply(o.ctx.Platform.Capabilities())
+	refresher.SetHook(policy.Apply)
+	wg.Go(func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.LogPanicWithStack("Capability refresher goroutine", r)
+			}
+		}()
+		refresher.Start(ctx)
+	})
 }
 
 // shutdown performs graceful shutdown of all running subsystems and waits for background goroutines.
@@ -358,20 +387,9 @@ func (o *Orchestrator) RunMCPStdio() error {
 	// Initialize collector manager and register all collectors
 	o.collectorManager = NewCollectorManager(o.ctx, &wg)
 
-	// OS-resilience: detect capabilities and wire the status-change notifier to the bus.
-	caps := platform.Detect(resilienceProbes())
-	o.ctx.Platform.SetCapabilities(caps)
-	o.ctx.Platform.SetNotifier(func(s dto.SourceStatus) {
-		domain.Publish(o.ctx.Hub, constants.TopicSourceStatusChanged, s)
-	})
-	degraded := 0
-	for _, c := range caps.Items {
-		if !c.Available {
-			degraded++
-		}
-	}
-	logger.Info("Resilience: Unraid version %q, %d/%d probed capabilities unavailable",
-		caps.UnraidVersion, degraded, len(caps.Items))
+	// OS-resilience: detect capabilities (OS sources and hardware, #261) and
+	// wire the status-change notifier to the bus.
+	refresher := o.detectCapabilities()
 
 	o.collectorManager.RegisterAllCollectors()
 
@@ -386,6 +404,8 @@ func (o *Orchestrator) RunMCPStdio() error {
 	// Start all enabled collectors so cache gets populated
 	enabledCount := o.collectorManager.StartAll()
 	logger.Success("%d collectors started for MCP STDIO", enabledCount)
+	o.startCapabilityRefresher(ctx, &wg, refresher)
+	apiServer.SetCapabilityRefresher(refresher)
 
 	// Initialize MCP server
 	toolPolicyStore := domain.NewToolPolicyStore("", o.ctx.ToolPolicy)

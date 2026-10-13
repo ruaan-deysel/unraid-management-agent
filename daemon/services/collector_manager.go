@@ -34,6 +34,10 @@ type ManagedCollector struct {
 	LastRun    *time.Time
 	ErrorCount int
 	Required   bool // Cannot be disabled (e.g., system)
+	// Auto marks a hardware-gated collector in automatic mode: the capability
+	// policy enables and disables it (SetAutoInterval). Manual runtime control
+	// clears it.
+	Auto bool
 
 	// Runtime management
 	ctx       context.Context
@@ -81,18 +85,21 @@ func (cm *CollectorManager) Register(name string, factory CollectorFactory, inte
 		status = "disabled"
 	}
 
+	auto := interval == 0 && cm.domainCtx != nil && cm.domainCtx.AutoCollectors[name]
+
 	cm.collectors[name] = &ManagedCollector{
 		Name:      name,
 		Enabled:   enabled,
 		Interval:  interval,
 		Status:    status,
 		Required:  required,
+		Auto:      auto,
 		factory:   factory,
 		domainCtx: cm.domainCtx,
 		wg:        cm.wg,
 	}
 
-	logger.Debug("Registered collector: %s (interval: %ds, required: %v)", name, interval, required)
+	logger.Debug("Registered collector: %s (interval: %ds, required: %v, auto: %v)", name, interval, required, auto)
 }
 
 // StartAll starts all enabled collectors
@@ -152,6 +159,7 @@ func (cm *CollectorManager) EnableCollector(name string) error {
 		cm.mu.Unlock()
 		return fmt.Errorf("unknown collector: %s", name)
 	}
+	mc.Auto = false // manual control ends automatic mode
 
 	if mc.Status == "running" {
 		cm.mu.Unlock()
@@ -191,6 +199,7 @@ func (cm *CollectorManager) DisableCollector(name string) error {
 		cm.mu.Unlock()
 		return fmt.Errorf("cannot disable %s collector (always required)", name)
 	}
+	mc.Auto = false // manual control ends automatic mode
 
 	if mc.Status != "running" {
 		cm.mu.Unlock()
@@ -229,6 +238,7 @@ func (cm *CollectorManager) UpdateInterval(name string, intervalSeconds int) err
 	if intervalSeconds < 5 || intervalSeconds > 86400 {
 		return errors.New("invalid interval: must be between 5 and 86400 seconds")
 	}
+	mc.Auto = false // manual control ends automatic mode
 
 	wasRunning := mc.Status == "running"
 
@@ -253,6 +263,48 @@ func (cm *CollectorManager) UpdateInterval(name string, intervalSeconds int) err
 	return nil
 }
 
+// SetAutoInterval applies the hardware capability policy to a collector in
+// automatic mode: interval 0 stops and disables it, a positive interval runs
+// it at that interval. It reports whether anything changed; collectors that
+// are unknown or not in automatic mode are left alone.
+func (cm *CollectorManager) SetAutoInterval(name string, interval int) bool {
+	cm.mu.Lock()
+	mc, exists := cm.collectors[name]
+	if !exists || !mc.Auto {
+		cm.mu.Unlock()
+		return false
+	}
+	running := mc.Status == "running"
+	if interval <= 0 {
+		if !running && mc.Interval == 0 {
+			cm.mu.Unlock()
+			return false
+		}
+		cm.stopCollectorLocked(mc)
+		mc.Interval = 0
+		mc.Enabled = false
+		mc.Status = "disabled"
+		logger.Info("Auto-disabled collector: %s", name)
+	} else {
+		if running && mc.Interval == interval {
+			cm.mu.Unlock()
+			return false
+		}
+		if running {
+			cm.stopCollectorLocked(mc)
+			mc.Status = "stopped"
+		}
+		mc.Interval = interval
+		cm.startCollectorLocked(name)
+		logger.Info("Auto-enabled collector: %s (interval: %ds)", name, interval)
+	}
+	event := cm.buildStateEvent(name, mc.Enabled)
+	cm.mu.Unlock()
+
+	domain.Publish(cm.domainCtx.Hub, constants.TopicCollectorStateChange, event)
+	return true
+}
+
 // GetStatus returns the status of a specific collector
 func (cm *CollectorManager) GetStatus(name string) (*dto.CollectorStatus, error) {
 	cm.mu.RLock()
@@ -271,6 +323,7 @@ func (cm *CollectorManager) GetStatus(name string) (*dto.CollectorStatus, error)
 		LastRun:    mc.LastRun,
 		ErrorCount: mc.ErrorCount,
 		Required:   mc.Required,
+		Auto:       mc.Auto,
 	}, nil
 }
 
@@ -312,6 +365,7 @@ func (cm *CollectorManager) GetAllStatus() dto.CollectorsStatusResponse {
 			LastRun:    mc.LastRun,
 			ErrorCount: mc.ErrorCount,
 			Required:   mc.Required,
+			Auto:       mc.Auto,
 		})
 	}
 

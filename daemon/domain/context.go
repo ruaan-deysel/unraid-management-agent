@@ -46,5 +46,10 @@ type Context struct {
 	DiagnosticLogger   *logger.DiagnosticLogger
 	LogsDir            string
 	DockerUpdateNotify bool
+	// AutoCollectors are the hardware-gated collectors in automatic mode: they
+	// start at interval 0 and run only while their hardware is detected (#261).
+	AutoCollectors map[string]bool
+	// LowPowerMode multiplies collector intervals by 4 (also auto-enabled ones).
+	LowPowerMode bool
 	Config
 }
