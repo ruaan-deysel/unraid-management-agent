@@ -654,7 +654,6 @@ func TestDeviceInfo(t *testing.T) {
 	}
 }
 
-// TestTestConnection verifies failed broker connections include timing and error details.
 func TestTestConnection(t *testing.T) {
 	// Test with invalid broker (should fail fast)
 	result := TestConnection("tcp://invalid-broker:1883", "", "", "test-client", 1*time.Second)
@@ -672,9 +671,8 @@ func TestTestConnection(t *testing.T) {
 		t.Error("Message should not be empty on failure")
 	}
 
-	// Latency is measured in whole milliseconds; an immediate failure can be zero.
-	if result.Latency < 0 {
-		t.Error("Latency should be >= 0")
+	if result.Latency <= 0 {
+		t.Error("Latency should be > 0")
 	}
 
 	if result.Timestamp.IsZero() {

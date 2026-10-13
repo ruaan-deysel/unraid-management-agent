@@ -25,6 +25,128 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and cycle. Vendor serial numbers are never reported.
   ([#225](https://github.com/tinkerologie/unraid-management-agent/issues/225))
 
+### Removed
+
+- **BREAKING: plugin update actions** — the agent no longer installs or updates other
+  Unraid plugins. `POST /api/v1/plugins/{name}/update` and `POST /api/v1/plugins/update-all`
+  now return 404, and the MCP tools `update_plugin` and `update_all_plugins` are no longer
+  registered (a stored tool-policy override for either name has no effect). Apply plugin
+  updates from Unraid's **Plugins** page. Update availability checks are unchanged: the
+  plugin update collector, `GET /api/v1/plugins/check-updates`,
+  `POST /api/v1/plugins/updates/refresh`, and the `check_plugin_updates` and
+  `refresh_plugin_updates` MCP tools. Required for Community Applications approval (#239).
+  ([#244](https://github.com/tinkerologie/unraid-management-agent/issues/244)).
+
+### Security
+
+- **Bundle extraction no longer changes system directory owners** — release bundles
+  stored every entry with the GitHub Actions runner owner (uid/gid 1001), and the
+  installer's root `tar -xzf` applied it to `/usr`, `/usr/local`, `/usr/local/emhttp`
+  and `/usr/local/emhttp/plugins` on every install and boot. The installer now extracts
+  with `--no-same-owner --no-overwrite-dir`, restores `root:root` (non-recursive) on
+  those directories and the plugin directory when an earlier install changed them, and
+  `make package` builds the archive with numeric owner `0/0` on GNU tar and bsdtar. The
+  release workflow refuses to publish a bundle with any other owner, and a new
+  `Bundle Ownership` CI job (`make test-packaging`) runs the `.plg` extraction command and
+  repair loop as root against a uid-1001 archive and checks tar flag selection. Reported in #239.
+  ([#242](https://github.com/tinkerologie/unraid-management-agent/issues/242)).
+
+### Changed
+- Pull requests get path labels and at most one type label, `bug` or `enhancement`, from the shared tinkerologie PR labeler. Dependabot pull requests whose largest update is a patch or minor version merge automatically once the checks and commit statuses on their head commit have finished without a failure (a Codecov check that is still pending is not waited for; a Codecov failure blocks); majors, and pull requests with open review threads, stay for review.
+- Release workflows hardened (least-privilege job permissions, no expressions in shell scripts, no persisted checkout credentials, no dependency caches); scheduled workflows run on Australia/Brisbane time.
+- Releases push the updated PLG hash to `main` with a token from the Tinkerologie-Release GitHub App, the only actor allowed to bypass the pull-request rule on `main`, so the Unraid plugin manager and Community Applications see each new release.
+- Tinkerologie-Bot governance report updated to v1.4.3: an older run can no longer post a stale report after a newer run passed. Workflow formatting tidied.
+- Repository standardised to the tinkerologie layout (STANDARDS.md in tinkerologie/.github): workflows renamed to the standard set (CI, Validate, Release, PR Governance, ...), every action pinned to a commit SHA, shared Dependabot, `.editorconfig`, `.gitattributes` and `CODEOWNERS` files, and organization-wide labels and community files.
+- Tinkerologie-Bot's comment is now a readable "Pull request checklist": each problem is a numbered heading with plain-English guidance and its items listed underneath, and report updates for a pull request are serialised so an older run can never overwrite a newer one.
+- Contribution governance: issues without a `bug` or `enhancement` label are labeled automatically when their type can be determined (issues labeled `question`, `duplicate`, `invalid`, `wontfix`, or `no-type` are skipped), so CodeRabbit can plan them. Pull requests that conflict with the default branch are labeled, and their authors are notified in a comment. Stale issues and pull requests are labeled after 14 days without activity and closed 30 days later. PR governance now re-validates a human-authored, non-draft PR when a bot such as CodeRabbit edits its description, instead of skipping the check and reporting a pass, only maintainers with write access may use `None` instead of linking an issue, and a link to an issue that does not exist now fails the check. Codecov patch coverage must now reach 90%.
+- Tinkerologie-Bot now posts one comment on pull requests that fail PR governance, listing every problem to fix, and updates it once they are fixed. PR governance runs from the default branch's workflow (`pull_request_target`), so a pull request cannot change its own check.
+- Configured Codecov GitHub Actions workflow for tokenless coverage uploads
+
+### Tests
+
+- **Coverage uplift toward 90% (issue #192)** — added deterministic, host-safe
+  regression tests for previously thin areas. The structured `DiagnosticLogger`
+  (JSONL output, correlation IDs, UTC timestamps, per-level helpers, nil-context
+  guard, concurrent writes, close) and goroutine stack helpers now have
+  `daemon/logger` coverage of ~85% (up from ~30%). Extended `daemon/lib`
+  redaction tests to cover the reflection-based typed map/slice paths, JSON tag
+  aliases, `json:"-"` omission, unexported-field skipping, input immutability and
+  nested mixed containers. Added diagnostics tests for `parseMemInfo`, the
+  `readLastNLines` log-tail helper (missing/empty files, exact last-N ordering,
+  no trailing newline, redaction) and ZIP archive error paths (failing writer,
+  unsupported JSON values, nonexistent output directory, partial-file removal and
+  empty-log omission). ([#192](https://github.com/tinkerologie/unraid-management-agent/issues/192)).
+- **Coverage uplift part 2 (issue #192)** — added further host-safe unit tests
+  covering pure functions. `daemon/domain` rose to ~88% (from ~58%) via tests for
+  the tool-policy store (`IsValidTool`, `GetAll`, `GetCatalog`, `CategorizeMCPTool`),
+  the typed event bus (`Topic.TopicName`, `EventBus.SubTopics`) and file-config
+  loading (`LoadConfigFile` happy/missing/malformed paths, `DefaultDiscoveryConfig`).
+  Added `daemon/services/controllers` tests for the pure fan-safety PWM clamp
+  (`ValidatePWM` boundaries and default-minimum normalization), fan-curve
+  interpolation (`interpolateSpeed` below/above/midpoint and the duplicate
+  lowest-boundary clamp),
+  and the Docker/IPMI string helpers (`shortDigest`, `sanitizeFanName`).
+  ([#192](https://github.com/tinkerologie/unraid-management-agent/issues/192)).
+- **Coverage uplift part 3 (issue #192)** — extracted the `/proc/net/dev` and
+  `disks.ini` parsers in `daemon/services/collectors` into pure,
+  `io.Reader`-based helpers (`parseNetDevStats`, `parseDisksINIFrom`) with the
+  existing collector methods kept as thin file-opening wrappers, then added
+  table-driven fixture tests covering multi-record parsing, header skipping,
+  malformed/short rows, non-numeric counters, content before the first section,
+  and final-section capture. No collector behavior changed.
+  ([#192](https://github.com/tinkerologie/unraid-management-agent/issues/192)).
+- **Coverage uplift part 4 (issue #192)** — extracted the `nvidia-smi` CSV
+  parsing in `daemon/services/collectors/gpu.go` into a pure
+  `parseNvidiaGPUCSV` helper (collector keeps querying the driver version),
+  with table-driven tests for single/multiple GPUs, short records, non-numeric
+  and `N/A` fields, zero total memory, and MiB-to-byte conversion. Also added
+  `daemon/lib` tests for `ExecCommandOutputWithContext` (success, pre-cancelled
+  context, nonexistent binary). No collector behavior changed.
+  ([#192](https://github.com/tinkerologie/unraid-management-agent/issues/192)).
+- **Coverage uplift part 5 (issue #192)** — extracted the `network.cfg` and
+  `ident.cfg` parsing in `daemon/services/collectors/config.go` into pure
+  `io.Reader`-based helpers (`parseNetworkConfig`, `parseSystemSettings`) and
+  made the boot config directory injectable so the `GetNetworkConfig` and
+  `GetSystemSettings` wrappers are unit-testable. Added tests for interface
+  section matching, bond/bridge/VLAN parsing, missing-interface and
+  missing-file errors, and system settings fields. No collector behavior
+  changed. ([#192](https://github.com/tinkerologie/unraid-management-agent/issues/192)).
+- **Coverage uplift part 6 (issue #192)** — extracted the remaining
+  `daemon/services/collectors/config.go` settings parsers (`docker.cfg`,
+  `domain.cfg`, `disk.cfg`) into pure `io.Reader` helpers
+  (`parseDockerSettings`, `parseVMSettings`, `parseDiskSettings`) routed
+  through the injectable boot config directory, with tests covering field
+  parsing, device/network list splitting, the disabled-default fallback when
+  `docker.cfg`/`domain.cfg` are absent, and the required-file error for
+  `disk.cfg`. No collector behavior changed.
+  ([#192](https://github.com/tinkerologie/unraid-management-agent/issues/192)).
+- **Coverage uplift phases 1–5 completion (issue #192)** — completed all five phases
+  from the test coverage plan:
+  - *Phase 1 (Reporting Alignment)*: aligned `Makefile` `test-coverage` target
+    (`-covermode=atomic`, filtering out `daemon/docs` and `tests`), documented line
+    vs statement coverage in `docs/development/code-quality.md`, and gated host-dependent
+    Docker SDK and `virt-clone` tests with `//go:build integration`.
+  - *Phase 2 (Collectors & Device Parsing)*: extracted pure parsing functions in
+    `ups.go` (`parseAPCOutput`, `parseNUTUpscOutput`), `nut.go` (`parseNUTConfig`,
+    `parseNUTStatusOutput`), and `zfs.go` (`parseZPoolListOutput`, `parseZPoolStatusOutput`,
+    `parseZFSDatasetListOutput`, `parseZFSSnapshotListOutput`), adding thorough table-driven
+    unit tests for pool states, vdev trees, and datasets.
+  - *Phase 3 (Controllers & Execution Seams)*: added injected execution seams and unit
+    tests for `array.go` (start/stop, parity checks, spin modes), `service.go` (start/stop/restart),
+    `vm.go` (`pmWakeup`, snapshot lists, clone), `guard.go` (`binaryExists`), and
+    `fan_safety.go` (temperature probes and PWM safety bounds).
+  - *Phase 4 (Deterministic Lifecycle & Subscriptions)*: eliminated arbitrary `time.Sleep`
+    calls in `collector_manager_test.go` and `subscribe_events_test.go` using channel waits,
+    bounded polling helpers, and `WSHub.ClientCount()`; refactored `Orchestrator.Run` with
+    an isolated, tested `shutdown()` helper.
+  - *Phase 5 (Logger & Diagnostics)*: added log capture tests in `logger_test.go`,
+    injected bundle/archive seams with comprehensive unit tests for `handleDiagnosticsBundle`
+    in `diagnostics_test.go`, and documented redacted ZIP vs unredacted shell diagnostics in
+    `docs/troubleshooting/diagnostics.md` and `docs/api/diagnostics.md`.
+  ([#192](https://github.com/tinkerologie/unraid-management-agent/issues/192)).
+
+### Added
+
 - **Every NUT device, not only the first** — `GET /nut` and `nut_status_update` have a new
   `statuses` list with the detailed status of every device `upsc -l` lists (a second UPS,
   an ATS, a PDU …), in the same order. `status` stays the first device's, and `GET /ups`
@@ -104,146 +226,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   phys, and for an enclosure the controller ports cabled directly to it (0, with no
   `utilization_percent`, for an enclosure only reached through another enclosure).
 
-### Removed
-
-- **BREAKING: plugin update actions** — the agent no longer installs or updates other
-  Unraid plugins. `POST /api/v1/plugins/{name}/update` and `POST /api/v1/plugins/update-all`
-  now return 404, and the MCP tools `update_plugin` and `update_all_plugins` are no longer
-  registered (a stored tool-policy override for either name has no effect). Apply plugin
-  updates from Unraid's **Plugins** page. Update availability checks are unchanged: the
-  plugin update collector, `GET /api/v1/plugins/check-updates`,
-  `POST /api/v1/plugins/updates/refresh`, and the `check_plugin_updates` and
-  `refresh_plugin_updates` MCP tools. Required for Community Applications approval (#239).
-  ([#244](https://github.com/tinkerologie/unraid-management-agent/issues/244)).
-
-### Security
-
-- Require Go 1.27.2 to address standard-library vulnerabilities reported by `govulncheck` during the full pre-commit checks for #244.
-
-- **Bundle extraction no longer changes system directory owners** — release bundles
-  stored every entry with the GitHub Actions runner owner (uid/gid 1001), and the
-  installer's root `tar -xzf` applied it to `/usr`, `/usr/local`, `/usr/local/emhttp`
-  and `/usr/local/emhttp/plugins` on every install and boot. The installer now extracts
-  with `--no-same-owner --no-overwrite-dir`, restores `root:root` (non-recursive) on
-  those directories and the plugin directory when an earlier install changed them, and
-  `make package` builds the archive with numeric owner `0/0` on GNU tar and bsdtar. The
-  release workflow refuses to publish a bundle with any other owner, and a new
-  `Bundle Ownership` CI job (`make test-packaging`) runs the `.plg` extraction command and
-  repair loop as root against a uid-1001 archive and checks tar flag selection. Reported in #239.
-  ([#242](https://github.com/tinkerologie/unraid-management-agent/issues/242)).
-
-### Changed
-
-- Pull requests get path labels and at most one type label, `bug` or `enhancement`, from the shared tinkerologie PR labeler. Dependabot pull requests whose largest update is a patch or minor version merge automatically once the checks and commit statuses on their head commit have finished without a failure (a Codecov check that is still pending is not waited for; a Codecov failure blocks); majors, and pull requests with open review threads, stay for review.
-- Release workflows hardened (least-privilege job permissions, no expressions in shell scripts, no persisted checkout credentials, no dependency caches); scheduled workflows run on Australia/Brisbane time.
-- Releases push the updated PLG hash to `main` with a token from the Tinkerologie-Release GitHub App, the only actor allowed to bypass the pull-request rule on `main`, so the Unraid plugin manager and Community Applications see each new release.
-- Tinkerologie-Bot governance report updated to v1.4.3: an older run can no longer post a stale report after a newer run passed. Workflow formatting tidied.
-- Repository standardised to the tinkerologie layout (STANDARDS.md in tinkerologie/.github): workflows renamed to the standard set (CI, Validate, Release, PR Governance, ...), every action pinned to a commit SHA, shared Dependabot, `.editorconfig`, `.gitattributes` and `CODEOWNERS` files, and organization-wide labels and community files.
-- Tinkerologie-Bot's comment is now a readable "Pull request checklist": each problem is a numbered heading with plain-English guidance and its items listed underneath, and report updates for a pull request are serialised so an older run can never overwrite a newer one.
-- Contribution governance: issues without a `bug` or `enhancement` label are labeled automatically when their type can be determined (issues labeled `question`, `duplicate`, `invalid`, `wontfix`, or `no-type` are skipped), so CodeRabbit can plan them. Pull requests that conflict with the default branch are labeled, and their authors are notified in a comment. Stale issues and pull requests are labeled after 14 days without activity and closed 30 days later. PR governance now re-validates a human-authored, non-draft PR when a bot such as CodeRabbit edits its description, instead of skipping the check and reporting a pass, only maintainers with write access may use `None` instead of linking an issue, and a link to an issue that does not exist now fails the check. Codecov patch coverage must now reach 90%.
-- Tinkerologie-Bot now posts one comment on pull requests that fail PR governance, listing every problem to fix, and updates it once they are fixed. PR governance runs from the default branch's workflow (`pull_request_target`), so a pull request cannot change its own check.
-- Configured Codecov GitHub Actions workflow for tokenless coverage uploads
-
-- **Faster `/services`** — the rc status checks behind `GET /api/v1/services`, the MCP
-  `list_services` tool and the MQTT service states now run up to 4 at a time instead of one
-  after another (about 2.7 s per request before), each with a 15 s timeout, and keep their
-  order. New `lib.ExecCommandOutputWithTimeout` stops a status script's child processes from
-  holding the call past its deadline.
-  ([#201](https://github.com/tinkerologie/unraid-management-agent/issues/201)).
-- **GitHub Actions Ubuntu runner policy** — set release workflow jobs to
-  `ubuntu-latest` so CI always tracks the latest supported Ubuntu GitHub-hosted
-  image.
-- **Automated Codecov reporting in CI** — added a dedicated GitHub Actions
-  coverage workflow running `go test -covermode=atomic -coverprofile=coverage.out ./...`
-  on `push` to `main` and `pull_request` events with concurrency cancellation,
-  uploading to Codecov via `codecov/codecov-action@v5` (including tokenless uploads
-  for public repository fork pull requests), and configured repository status
-  thresholds in `.codecov.yml` with exclusions for generated Swagger docs and tests.
-
-### Tests
-
-- Allow zero-millisecond MQTT connection failures in timing assertions so fast failures do not break local verification for #244.
-- **Coverage uplift toward 90% (issue #192)** — added deterministic, host-safe
-  regression tests for previously thin areas. The structured `DiagnosticLogger`
-  (JSONL output, correlation IDs, UTC timestamps, per-level helpers, nil-context
-  guard, concurrent writes, close) and goroutine stack helpers now have
-  `daemon/logger` coverage of ~85% (up from ~30%). Extended `daemon/lib`
-  redaction tests to cover the reflection-based typed map/slice paths, JSON tag
-  aliases, `json:"-"` omission, unexported-field skipping, input immutability and
-  nested mixed containers. Added diagnostics tests for `parseMemInfo`, the
-  `readLastNLines` log-tail helper (missing/empty files, exact last-N ordering,
-  no trailing newline, redaction) and ZIP archive error paths (failing writer,
-  unsupported JSON values, nonexistent output directory, partial-file removal and
-  empty-log omission). ([#192](https://github.com/tinkerologie/unraid-management-agent/issues/192)).
-- **Coverage uplift part 2 (issue #192)** — added further host-safe unit tests
-  covering pure functions. `daemon/domain` rose to ~88% (from ~58%) via tests for
-  the tool-policy store (`IsValidTool`, `GetAll`, `GetCatalog`, `CategorizeMCPTool`),
-  the typed event bus (`Topic.TopicName`, `EventBus.SubTopics`) and file-config
-  loading (`LoadConfigFile` happy/missing/malformed paths, `DefaultDiscoveryConfig`).
-  Added `daemon/services/controllers` tests for the pure fan-safety PWM clamp
-  (`ValidatePWM` boundaries and default-minimum normalization), fan-curve
-  interpolation (`interpolateSpeed` below/above/midpoint and the duplicate
-  lowest-boundary clamp),
-  and the Docker/IPMI string helpers (`shortDigest`, `sanitizeFanName`).
-  ([#192](https://github.com/tinkerologie/unraid-management-agent/issues/192)).
-- **Coverage uplift part 3 (issue #192)** — extracted the `/proc/net/dev` and
-  `disks.ini` parsers in `daemon/services/collectors` into pure,
-  `io.Reader`-based helpers (`parseNetDevStats`, `parseDisksINIFrom`) with the
-  existing collector methods kept as thin file-opening wrappers, then added
-  table-driven fixture tests covering multi-record parsing, header skipping,
-  malformed/short rows, non-numeric counters, content before the first section,
-  and final-section capture. No collector behavior changed.
-  ([#192](https://github.com/tinkerologie/unraid-management-agent/issues/192)).
-- **Coverage uplift part 4 (issue #192)** — extracted the `nvidia-smi` CSV
-  parsing in `daemon/services/collectors/gpu.go` into a pure
-  `parseNvidiaGPUCSV` helper (collector keeps querying the driver version),
-  with table-driven tests for single/multiple GPUs, short records, non-numeric
-  and `N/A` fields, zero total memory, and MiB-to-byte conversion. Also added
-  `daemon/lib` tests for `ExecCommandOutputWithContext` (success, pre-cancelled
-  context, nonexistent binary). No collector behavior changed.
-  ([#192](https://github.com/tinkerologie/unraid-management-agent/issues/192)).
-- **Coverage uplift part 5 (issue #192)** — extracted the `network.cfg` and
-  `ident.cfg` parsing in `daemon/services/collectors/config.go` into pure
-  `io.Reader`-based helpers (`parseNetworkConfig`, `parseSystemSettings`) and
-  made the boot config directory injectable so the `GetNetworkConfig` and
-  `GetSystemSettings` wrappers are unit-testable. Added tests for interface
-  section matching, bond/bridge/VLAN parsing, missing-interface and
-  missing-file errors, and system settings fields. No collector behavior
-  changed. ([#192](https://github.com/tinkerologie/unraid-management-agent/issues/192)).
-- **Coverage uplift part 6 (issue #192)** — extracted the remaining
-  `daemon/services/collectors/config.go` settings parsers (`docker.cfg`,
-  `domain.cfg`, `disk.cfg`) into pure `io.Reader` helpers
-  (`parseDockerSettings`, `parseVMSettings`, `parseDiskSettings`) routed
-  through the injectable boot config directory, with tests covering field
-  parsing, device/network list splitting, the disabled-default fallback when
-  `docker.cfg`/`domain.cfg` are absent, and the required-file error for
-  `disk.cfg`. No collector behavior changed.
-  ([#192](https://github.com/tinkerologie/unraid-management-agent/issues/192)).
-- **Coverage uplift phases 1–5 completion (issue #192)** — completed all five phases
-  from the test coverage plan:
-  - _Phase 1 (Reporting Alignment)_: aligned `Makefile` `test-coverage` target
-    (`-covermode=atomic`, filtering out `daemon/docs` and `tests`), documented line
-    vs statement coverage in `docs/development/code-quality.md`, and gated host-dependent
-    Docker SDK and `virt-clone` tests with `//go:build integration`.
-  - _Phase 2 (Collectors & Device Parsing)_: extracted pure parsing functions in
-    `ups.go` (`parseAPCOutput`, `parseNUTUpscOutput`), `nut.go` (`parseNUTConfig`,
-    `parseNUTStatusOutput`), and `zfs.go` (`parseZPoolListOutput`, `parseZPoolStatusOutput`,
-    `parseZFSDatasetListOutput`, `parseZFSSnapshotListOutput`), adding thorough table-driven
-    unit tests for pool states, vdev trees, and datasets.
-  - _Phase 3 (Controllers & Execution Seams)_: added injected execution seams and unit
-    tests for `array.go` (start/stop, parity checks, spin modes), `service.go` (start/stop/restart),
-    `vm.go` (`pmWakeup`, snapshot lists, clone), `guard.go` (`binaryExists`), and
-    `fan_safety.go` (temperature probes and PWM safety bounds).
-  - _Phase 4 (Deterministic Lifecycle & Subscriptions)_: eliminated arbitrary `time.Sleep`
-    calls in `collector_manager_test.go` and `subscribe_events_test.go` using channel waits,
-    bounded polling helpers, and `WSHub.ClientCount()`; refactored `Orchestrator.Run` with
-    an isolated, tested `shutdown()` helper.
-  - _Phase 5 (Logger & Diagnostics)_: added log capture tests in `logger_test.go`,
-    injected bundle/archive seams with comprehensive unit tests for `handleDiagnosticsBundle`
-    in `diagnostics_test.go`, and documented redacted ZIP vs unredacted shell diagnostics in
-    `docs/troubleshooting/diagnostics.md` and `docs/api/diagnostics.md`.
-    ([#192](https://github.com/tinkerologie/unraid-management-agent/issues/192)).
-
 ### Fixed
 
 - **UPS/NUT readings the UPS does not report were sent as 0** — numeric fields in
@@ -267,6 +249,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([#199](https://github.com/tinkerologie/unraid-management-agent/issues/199)).
 - **CI coverage test on Linux** — allowed HTTP 200 in `TestLogFileEndpoint` when `/var/log/syslog` exists on Linux runners, unblocking coverage profile generation.
 - **Codecov PR comments** — configured `.codecov.yml` with `require_changes: false` so coverage reports are posted on all pull requests.
+
+### Changed
+
+- **Faster `/services`** — the rc status checks behind `GET /api/v1/services`, the MCP
+  `list_services` tool and the MQTT service states now run up to 4 at a time instead of one
+  after another (about 2.7 s per request before), each with a 15 s timeout, and keep their
+  order. New `lib.ExecCommandOutputWithTimeout` stops a status script's child processes from
+  holding the call past its deadline.
+  ([#201](https://github.com/tinkerologie/unraid-management-agent/issues/201)).
+- **GitHub Actions Ubuntu runner policy** — set release workflow jobs to
+  `ubuntu-latest` so CI always tracks the latest supported Ubuntu GitHub-hosted
+  image.
+- **Automated Codecov reporting in CI** — added a dedicated GitHub Actions
+  coverage workflow running `go test -covermode=atomic -coverprofile=coverage.out ./...`
+  on `push` to `main` and `pull_request` events with concurrency cancellation,
+  uploading to Codecov via `codecov/codecov-action@v5` (including tokenless uploads
+  for public repository fork pull requests), and configured repository status
+  thresholds in `.codecov.yml` with exclusions for generated Swagger docs and tests.
+
+### Fixed
 
 - **WireGuard always reported as not running** — `/etc/rc.d/rc.wireguard status` exits 1 even
   when tunnels are up, so `GET /api/v1/services`, the MCP `get_service_status`/`list_services`

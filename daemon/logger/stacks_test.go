@@ -82,3 +82,4 @@ func TestLogPanicWithStack(t *testing.T) {
 		LogPanicWithStack("test", struct{ Code int }{Code: 500})
 	})
 }
+

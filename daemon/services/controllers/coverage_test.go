@@ -160,7 +160,6 @@ func TestListProcesses_NoLimit(t *testing.T) {
 
 // ===== Plugin Controller =====
 
-// TestPluginControllerCheckUpdates exercises the retained read-only plugin update check.
 func TestPluginControllerCheckUpdates(t *testing.T) {
 	pc := NewPluginController()
 	updates, err := pc.CheckPluginUpdates(context.Background())

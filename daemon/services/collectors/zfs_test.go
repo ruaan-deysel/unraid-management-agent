@@ -620,3 +620,4 @@ func TestZFSParseOutput_EmptyLinesAndEdgeCases(t *testing.T) {
 		t.Errorf("expected 0 snaps, got %v, err %v", snaps, err)
 	}
 }
+

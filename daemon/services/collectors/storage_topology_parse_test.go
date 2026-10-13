@@ -280,14 +280,13 @@ func TestBuildSESEnclosureEdgeCases(t *testing.T) {
 	}
 }
 
-// TestAssembleTopologyMergeEdgeCases checks enclosure metadata, ordering, and path problems when merging storage reports.
 func TestAssembleTopologyMergeEdgeCases(t *testing.T) {
 	two, five := 2, 5
 	sc := &storcliResult{
 		controllers: []dto.StorageController{{ID: "c1", Index: 1}, {ID: "c0", Index: 0, SASAddress: "0x5000000000000010"}},
 		enclosures: map[[2]int]*storcliEnclosure{
 			{1, 3}: {controller: 1, eid: 3, state: "Critical"},
-			{0, 5}: {controller: 0, eid: 5, logicalID: "0x500000000000000a", serial: "SERIAL", vendor: "V", product: "P",
+			{0, 5}: {controller: 0, eid: 5, logicalID: "0x500000000000000a", serial: "SER", vendor: "V", product: "P",
 				state: "Degraded", populated: &two},
 			{0, 4}: {controller: 0, eid: 4, sims: []dto.EnclosureIOM{{Index: 0, Status: "OK"}, {Index: 1, Status: "OK"}}},
 		},
@@ -315,7 +314,7 @@ func TestAssembleTopologyMergeEdgeCases(t *testing.T) {
 		t.Fatalf("enclosure order = %v", ids)
 	}
 	e5 := topo.Enclosures[1]
-	if e5.SerialNumber != "SERIAL" || e5.Vendor != "V" || e5.Product != "P" || e5.Status != "Degraded" || *e5.SlotsPopulated != 2 ||
+	if e5.SerialNumber != "SER" || e5.Vendor != "V" || e5.Product != "P" || e5.Status != "Degraded" || *e5.SlotsPopulated != 2 ||
 		!e5.IOMFirmwareMismatch || e5.IOMFirmwareDiffersFromPeers {
 		t.Errorf("unexpected e5: %+v", e5)
 	}

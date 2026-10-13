@@ -431,7 +431,6 @@ func TestPublishHAEntity_TopicFormat(t *testing.T) {
 	}
 }
 
-// TestPackageLevelTestConnection_InvalidBroker verifies failed broker connections include timing and error details.
 func TestPackageLevelTestConnection_InvalidBroker(t *testing.T) {
 	// Tests the package-level TestConnection function with an unreachable broker
 	result := TestConnection("tcp://192.0.2.1:1883", "", "", "test-client", 1*time.Second)
@@ -444,9 +443,8 @@ func TestPackageLevelTestConnection_InvalidBroker(t *testing.T) {
 		t.Error("TestConnection() should fail for unreachable broker")
 	}
 
-	// Latency is measured in whole milliseconds; an immediate failure can be zero.
-	if result.Latency < 0 {
-		t.Error("Latency should be >= 0")
+	if result.Latency <= 0 {
+		t.Error("Latency should be > 0")
 	}
 
 	if result.Timestamp.IsZero() {

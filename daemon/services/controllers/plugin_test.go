@@ -8,15 +8,12 @@ import (
 	"github.com/tinkerologie/unraid-management-agent/daemon/constants"
 )
 
-// TestNewPluginController verifies that the read-only plugin controller is created.
 func TestNewPluginController(t *testing.T) {
 	if NewPluginController() == nil {
 		t.Fatal("NewPluginController returned nil")
 	}
 }
 
-// TestPluginController_CheckPluginUpdates_RunsCheckall verifies that update checks
-// run plugin checkall with a deadline and tolerate command failures.
 func TestPluginController_CheckPluginUpdates_RunsCheckall(t *testing.T) {
 	original := pluginCheckExec
 	t.Cleanup(func() { pluginCheckExec = original })

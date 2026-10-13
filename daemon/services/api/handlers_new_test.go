@@ -561,8 +561,6 @@ func TestHandleProcessList_InvalidLimit(t *testing.T) {
 
 // ===== Route Existence Tests =====
 
-// TestNewRoutes_Exist verifies that the retained monitoring and control routes
-// resolve even when their external services are unavailable.
 func TestNewRoutes_Exist(t *testing.T) {
 	server, _ := setupTestServer()
 

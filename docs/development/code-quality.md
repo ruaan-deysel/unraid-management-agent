@@ -395,7 +395,6 @@ linters-settings:
 Test coverage is tracked via `go test` and reported through Codecov. Note that Go's coverage tool reports statement coverage, whereas Codecov calculates line coverage from uploaded profiles.
 
 Target milestones:
-
 - **Milestone**: 75%+ across all core service packages
 - **Stretch target**: toward 90% repository coverage (issue #192)
 

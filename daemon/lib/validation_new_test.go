@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-// TestValidateContainerRef checks supported container references and rejects unsafe input.
 func TestValidateContainerRef(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -58,7 +57,6 @@ func TestValidateContainerRef(t *testing.T) {
 	}
 }
 
-// TestValidateServiceName checks allowed service names and rejects unsafe input.
 func TestValidateServiceName(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -173,7 +171,6 @@ func TestContainerNameRegex(t *testing.T) {
 	}
 }
 
-// TestServiceNameRegex checks the service-name pattern against valid and invalid names.
 func TestServiceNameRegex(t *testing.T) {
 	tests := []struct {
 		name  string
