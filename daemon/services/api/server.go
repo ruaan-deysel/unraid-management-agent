@@ -108,6 +108,8 @@ func NewServerWithCollectorManager(ctx *domain.Context, cm CollectorManagerInter
 	return s
 }
 
+// setupRoutes registers the API, WebSocket, MCP, and documentation endpoints
+// with their middleware and allowed HTTP methods.
 func (s *Server) setupRoutes() {
 	// Apply middleware
 	s.router.Use(recoveryMiddleware)

@@ -381,6 +381,7 @@ func TestNUTCollectStatusAllReadings(t *testing.T) {
 	}
 }
 
+// TestNUTCollectStatusDerivedPower verifies derived power and rejects malformed or missing NUT readings.
 func TestNUTCollectStatusDerivedPower(t *testing.T) {
 	c := &NUTCollector{execOutput: fakeExec(map[string]string{
 		"upsc derived@localhost": "ups.load: 10\nups.realpower.nominal: 900\nups.power.nominal: 1500\n",
@@ -400,7 +401,7 @@ func TestNUTCollectStatusDerivedPower(t *testing.T) {
 		t.Fatalf("collectStatus() error = %v", err)
 	}
 	if s.LoadPercent != nil || s.RealPower != nil || s.ApparentPower != nil {
-		t.Errorf("unparseable load: load %v, power %v W / %v VA; want all nil", s.LoadPercent, s.RealPower, s.ApparentPower)
+		t.Errorf("unparsable load: load %v, power %v W / %v VA; want all nil", s.LoadPercent, s.RealPower, s.ApparentPower)
 	}
 	if s.RawVariables["ups.load"] != "n/a" {
 		t.Errorf("raw ups.load = %q, want n/a", s.RawVariables["ups.load"])

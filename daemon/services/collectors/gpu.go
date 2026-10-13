@@ -459,7 +459,7 @@ func (c *GPUCollector) collectNvidiaGPU() ([]*dto.GPUMetrics, error) {
 // index,pci.bus_id,uuid,name,temperature.gpu,utilization.gpu,memory.used,
 // memory.total,power.draw,fan.speed into GPU metrics. Memory values are
 // converted from MiB to bytes and memory utilization is derived. Records with
-// fewer than 10 fields are skipped; unparseable numeric fields are left at zero.
+// fewer than 10 fields are skipped; unparsable numeric fields are left at zero.
 func parseNvidiaGPUCSV(output string) ([]*dto.GPUMetrics, error) {
 	reader := csv.NewReader(strings.NewReader(output))
 	// Tolerate variable field counts so a single malformed/short row is skipped

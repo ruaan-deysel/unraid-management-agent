@@ -9,6 +9,8 @@ import (
 	"github.com/tinkerologie/unraid-management-agent/daemon/domain"
 )
 
+// setupPolicyServer initializes an MCP server with a temporary policy store
+// and the requested tool policies and global read-only setting.
 func setupPolicyServer(t *testing.T, policies map[string]domain.ToolPolicyValue, readOnly bool) (*Server, *MockCacheProvider, *domain.ToolPolicyStore) {
 	t.Helper()
 	ctx := &domain.Context{
@@ -28,6 +30,7 @@ func setupPolicyServer(t *testing.T, policies map[string]domain.ToolPolicyValue,
 	return server, mock, store
 }
 
+// TestToolPolicyHiddenHidesFromListAndCall verifies hidden tools are absent from discovery and cannot be called.
 func TestToolPolicyHiddenHidesFromListAndCall(t *testing.T) {
 	policies := map[string]domain.ToolPolicyValue{
 		"system_reboot": domain.PolicyHidden,
@@ -114,6 +117,7 @@ func TestPluginUpdateToolsRemoved(t *testing.T) {
 	}
 }
 
+// TestToolPolicyReadOnlyBlocksWrite verifies read-only policies block writes while preserving reads.
 func TestToolPolicyReadOnlyBlocksWrite(t *testing.T) {
 	policies := map[string]domain.ToolPolicyValue{
 		"container_action": domain.PolicyReadOnly,

@@ -355,7 +355,7 @@ func (c *StorageTopologyCollector) discoverSESDevices() []sesDevice {
 	return devices
 }
 
-// sgNumber extracts N from "sgN" for natural ordering (unparseable names sort last).
+// sgNumber extracts N from "sgN" for natural ordering (unparsable names sort last).
 func sgNumber(name string) int {
 	n, err := strconv.Atoi(strings.TrimPrefix(name, "sg"))
 	if err != nil {

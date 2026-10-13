@@ -86,4 +86,3 @@ if (isset($_POST['TOOL_POLICY_JSON'])) {
     }
     unset($_POST['TOOL_POLICY_JSON']);
 }
-

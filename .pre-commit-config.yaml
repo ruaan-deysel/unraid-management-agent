@@ -14,7 +14,8 @@ repos:
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
-        exclude: '^(.*\.md|.*\.txt)$'
+        # sysfs fixtures retain the padding returned by the kernel.
+        exclude: '^(.*\.md|.*\.txt|daemon/services/collectors/testdata/storage_topology/sysfs/.*)$'
       - id: end-of-file-fixer
         exclude: '^(.*\.txt)$'
       - id: check-yaml

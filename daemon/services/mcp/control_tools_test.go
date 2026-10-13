@@ -491,6 +491,7 @@ func TestToolUpdateContainer_Unconfirmed(t *testing.T) {
 	}
 }
 
+// TestToolUpdateAllContainers_Unconfirmed verifies bulk container updates require confirmation.
 func TestToolUpdateAllContainers_Unconfirmed(t *testing.T) {
 	server, _ := setupInitializedServer(t)
 	cs, cleanup := connectClientToServer(t, server)
@@ -504,6 +505,7 @@ func TestToolUpdateAllContainers_Unconfirmed(t *testing.T) {
 	}
 }
 
+// TestToolCreateVMSnapshot exercises snapshot creation for a VM name.
 func TestToolCreateVMSnapshot(t *testing.T) {
 	server, _ := setupInitializedServer(t)
 	cs, cleanup := connectClientToServer(t, server)
@@ -731,6 +733,7 @@ func TestToolUpdateCollectorInterval_OutOfRange(t *testing.T) {
 
 // ===== Additional monitoring tool tests for user_scripts and container updates =====
 
+// TestToolUpdateContainer_Confirmed exercises the confirmed container-update path.
 func TestToolUpdateContainer_Confirmed(t *testing.T) {
 	server, _ := setupInitializedServer(t)
 	cs, cleanup := connectClientToServer(t, server)
@@ -747,6 +750,7 @@ func TestToolUpdateContainer_Confirmed(t *testing.T) {
 	}
 }
 
+// TestToolCloneVM_Confirmed exercises the confirmed VM-cloning path.
 func TestToolCloneVM_Confirmed(t *testing.T) {
 	server, _ := setupInitializedServer(t)
 	cs, cleanup := connectClientToServer(t, server)
