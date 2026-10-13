@@ -8,6 +8,7 @@ import (
 	"github.com/tinkerologie/unraid-management-agent/daemon/dto"
 )
 
+// zfsTime builds a local-time timestamp, as zpool prints them.
 func zfsTime(year int, month time.Month, day, h, m, s int) time.Time {
 	return time.Date(year, month, day, h, m, s, 0, time.Local)
 }
@@ -239,4 +240,83 @@ config:
 			}
 		})
 	}
+}
+
+// TestParseScanMalformedValues checks malformed sizes, durations, timestamps
+// and percentages leave the related fields unset while parsing continues.
+func TestParseScanMalformedValues(t *testing.T) {
+	t.Run("scan lines", func(t *testing.T) {
+		tests := []struct {
+			name, line, status string
+			wantErrors         int
+		}{
+			{"completed with bad size", "scan: scrub repaired 1.2X in 01:00:00 with 3 errors on Thu Sep 17 22:06:13 2026", "scrub completed", 3},
+			{"completed with bad end time", "scan: scrub repaired 0B in 01:00:00 with 0 errors on someday", "scrub completed", 0},
+			{"completed with bad duration", "scan: scrub repaired 0B in a while with 0 errors on Thu Sep 17 22:06:13 2026", "scrub completed", 0},
+			{"canceled with bad time", "scan: scrub canceled on someday", "scrub canceled", 0},
+			{"in progress with bad time", "scan: scrub in progress since someday", "scrub in progress", 0},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				pool := &dto.ZFSPool{}
+				parseScanInfo(pool, tt.line)
+				if pool.ScanStatus != tt.status || pool.ScanErrors != tt.wantErrors {
+					t.Errorf("status/errors = %q/%d, want %q/%d", pool.ScanStatus, pool.ScanErrors, tt.status, tt.wantErrors)
+				}
+				if pool.ScanRepairedBytes != 0 {
+					t.Errorf("repaired = %d, want 0 for a malformed size", pool.ScanRepairedBytes)
+				}
+				switch tt.name {
+				case "completed with bad duration":
+					if pool.ScanEndTime.IsZero() || !pool.ScanStartTime.IsZero() {
+						t.Errorf("start/end = %v/%v, want end set and start unset", pool.ScanStartTime, pool.ScanEndTime)
+					}
+				case "completed with bad size":
+					if pool.ScanEndTime.IsZero() {
+						t.Error("end time must still be parsed when the size is malformed")
+					}
+				default:
+					if !pool.ScanStartTime.IsZero() || !pool.ScanEndTime.IsZero() {
+						t.Errorf("start/end = %v/%v, want both unset", pool.ScanStartTime, pool.ScanEndTime)
+					}
+				}
+			})
+		}
+	})
+
+	t.Run("detail lines", func(t *testing.T) {
+		pool := &dto.ZFSPool{}
+		parseScanDetail(pool, "1.2X repaired, 45.00% done, 01:00:00 to go")
+		if pool.ScanRepairedBytes != 0 || pool.ScanProgressPct != 45 {
+			t.Errorf("bad size: repaired/pct = %d/%v, want 0/45", pool.ScanRepairedBytes, pool.ScanProgressPct)
+		}
+		pool = &dto.ZFSPool{}
+		parseScanDetail(pool, "64K repaired, 1.2.3% done")
+		if pool.ScanRepairedBytes != 64*1024 || pool.ScanProgressPct != 0 {
+			t.Errorf("bad percentage: repaired/pct = %d/%v, want 65536/0", pool.ScanRepairedBytes, pool.ScanProgressPct)
+		}
+		pool = &dto.ZFSPool{}
+		parseScanDetail(pool, "scrub started on someday")
+		if !pool.ScanStartTime.IsZero() {
+			t.Errorf("bad started-on time: start = %v, want unset", pool.ScanStartTime)
+		}
+	})
+
+	t.Run("blank line ends the scan block", func(t *testing.T) {
+		output := `  pool: tank
+ state: ONLINE
+  scan: scrub in progress since Thu Sep 17 22:06:13 2026
+	0B repaired, 10.00% done, 01:00:00 to go
+
+	99G repaired, 99.00% done, 00:00:01 to go
+config:
+`
+		pool := &dto.ZFSPool{}
+		if err := parseZPoolStatusOutput(pool, output); err != nil {
+			t.Fatal(err)
+		}
+		if pool.ScanProgressPct != 10 || pool.ScanRepairedBytes != 0 {
+			t.Errorf("pct/repaired = %v/%d, want 10/0: lines after a blank line are not part of the scan", pool.ScanProgressPct, pool.ScanRepairedBytes)
+		}
+	})
 }
