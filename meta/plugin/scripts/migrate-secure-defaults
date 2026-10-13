@@ -43,4 +43,4 @@ if ! printf '\n# Set by the secure-defaults migration (#245): keeps network writ
     echo "✗ Could not update ${CONFIG_FILE}; network write access stays disabled until an API token is set" >&2
     exit 1
 fi
-echo "✓ Kept network write access for this existing install (no API token set). Set an API token in Settings and turn off 'Allow write access without an API token'."
+echo "✓ Kept network write access for this existing install (no API token set). Set an API token in Settings and turn off 'Allow Write Access Without a Token'."

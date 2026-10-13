@@ -272,7 +272,7 @@ func main() {
 		cli.MCPConnectSecret = ""
 	} else if cli.MCPConnectSecret != "" {
 		if cli.APIToken == "" {
-			logger.Warning("MCP connect secret is configured, but API_TOKEN is empty: /mcp and REST endpoints remain open without authentication")
+			logger.Warning("MCP connect secret is configured, but API_TOKEN is empty: /mcp and REST endpoints remain readable without authentication")
 		} else {
 			logger.Info("MCP connect URL enabled (/mcp/<redacted>)")
 		}
