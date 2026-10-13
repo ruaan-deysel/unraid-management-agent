@@ -347,6 +347,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `resilver completed`, `scrub canceled`, `scrub paused`, ...): a completed resilver was reported as
   in progress, and an in-progress scrub as `in progress`.
   ([#185](https://github.com/tinkerologie/unraid-management-agent/issues/185)).
+- **`config.yml` overrode command-line flags and environment variables** — `applyFileConfig` set
+  every field the YAML file contains after flags and env were parsed, so for example
+  `read_only: false` in `config.yml` overrode `READ_ONLY=true`. Settings given on the command line or
+  through a non-empty environment variable now take precedence, as documented: CLI flag > env var >
+  config file > default. An empty environment variable does not count, so the plugin start script's
+  empty `API_TOKEN=""` no longer discards a token from `config.yml`, and an empty boolean such as
+  `READ_ONLY=""` no longer stops the agent from starting. On plugin installs, values from
+  `config.cfg` (exported as environment variables) now win over a `config.yml`.
+  ([#257](https://github.com/tinkerologie/unraid-management-agent/issues/257)).
 - **Implausible fan readings reported as real** — a floating or noisy tach line on a Super I/O
   header (e.g. `nct6793_fan5` at 56784 RPM) was passed through to `GET /api/v1/system`, MCP,
   Prometheus, MQTT and Home Assistant. Fan readings above `lib.MaxPlausibleRPM` (25000, the limit
