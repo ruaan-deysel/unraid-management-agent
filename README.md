@@ -130,7 +130,7 @@ For information about the official Unraid GraphQL API, please refer to:
 - **Authentication default**: the API listens on all network interfaces on port 8043 over plain HTTP. Without an
   API token, anyone on your network can read monitoring data, and every control action (REST and MCP) is refused.
   Installs upgraded from an earlier version without a token keep control actions working through
-  `ALLOW_UNAUTHENTICATED_WRITES` until you set a token and turn it off. See
+  `ALLOW_UNAUTHENTICATED_WRITES` until you set a token (once a token is set, every request must send it). See
   [Authentication](#authentication) and [Configuration → Authentication](docs/guides/configuration.md#authentication).
 - **Control scope**: with access, the REST API and MCP can reboot or shut down the server, start, stop, update and
   remove Docker containers, control VMs (including snapshots and clones), start and stop the array, control parity
