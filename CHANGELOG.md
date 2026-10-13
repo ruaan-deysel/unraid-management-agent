@@ -35,13 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Exclusive share state** — `GET /shares` (and the share WebSocket/MQTT
   payloads) now report Unraid 6.12+ exclusive share status per share:
   `exclusive` (`/mnt/user/<share>` is a symlink that bypasses FUSE),
-  `exclusive_eligible` (exclusive shares are enabled and the share is
-  pool-only and, before Unraid 7.2, not NFS-exported), `exclusive_pool` (the share's pool) and,
+  `exclusive_eligible` (exclusive shares are enabled, the share is pool-only,
+  and on Unraid before 7.2 it is not NFS-exported), `exclusive_pool` (the share's pool) and,
   when an eligible share has fallen back to FUSE, `locations` listing every
   pool or array disk that holds a top-level folder for it, so the stray copy
-  can be found (`locations_unchecked` names disks and pools that were skipped
-  because they are spun down, their spin state is unknown or the check
-  failed, so they are never woken). `exclusive` comes from emhttp's
+  can be found (`locations_unchecked` names disks and pools that were skipped,
+  and never woken, because they are spun down, their spin state is unknown,
+  or the check failed). `exclusive` comes from emhttp's
   `shares.ini`, so nothing is read through FUSE; the fields are omitted on
   older releases and while the array is stopped.
 
