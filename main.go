@@ -76,6 +76,10 @@ var cli struct {
 
 	// MCPConnectSecret enables an optional secret-bearing MCP path (/mcp/<secret>)
 	// for URL-only MCP clients (ha-mcp style onboarding) without exposing full REST API access.
+	// AllowUnauthenticatedWrites restores tokenless network write access. Without
+	// it, an empty API token leaves REST and HTTP MCP read-only (#245).
+	AllowUnauthenticatedWrites bool `default:"false" env:"ALLOW_UNAUTHENTICATED_WRITES" help:"allow state-changing REST requests and MCP tools over the network when API_TOKEN is empty (not recommended)"`
+
 	MCPConnectSecret string `default:"" env:"MCP_CONNECT_SECRET" help:"optional URL-safe secret (>=32 chars) enabling the /mcp/<secret> connect URL without bearer headers"`
 
 	// TLS: serve HTTPS (incl. the /mcp endpoint) when both files are provided
@@ -278,6 +282,14 @@ func main() {
 		logger.Info("Read-only mode enabled: all state-changing MCP tools are blocked")
 	}
 
+	if strings.TrimSpace(cli.APIToken) == "" {
+		if cli.AllowUnauthenticatedWrites {
+			logger.Warning("API_TOKEN is empty and ALLOW_UNAUTHENTICATED_WRITES is enabled: anyone on the network can control this server. Set an API token and disable this option")
+		} else {
+			logger.Warning("API_TOKEN is empty: network write access is disabled (REST and HTTP MCP are read-only) until an API token is set")
+		}
+	}
+
 	// Parse disabled collectors from CLI/env and create a map
 	disabledCollectors := make(map[string]bool)
 	if cli.DisableCollectors != "" {
@@ -346,18 +358,19 @@ func main() {
 
 	// Create application context with intervals from CLI/env
 	appCtx := &domain.Context{
-		Version:          Version,
-		Port:             cli.Port,
-		BindAddress:      cli.BindAddress,
-		CORSOrigin:       cli.CORSOrigin,
-		APIToken:         cli.APIToken,
-		MCPConnectSecret: cli.MCPConnectSecret,
-		ReadOnly:         cli.ReadOnly,
-		TLSCertFile:      cli.TLSCertFile,
-		TLSKeyFile:       cli.TLSKeyFile,
-		ToolPolicy:       toolPolicy,
-		Hub:              domain.NewEventBus(1024), // Buffer size for event bus
-		Platform:         platform.NewRegistry(),
+		Version:                    Version,
+		Port:                       cli.Port,
+		BindAddress:                cli.BindAddress,
+		CORSOrigin:                 cli.CORSOrigin,
+		APIToken:                   cli.APIToken,
+		MCPConnectSecret:           cli.MCPConnectSecret,
+		ReadOnly:                   cli.ReadOnly,
+		AllowUnauthenticatedWrites: cli.AllowUnauthenticatedWrites,
+		TLSCertFile:                cli.TLSCertFile,
+		TLSKeyFile:                 cli.TLSKeyFile,
+		ToolPolicy:                 toolPolicy,
+		Hub:                        domain.NewEventBus(1024), // Buffer size for event bus
+		Platform:                   platform.NewRegistry(),
 		MQTTConfig: domain.MQTTConfig{
 			Enabled:             cli.MQTTEnabled,
 			Broker:              cli.MQTTBroker,
@@ -459,6 +472,7 @@ func applyFileConfig(cfg *domain.FileConfig) {
 	setStr(&cli.CORSOrigin, cfg.CORSOrigin)
 	setStr(&cli.APIToken, cfg.APIToken)
 	setStr(&cli.MCPConnectSecret, cfg.MCPConnectSecret)
+	setBool(&cli.AllowUnauthenticatedWrites, cfg.AllowUnauthenticatedWrites)
 	setStr(&cli.TLSCertFile, cfg.TLSCertFile)
 	setStr(&cli.TLSKeyFile, cfg.TLSKeyFile)
 

@@ -33,3 +33,20 @@ func TestApplyFileConfigNICInterval(t *testing.T) {
 		t.Error("nic must be a valid collector name for --disable-collectors")
 	}
 }
+
+func TestApplyFileConfigAllowUnauthenticatedWrites(t *testing.T) {
+	orig := cli.AllowUnauthenticatedWrites
+	t.Cleanup(func() { cli.AllowUnauthenticatedWrites = orig })
+
+	cli.AllowUnauthenticatedWrites = false
+	applyFileConfig(&domain.FileConfig{})
+	if cli.AllowUnauthenticatedWrites {
+		t.Error("AllowUnauthenticatedWrites must stay false when the file does not set it")
+	}
+
+	allow := true
+	applyFileConfig(&domain.FileConfig{AllowUnauthenticatedWrites: &allow})
+	if !cli.AllowUnauthenticatedWrites {
+		t.Error("AllowUnauthenticatedWrites = false, want true from the config file")
+	}
+}

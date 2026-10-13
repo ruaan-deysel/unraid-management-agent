@@ -58,6 +58,9 @@ type Config struct {
 	// ReadOnly blocks all state-changing MCP tools so AI agents can only
 	// consume data. The REST API is unaffected.
 	ReadOnly bool `json:"read_only,omitempty"`
+	// AllowUnauthenticatedWrites restores tokenless network write access. When
+	// it is false and APIToken is empty, REST and HTTP MCP are read-only.
+	AllowUnauthenticatedWrites bool `json:"allow_unauthenticated_writes,omitempty"`
 	// TLSCertFile and TLSKeyFile point at a PEM certificate/key pair. When both
 	// are set the HTTP server (including the /mcp endpoint) is served over HTTPS;
 	// when either is empty the server stays on plain HTTP.
@@ -89,6 +92,12 @@ const (
 // validation runs.
 func (c Config) TLSEnabled() bool {
 	return strings.TrimSpace(c.TLSCertFile) != "" && strings.TrimSpace(c.TLSKeyFile) != ""
+}
+
+// WritesLocked reports whether network write access is refused: no API token is
+// configured and the AllowUnauthenticatedWrites opt-out is off (#245).
+func (c Config) WritesLocked() bool {
+	return strings.TrimSpace(c.APIToken) == "" && !c.AllowUnauthenticatedWrites
 }
 
 // DiscoveryConfig holds zeroconf (mDNS/DNS-SD) auto-discovery settings.
