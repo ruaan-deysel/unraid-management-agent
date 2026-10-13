@@ -120,7 +120,24 @@ func TestNetworkWriteLockKeepsHiddenTools(t *testing.T) {
 	cs, cleanup := connectClientToServer(t, server)
 	defer cleanup()
 
-	if _, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
+	ctx := context.Background()
+	listed, err := cs.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatalf("ListTools failed: %v", err)
+	}
+	names := make(map[string]bool, len(listed.Tools))
+	for _, tool := range listed.Tools {
+		names[tool.Name] = true
+	}
+	if names["system_reboot"] {
+		t.Error("hidden tool system_reboot must not be listed under the write lock")
+	}
+	// Blocked write tools stay visible, as in read-only mode.
+	if !names["container_action"] {
+		t.Error("write tool container_action must stay listed under the write lock")
+	}
+
+	if _, err := cs.CallTool(ctx, &mcp.CallToolParams{
 		Name:      "system_reboot",
 		Arguments: map[string]any{"confirm": true},
 	}); err == nil {

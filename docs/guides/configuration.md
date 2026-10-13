@@ -474,8 +474,10 @@ The easiest way to configure authentication is through the Unraid WebGUI:
 4. Click **Copy** to copy the token to your clipboard.
 5. Click **Apply** at the bottom of the page. The plugin saves the token and restarts the service automatically.
 
-Clicking **Clear** and then **Apply** removes the token, which makes network
-access read-only again (see above).
+Clicking **Clear** and then **Apply** removes the token. Network access then
+becomes read-only again, unless **Allow Write Access Without a Token**
+(`ALLOW_UNAUTHENTICATED_WRITES`) is on, in which case anyone on the network can
+use control actions (see above).
 
 #### Manual Configuration (SSH / config.cfg)
 

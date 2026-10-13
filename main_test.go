@@ -80,3 +80,16 @@ func TestWriteAccessWarning(t *testing.T) {
 		})
 	}
 }
+
+func TestApplyWriteAccess(t *testing.T) {
+	for _, allow := range []bool{false, true} {
+		appCtx := &domain.Context{}
+		applyWriteAccess(appCtx, "", allow)
+		if appCtx.AllowUnauthenticatedWrites != allow {
+			t.Errorf("AllowUnauthenticatedWrites = %v, want %v", appCtx.AllowUnauthenticatedWrites, allow)
+		}
+		if appCtx.WritesLocked() == allow {
+			t.Errorf("WritesLocked() = %v with no token and opt-out %v", appCtx.WritesLocked(), allow)
+		}
+	}
+}

@@ -282,10 +282,6 @@ func main() {
 		logger.Info("Read-only mode enabled: all state-changing MCP tools are blocked")
 	}
 
-	if msg := writeAccessWarning(cli.APIToken, cli.AllowUnauthenticatedWrites); msg != "" {
-		logger.Warning("%s", msg)
-	}
-
 	// Parse disabled collectors from CLI/env and create a map
 	disabledCollectors := make(map[string]bool)
 	if cli.DisableCollectors != "" {
@@ -417,7 +413,7 @@ func main() {
 			NIC:             getInterval("nic", cli.IntervalNIC),
 		},
 	}
-	appCtx.AllowUnauthenticatedWrites = cli.AllowUnauthenticatedWrites
+	applyWriteAccess(appCtx, cli.APIToken, cli.AllowUnauthenticatedWrites)
 
 	// Warn about insecure MQTT TLS configuration
 	if appCtx.MQTTConfig.InsecureSkipVerify && appCtx.MQTTConfig.Enabled {
@@ -427,6 +423,15 @@ func main() {
 	// Run the boot command
 	err = ctx.Run(appCtx)
 	ctx.FatalIfErrorf(err)
+}
+
+// applyWriteAccess copies the write opt-out into the application context and
+// logs the warning for an empty API token (#245).
+func applyWriteAccess(appCtx *domain.Context, apiToken string, allowUnauthenticatedWrites bool) {
+	appCtx.AllowUnauthenticatedWrites = allowUnauthenticatedWrites
+	if msg := writeAccessWarning(apiToken, allowUnauthenticatedWrites); msg != "" {
+		logger.Warning("%s", msg)
+	}
 }
 
 // writeAccessWarning returns the startup warning for an empty API token, or ""

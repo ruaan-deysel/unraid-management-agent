@@ -221,7 +221,13 @@ fi
 
 # Keep network write access for existing installs without an API token (#245).
 # A failure leaves the install on the secure default, so it does not abort.
-"${INSTALL_DIR}/scripts/migrate-secure-defaults" || echo "⚠ Secure-defaults migration failed; set an API token to re-enable control actions"
+# The marker is set only when the migration succeeds (it exits 0 for fresh
+# installs too), so a failed migration is retried on the next upgrade.
+if "${INSTALL_DIR}/scripts/migrate-secure-defaults"; then
+    touch "${CONFIG_DIR}/.secure-defaults-migrated"
+else
+    echo "⚠ Secure-defaults migration failed; set an API token to re-enable control actions"
+fi
 
 # Start service if it was running before, or if this is a fresh install
 if [ $running -ge 1 ] || [ ! -f "${CONFIG_DIR}/.installed" ]; then
@@ -237,10 +243,8 @@ if [ $running -ge 1 ] || [ ! -f "${CONFIG_DIR}/.installed" ]; then
     fi
 fi
 
-# Mark as installed. The migration marker is set on every install so a fresh
-# install never receives the legacy write opt-out on a later upgrade.
+# Mark as installed
 touch ${CONFIG_DIR}/.installed
-touch ${CONFIG_DIR}/.secure-defaults-migrated
 
 echo ""
 echo "========================================="

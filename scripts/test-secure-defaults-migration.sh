@@ -65,6 +65,18 @@ migrate "$dir" || fail "empty-token: second run failed"
 assert_key_count "$dir" 1
 echo "✓ Upgrade without a token keeps write access, preserves settings and mode, and is idempotent"
 
+# The settings page and update.php read config.cfg with PHP's parse_ini_file,
+# which rejects "#" comments containing "(" or quotes; the migration must keep
+# the file parseable.
+if command -v php >/dev/null 2>&1; then
+    # shellcheck disable=SC2016 # PHP code, not shell expansions
+    php -r 'exit(parse_ini_file($argv[1], false, INI_SCANNER_RAW)["ALLOW_UNAUTHENTICATED_WRITES"] === "true" ? 0 : 1);' \
+        "${dir}/config.cfg" 2>/dev/null || fail "empty-token: migrated config.cfg is not readable by parse_ini_file"
+    echo "✓ Migrated config.cfg parses with PHP parse_ini_file"
+else
+    echo "- php not installed; skipped the parse_ini_file check"
+fi
+
 dir=$(INSTALLED=1 new_case missing-token "$base")
 migrate "$dir" || fail "missing-token: migration failed"
 assert_key_count "$dir" 1

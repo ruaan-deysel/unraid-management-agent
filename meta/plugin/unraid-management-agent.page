@@ -517,7 +517,7 @@ the agent. Changes apply after clicking Apply, which restarts the service automa
 </div>
 
 _(API Token)_:
-: <input type="password" name="API_TOKEN" id="api_token" value="" placeholder="<?= $has_token ? '••••••••' : 'Not set (network access is read-only)' ?>" autocomplete="off" style="width: 320px;" oninput="document.getElementById('api_token_clear').value = '0'; updateTokenButtons(); updateMcpOnboardingUI();">
+: <input type="password" name="API_TOKEN" id="api_token" value="" placeholder="<?= $has_token ? '••••••••' : ($allow_unauth_writes === 'true' ? 'Not set (network writes allowed without a token)' : 'Not set (network access is read-only)') ?>" autocomplete="off" style="width: 320px;" oninput="document.getElementById('api_token_clear').value = '0'; updateTokenButtons(); updateMcpOnboardingUI();">
   <input type="hidden" name="API_TOKEN_CLEAR" id="api_token_clear" value="0">
   <input type="button" id="uma-btn-token-toggle" value="Show" onclick="toggleTokenVisibility()">
   <input type="button" id="uma-btn-token-generate" value="Generate" onclick="generateToken()">
@@ -987,9 +987,20 @@ function updateMQTTHA() {
     document.getElementById('mqtt_ha_val').value = enabled ? 'true' : 'false';
 }
 
+// Placeholder for an empty token field, matching what the daemon will do
+// with no token and the current write opt-out setting (#245).
+function noTokenPlaceholder() {
+    var allow = document.getElementById('allow_unauth_writes');
+    return (allow && allow.checked) ? 'Not set (network writes allowed without a token)' : 'Not set (network access is read-only)';
+}
+
 function updateAllowUnauthWrites() {
     var enabled = document.getElementById('allow_unauth_writes').checked;
     document.getElementById('allow_unauth_writes_val').value = enabled ? 'true' : 'false';
+    var field = document.getElementById('api_token');
+    if (field && field.value === '' && field.placeholder !== '••••••••') {
+        field.placeholder = noTokenPlaceholder();
+    }
 }
 
 function updateReadOnly() {
@@ -1169,7 +1180,7 @@ function fallbackCopy(field, callback) {
 function clearToken() {
     var field = document.getElementById('api_token');
     field.value = '';
-    field.placeholder = 'Not set (network access is read-only)';
+    field.placeholder = noTokenPlaceholder();
     document.getElementById('api_token_clear').value = '1';
     var clearBtn = document.getElementById('uma-btn-token-clear');
     if (clearBtn) {
