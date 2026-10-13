@@ -485,7 +485,9 @@ func recordExplicitFlags(ctx *kong.Context) {
 				explicit = true
 			}
 		}
-		if explicit && f.Target.CanAddr() {
+		if explicit {
+			// Kong binds flags to fields of the struct it was given a
+			// pointer to, so every target is addressable.
 			explicitFlags[f.Target.Addr().Pointer()] = true
 		}
 	}

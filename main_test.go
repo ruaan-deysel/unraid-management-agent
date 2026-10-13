@@ -318,3 +318,19 @@ func TestHardwareSpecificCollectorsDisabledByDefault(t *testing.T) {
 		t.Errorf("enabled via env: got %d/%d, want 60/300", c.IntervalNIC, c.IntervalStorageTopology)
 	}
 }
+
+// TestParseCLIRejectsInvalidValue checks parse errors are returned (main
+// reports them with FatalIfErrorf) and no explicit flags are recorded.
+func TestParseCLIRejectsInvalidValue(t *testing.T) {
+	saved, savedExplicit := cli, explicitFlags
+	t.Cleanup(func() { cli, explicitFlags = saved, savedExplicit })
+	explicitFlags = nil
+
+	_, _, err := parseCLI([]string{"--interval-nic=abc", "boot"}, kong.Exit(func(int) { t.Fatal("kong exited") }))
+	if err == nil {
+		t.Fatal("parseCLI accepted --interval-nic=abc")
+	}
+	if explicitFlags != nil {
+		t.Error("explicit flags were recorded for a failed parse")
+	}
+}
