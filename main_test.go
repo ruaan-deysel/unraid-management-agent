@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/tinkerologie/unraid-management-agent/daemon/domain"
@@ -48,5 +49,34 @@ func TestApplyFileConfigAllowUnauthenticatedWrites(t *testing.T) {
 	applyFileConfig(&domain.FileConfig{AllowUnauthenticatedWrites: &allow})
 	if !cli.AllowUnauthenticatedWrites {
 		t.Error("AllowUnauthenticatedWrites = false, want true from the config file")
+	}
+}
+
+func TestWriteAccessWarning(t *testing.T) {
+	tests := []struct {
+		name    string
+		token   string
+		allow   bool
+		wantSub string
+	}{
+		{"token set", "secret-token", false, ""},
+		{"token set with opt-out", "secret-token", true, ""},
+		{"no token locks writes", "", false, "network write access is disabled"},
+		{"whitespace token locks writes", "  ", false, "network write access is disabled"},
+		{"no token with opt-out warns", "", true, "anyone on the network can control"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := writeAccessWarning(tt.token, tt.allow)
+			if tt.wantSub == "" {
+				if got != "" {
+					t.Errorf("writeAccessWarning() = %q, want empty", got)
+				}
+				return
+			}
+			if !strings.Contains(got, tt.wantSub) {
+				t.Errorf("writeAccessWarning() = %q, want it to contain %q", got, tt.wantSub)
+			}
+		})
 	}
 }

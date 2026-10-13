@@ -74,12 +74,12 @@ var cli struct {
 	// file over the flag: command-line arguments are visible in the process list.
 	APIToken string `default:"" env:"API_TOKEN" help:"require bearer-token auth on the HTTP API and /mcp; the health endpoint and Swagger UI stay open (empty = unauthenticated reads, network writes refused). Prefer the API_TOKEN env var or config file: flags are visible in the process list"`
 
-	// MCPConnectSecret enables an optional secret-bearing MCP path (/mcp/<secret>)
-	// for URL-only MCP clients (ha-mcp style onboarding) without exposing full REST API access.
 	// AllowUnauthenticatedWrites restores tokenless network write access. Without
 	// it, an empty API token leaves REST and HTTP MCP read-only (#245).
 	AllowUnauthenticatedWrites bool `default:"false" env:"ALLOW_UNAUTHENTICATED_WRITES" help:"allow state-changing REST requests and MCP tools over the network when API_TOKEN is empty (not recommended)"`
 
+	// MCPConnectSecret enables an optional secret-bearing MCP path (/mcp/<secret>)
+	// for URL-only MCP clients (ha-mcp style onboarding) without exposing full REST API access.
 	MCPConnectSecret string `default:"" env:"MCP_CONNECT_SECRET" help:"optional URL-safe secret (>=32 chars) enabling the /mcp/<secret> connect URL without bearer headers"`
 
 	// TLS: serve HTTPS (incl. the /mcp endpoint) when both files are provided
@@ -282,12 +282,8 @@ func main() {
 		logger.Info("Read-only mode enabled: all state-changing MCP tools are blocked")
 	}
 
-	if strings.TrimSpace(cli.APIToken) == "" {
-		if cli.AllowUnauthenticatedWrites {
-			logger.Warning("API_TOKEN is empty and ALLOW_UNAUTHENTICATED_WRITES is enabled: anyone on the network can control this server. Set an API token and disable this option")
-		} else {
-			logger.Warning("API_TOKEN is empty: network write access is disabled (REST and HTTP MCP are read-only) until an API token is set")
-		}
+	if msg := writeAccessWarning(cli.APIToken, cli.AllowUnauthenticatedWrites); msg != "" {
+		logger.Warning("%s", msg)
 	}
 
 	// Parse disabled collectors from CLI/env and create a map
@@ -358,19 +354,18 @@ func main() {
 
 	// Create application context with intervals from CLI/env
 	appCtx := &domain.Context{
-		Version:                    Version,
-		Port:                       cli.Port,
-		BindAddress:                cli.BindAddress,
-		CORSOrigin:                 cli.CORSOrigin,
-		APIToken:                   cli.APIToken,
-		MCPConnectSecret:           cli.MCPConnectSecret,
-		ReadOnly:                   cli.ReadOnly,
-		AllowUnauthenticatedWrites: cli.AllowUnauthenticatedWrites,
-		TLSCertFile:                cli.TLSCertFile,
-		TLSKeyFile:                 cli.TLSKeyFile,
-		ToolPolicy:                 toolPolicy,
-		Hub:                        domain.NewEventBus(1024), // Buffer size for event bus
-		Platform:                   platform.NewRegistry(),
+		Version:          Version,
+		Port:             cli.Port,
+		BindAddress:      cli.BindAddress,
+		CORSOrigin:       cli.CORSOrigin,
+		APIToken:         cli.APIToken,
+		MCPConnectSecret: cli.MCPConnectSecret,
+		ReadOnly:         cli.ReadOnly,
+		TLSCertFile:      cli.TLSCertFile,
+		TLSKeyFile:       cli.TLSKeyFile,
+		ToolPolicy:       toolPolicy,
+		Hub:              domain.NewEventBus(1024), // Buffer size for event bus
+		Platform:         platform.NewRegistry(),
 		MQTTConfig: domain.MQTTConfig{
 			Enabled:             cli.MQTTEnabled,
 			Broker:              cli.MQTTBroker,
@@ -422,6 +417,7 @@ func main() {
 			NIC:             getInterval("nic", cli.IntervalNIC),
 		},
 	}
+	appCtx.AllowUnauthenticatedWrites = cli.AllowUnauthenticatedWrites
 
 	// Warn about insecure MQTT TLS configuration
 	if appCtx.MQTTConfig.InsecureSkipVerify && appCtx.MQTTConfig.Enabled {
@@ -431,6 +427,18 @@ func main() {
 	// Run the boot command
 	err = ctx.Run(appCtx)
 	ctx.FatalIfErrorf(err)
+}
+
+// writeAccessWarning returns the startup warning for an empty API token, or ""
+// when a token is set (#245).
+func writeAccessWarning(apiToken string, allowUnauthenticatedWrites bool) string {
+	if strings.TrimSpace(apiToken) != "" {
+		return ""
+	}
+	if allowUnauthenticatedWrites {
+		return "API_TOKEN is empty and ALLOW_UNAUTHENTICATED_WRITES is enabled: anyone on the network can control this server. Set an API token and disable this option"
+	}
+	return "API_TOKEN is empty: network write access is disabled (REST and HTTP MCP are read-only) until an API token is set"
 }
 
 // applyFileConfig merges config file values into the CLI struct.

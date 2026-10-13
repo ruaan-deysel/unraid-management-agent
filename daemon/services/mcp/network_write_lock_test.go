@@ -141,3 +141,18 @@ func TestNetworkWriteLockReadOnlyModeMessage(t *testing.T) {
 		t.Errorf("expected read-only mode message, got: %s", text)
 	}
 }
+
+// TestNetworkWriteLockWithoutPolicyStore covers effectivePolicy's fallback
+// when no tool policy store is configured. NewServer always creates a store,
+// so an initialized client/server cannot reach this branch; the client/server
+// behaviour of the lock is covered by the tests above.
+func TestNetworkWriteLockWithoutPolicyStore(t *testing.T) {
+	s := &Server{ctx: &domain.Context{}}
+	if got := s.effectivePolicy("system_reboot"); got != domain.PolicyDefault {
+		t.Errorf("unlocked effectivePolicy = %q, want %q", got, domain.PolicyDefault)
+	}
+	s.SetNetworkWriteLock(true)
+	if got := s.effectivePolicy("system_reboot"); got != domain.PolicyReadOnly {
+		t.Errorf("locked effectivePolicy = %q, want %q", got, domain.PolicyReadOnly)
+	}
+}
