@@ -166,8 +166,8 @@ func cleanupOldLogs(logsDir, baseName string) {
 }
 
 func main() {
-	ctx := kong.Parse(&cli)
-	recordExplicitFlags(ctx)
+	parser, ctx, err := parseCLI(os.Args[1:])
+	parser.FatalIfErrorf(err)
 
 	// Detect STDIO mode — stdout is reserved for MCP JSON-RPC
 	isStdio := ctx.Command() == "mcp-stdio"
@@ -487,6 +487,33 @@ func recordExplicitFlags(ctx *kong.Context) {
 		}
 		if explicit && f.Target.CanAddr() {
 			explicitFlags[f.Target.Addr().Pointer()] = true
+		}
+	}
+}
+
+// parseCLI parses args into cli, treating empty environment variables as unset
+// and recording which flags were set explicitly (#257).
+func parseCLI(args []string, options ...kong.Option) (*kong.Kong, *kong.Context, error) {
+	parser := kong.Must(&cli, options...)
+	dropEmptyFlagEnv(parser.Model)
+	ctx, err := parser.Parse(args)
+	if err == nil {
+		recordExplicitFlags(ctx)
+	}
+	return parser, ctx, err
+}
+
+// dropEmptyFlagEnv unsets environment variables bound to flags that are set
+// but empty, so an empty value means "not set": Kong would otherwise reject
+// e.g. READ_ONLY="" as an invalid bool and the agent would not start (#257).
+func dropEmptyFlagEnv(app *kong.Application) {
+	for _, group := range app.AllFlags(true) {
+		for _, f := range group {
+			for _, env := range f.Envs {
+				if v, ok := os.LookupEnv(env); ok && v == "" {
+					_ = os.Unsetenv(env)
+				}
+			}
 		}
 	}
 }

@@ -238,3 +238,23 @@ func TestConfigFilePrecedence(t *testing.T) {
 		})
 	}
 }
+
+// TestEmptyBoolEnvDoesNotBlockStartup checks an empty boolean env var is
+// treated as unset instead of failing Kong's parse (#257).
+func TestEmptyBoolEnvDoesNotBlockStartup(t *testing.T) {
+	saved, savedExplicit := cli, explicitFlags
+	t.Cleanup(func() { cli, explicitFlags = saved, savedExplicit })
+	t.Setenv("READ_ONLY", "")
+
+	if _, _, err := parseCLI([]string{"boot"}, kong.Exit(func(int) { t.Fatal("kong exited") })); err != nil {
+		t.Fatalf("parse with empty READ_ONLY failed: %v", err)
+	}
+	if _, ok := os.LookupEnv("READ_ONLY"); ok {
+		t.Error("empty READ_ONLY was not unset")
+	}
+	yes := true
+	applyFileConfig(&domain.FileConfig{ReadOnly: &yes})
+	if !cli.ReadOnly {
+		t.Error("read_only from the config file must apply when READ_ONLY is empty")
+	}
+}
