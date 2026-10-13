@@ -24,9 +24,10 @@ fail() {
     exit 1
 }
 
-# Prints the value of entity $1 in the .plg, or nothing if it is missing.
+# Prints the value of entity $1 in file $2 (default: the .plg), or nothing if
+# it is missing.
 entity() {
-    sed -n -E "s/^[[:space:]]*<!ENTITY[[:space:]]+$1[[:space:]]+\"([^\"]*)\">.*/\1/p" "$plg" | head -n1
+    sed -n -E "s/^[[:space:]]*<!ENTITY[[:space:]]+$1[[:space:]]+\"([^\"]*)\">.*/\1/p" "${2:-$plg}" | head -n1
 }
 
 [ -f "$plg" ] || fail "PLG not found: $plg"
@@ -38,15 +39,16 @@ plg_version=$(entity version)
     fail "PLG version '$plg_version' does not match release version '$version'; not writing checksums"
 
 # Replace only the quoted value so trailing comments (the detect-secrets
-# pragmas) survive. Write through a temp file: BSD and GNU sed differ on -i.
+# pragmas) survive. Rewrite into a temp file and check it there, so a failure
+# leaves the .plg untouched; this also avoids BSD/GNU sed -i differences.
 tmp=$(mktemp)
 trap 'rm -f "$tmp"' EXIT
 sed -E \
     -e "s/^([[:space:]]*<!ENTITY[[:space:]]+md5[[:space:]]+\")[^\"]*(\">)/\1${md5}\2/" \
     -e "s/^([[:space:]]*<!ENTITY[[:space:]]+sha256[[:space:]]+\")[^\"]*(\">)/\1${sha256}\2/" \
     "$plg" >"$tmp"
-cat "$tmp" >"$plg"
 
-[ "$(entity md5)" = "$md5" ] || fail "md5 entity in $plg is '$(entity md5)', expected '$md5'"
-[ "$(entity sha256)" = "$sha256" ] || fail "sha256 entity in $plg is '$(entity sha256)', expected '$sha256'"
+[ "$(entity md5 "$tmp")" = "$md5" ] || fail "md5 entity missing or not rewritten in $plg"
+[ "$(entity sha256 "$tmp")" = "$sha256" ] || fail "sha256 entity missing or not rewritten in $plg"
+cat "$tmp" >"$plg"
 echo "✓ $plg pins v${version}: MD5 ${md5}, SHA256 ${sha256}"

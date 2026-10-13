@@ -49,8 +49,13 @@ expect_failure uppercase-sha256 "$md5" "$(printf '%064d' 3 | tr 0 B)" "$version"
 expect_failure wrong-version "$md5" "$sha256" "1999.01.01"
 echo "✓ Rejects malformed checksums and a version that does not match the PLG"
 
-sed '/<!ENTITY sha256/d' "$PLG" >"${work}/missing.plg"
-if bash "$UPDATE" "$md5" "$sha256" "$version" "${work}/missing.plg" >/dev/null 2>&1; then
-    fail "missing-entity: update succeeded without a sha256 entity"
-fi
-echo "✓ Fails when the sha256 entity is missing"
+for name in md5 sha256; do
+    sed "/<!ENTITY ${name}/d" "$PLG" >"${work}/missing-${name}.plg"
+    cp "${work}/missing-${name}.plg" "${work}/missing-${name}.orig"
+    if bash "$UPDATE" "$md5" "$sha256" "$version" "${work}/missing-${name}.plg" >/dev/null 2>&1; then
+        fail "missing-${name}: update succeeded without a ${name} entity"
+    fi
+    cmp -s "${work}/missing-${name}.orig" "${work}/missing-${name}.plg" ||
+        fail "missing-${name}: file changed despite the failure"
+done
+echo "✓ Fails without changing the file when either checksum entity is missing"
