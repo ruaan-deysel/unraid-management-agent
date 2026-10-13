@@ -22,7 +22,8 @@ This file is created automatically after the first installation and persists acr
 | `--bind-address`           | -        | IP to bind the HTTP server to (empty = all). mDNS advertises it. Loopback rejected; invalid → all. |
 | `--read-only`              | `false`  | Block state-changing MCP tools (AI agents read-only; REST API unaffected)                          |
 | `--tool-policy`            | -        | Comma-separated per-tool MCP policies (`tool=policy`), e.g. `system_reboot=ask,container_action=read_only`. If `tool_policy.json` exists on disk, it takes precedence. |
-| `--api-token`              | -        | Require `Authorization: Bearer <token>` on the HTTP API and `/mcp` (empty = no authentication)     |
+| `--api-token`              | -        | Require `Authorization: Bearer <token>` on the HTTP API and `/mcp` (empty = unauthenticated reads, network writes refused) |
+| `--allow-unauthenticated-writes` | `false` | Allow network writes without an API token (not recommended; `ALLOW_UNAUTHENTICATED_WRITES`) |
 | `--mcp-connect-secret`     | -        | Optional 32–256 char (`[A-Za-z0-9_-]`) secret enabling header-free MCP onboarding at `/mcp/<secret>` (`MCP_CONNECT_SECRET`) |
 | `--debug`                  | `false`  | Enable debug logging                                                                               |
 | `--mqtt-enabled`           | `false`  | Enable MQTT publishing                                                                             |
