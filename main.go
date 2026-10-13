@@ -418,7 +418,7 @@ func main() {
 		},
 	}
 	applyWriteAccess(appCtx, cli.APIToken, cli.AllowUnauthenticatedWrites)
-	appCtx.WANIPLookup = cli.WANIPLookup
+	applyWANIPLookup(appCtx, cli.WANIPLookup)
 
 	// Warn about insecure MQTT TLS configuration
 	if appCtx.MQTTConfig.InsecureSkipVerify && appCtx.MQTTConfig.Enabled {
@@ -436,6 +436,15 @@ func applyWriteAccess(appCtx *domain.Context, apiToken string, allowUnauthentica
 	appCtx.AllowUnauthenticatedWrites = allowUnauthenticatedWrites
 	if msg := writeAccessWarning(apiToken, allowUnauthenticatedWrites); msg != "" {
 		logger.Warning("%s", msg)
+	}
+}
+
+// applyWANIPLookup copies the WAN IP lookup setting into the application
+// context and logs when the external lookup is off (#252).
+func applyWANIPLookup(appCtx *domain.Context, enabled bool) {
+	appCtx.WANIPLookup = enabled
+	if !enabled {
+		logger.Info("WAN IP lookup disabled: network access URLs use only Unraid's configured WANIP")
 	}
 }
 

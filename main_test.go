@@ -140,3 +140,13 @@ func TestWANIPLookupSetting(t *testing.T) {
 		t.Error("wan_ip_lookup: false in the config file must disable the lookup")
 	}
 }
+
+func TestApplyWANIPLookup(t *testing.T) {
+	for _, enabled := range []bool{true, false} {
+		appCtx := &domain.Context{}
+		applyWANIPLookup(appCtx, enabled)
+		if appCtx.WANIPLookup != enabled {
+			t.Errorf("WANIPLookup = %v, want %v", appCtx.WANIPLookup, enabled)
+		}
+	}
+}
