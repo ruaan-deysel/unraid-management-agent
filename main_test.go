@@ -156,7 +156,8 @@ func TestApplyWANIPLookup(t *testing.T) {
 func TestConfigFilePrecedence(t *testing.T) {
 	yes, no := true, false
 	yamlToken := "yaml-token-1234567890"
-	envs := []string{"READ_ONLY", "API_TOKEN", "ALLOW_UNAUTHENTICATED_WRITES", "WAN_IP_LOOKUP"}
+	fileInterval := 300
+	envs := []string{"READ_ONLY", "API_TOKEN", "ALLOW_UNAUTHENTICATED_WRITES", "WAN_IP_LOOKUP", "INTERVAL_NIC"}
 
 	tests := []struct {
 		name  string
@@ -200,6 +201,33 @@ func TestConfigFilePrecedence(t *testing.T) {
 			},
 		},
 		{
+			name: "int flag beats file", args: []string{"--interval-nic=120"},
+			file: domain.FileConfig{Intervals: &domain.FileConfigIntervals{NIC: &fileInterval}},
+			check: func(t *testing.T) {
+				if cli.IntervalNIC != 120 {
+					t.Errorf("IntervalNIC=%d, want the --interval-nic=120 flag", cli.IntervalNIC)
+				}
+			},
+		},
+		{
+			name: "int env beats file", env: map[string]string{"INTERVAL_NIC": "90"},
+			file: domain.FileConfig{Intervals: &domain.FileConfigIntervals{NIC: &fileInterval}},
+			check: func(t *testing.T) {
+				if cli.IntervalNIC != 90 {
+					t.Errorf("IntervalNIC=%d, want the INTERVAL_NIC=90 env value", cli.IntervalNIC)
+				}
+			},
+		},
+		{
+			name: "int file overrides default",
+			file: domain.FileConfig{Intervals: &domain.FileConfigIntervals{NIC: &fileInterval}},
+			check: func(t *testing.T) {
+				if cli.IntervalNIC != fileInterval {
+					t.Errorf("IntervalNIC=%d, want the file value %d", cli.IntervalNIC, fileInterval)
+				}
+			},
+		},
+		{
 			name: "empty env token does not discard the file token", env: map[string]string{"API_TOKEN": ""},
 			file: domain.FileConfig{APIToken: &yamlToken},
 			check: func(t *testing.T) {
@@ -224,15 +252,10 @@ func TestConfigFilePrecedence(t *testing.T) {
 				t.Setenv(k, v)
 			}
 
-			parser, err := kong.New(&cli, kong.Exit(func(int) { t.Fatal("kong exited") }))
-			if err != nil {
+			// The same startup path as main: parseCLI, then the config file.
+			if _, _, err := parseCLI(append(tt.args, "boot"), kong.Exit(func(int) { t.Fatal("kong exited") })); err != nil {
 				t.Fatal(err)
 			}
-			ctx, err := parser.Parse(append(tt.args, "boot"))
-			if err != nil {
-				t.Fatal(err)
-			}
-			recordExplicitFlags(ctx)
 			applyFileConfig(&tt.file)
 			tt.check(t)
 		})
