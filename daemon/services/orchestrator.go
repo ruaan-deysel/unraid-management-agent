@@ -502,6 +502,9 @@ func (o *Orchestrator) RunMCPStdio() error {
 
 	// Graceful cleanup
 	logger.Info("MCP STDIO transport stopped, cleaning up...")
+	// Release context-bound workers (capability refresher, alerting, watchdog)
+	// before waiting for them.
+	cancel()
 	if o.fanController != nil {
 		o.fanController.Shutdown()
 	}

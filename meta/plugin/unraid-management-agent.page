@@ -1006,6 +1006,11 @@ function updateServiceStatus(running) {
     var stBtn = document.getElementById('uma-selftest-btn');
     if (dlBtn) dlBtn.disabled = !running;
     if (stBtn) stBtn.disabled = !running;
+    umaServiceRunning = running;
+    var hwBtn = document.getElementById('uma-hw-recheck-btn');
+    if (hwBtn) hwBtn.disabled = !running;
+    // Re-read hardware detection: rows fail open while the agent is stopped.
+    loadCapabilities(false);
 
     if (running) {
         statusOrb.className = 'fa fa-circle green-orb';
@@ -1255,6 +1260,9 @@ function updateShowAllCollectors() {
     applyCapabilityVisibility();
 }
 
+// Whether the agent runs; the Re-check hardware button needs it.
+var umaServiceRunning = <?= $running ? 'true' : 'false' ?>;
+
 // Hardware detection (#261). umaCapabilities maps capability name -> item, or
 // is null when detection is unavailable (fail open: every row is shown).
 var umaCapabilities = null;
@@ -1307,7 +1315,6 @@ function renderCapabilityStatus(message) {
 function loadCapabilities(refresh) {
     var btn = document.getElementById('uma-hw-recheck-btn');
     var orig = btn ? btn.value : '';
-    var wasDisabled = btn ? btn.disabled : true;
     if (btn) {
         btn.disabled = true;
         btn.value = refresh ? 'Checking…' : orig;
@@ -1331,7 +1338,7 @@ function loadCapabilities(refresh) {
         applyCapabilityVisibility();
     }).always(function() {
         if (btn) {
-            btn.disabled = wasDisabled;
+            btn.disabled = !umaServiceRunning;
             btn.value = orig;
         }
     });
