@@ -438,10 +438,11 @@ func parseZPoolStatusOutput(pool *dto.ZFSPool, output string) error {
 var zpoolStatusKeyRe = regexp.MustCompile(`^\s*[a-z]+:(\s|$)`)
 
 // Scan line formats printed by OpenZFS print_scan_scrub_resilver_status().
+// Sequential rebuilds (OpenZFS 2.x) name the vdev: "resilver (draid1-0) ...".
 var (
-	scanCompletedRe  = regexp.MustCompile(`^(scrub repaired|resilvered) (\S+) in (.+?) with (\d+) errors on (.+)$`)
-	scanCanceledRe   = regexp.MustCompile(`^(scrub|resilver) canceled on (.+)$`)
-	scanInProgressRe = regexp.MustCompile(`^(scrub|resilver) in progress since (.+)$`)
+	scanCompletedRe  = regexp.MustCompile(`^(scrub repaired|resilvered)(?: \([^)]*\))? (\S+) in (.+?) with (\d+) errors on (.+)$`)
+	scanCanceledRe   = regexp.MustCompile(`^(scrub|resilver)(?: \([^)]*\))? canceled on (.+)$`)
+	scanInProgressRe = regexp.MustCompile(`^(scrub|resilver)(?: \([^)]*\))? in progress since (.+)$`)
 	scanPausedRe     = regexp.MustCompile(`^scrub paused since (.+)$`)
 	scanProgressRe   = regexp.MustCompile(`^(\S+) (?:repaired|resilvered), ([\d.]+)% done`)
 	scanStartedOnRe  = regexp.MustCompile(`^scrub started on (.+)$`)

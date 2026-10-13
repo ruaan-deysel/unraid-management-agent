@@ -329,13 +329,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ZFS scrub and resilver times, progress and repaired bytes** — `scan_start_time`,
   `scan_end_time`, `scan_repaired_bytes` and `scan_progress_percent` in `/api/v1/zfs/pools` were
   never filled in. The `zpool status` scan line is now parsed for every OpenZFS format: completed,
-  canceled and in-progress scrubs and resilvers, and paused scrubs. The end time comes from the
+  canceled and in-progress scrubs and resilvers (including vdev-qualified sequential rebuilds
+  such as `resilver (draid1-0) in progress`), and paused scrubs. The end time comes from the
   timestamp (local time) and the start time from the end time minus the printed duration (or the
   "since" / "scrub started on" time); progress and repaired bytes come from the indented lines of
   an in-progress or paused scan. `scan_status` now uses the documented values (`scrub in progress`,
   `resilver completed`, `scrub canceled`, `scrub paused`, ...): a completed resilver was reported as
   in progress, and an in-progress scrub as `in progress`.
   ([#185](https://github.com/tinkerologie/unraid-management-agent/issues/185)).
+- **Implausible fan readings reported as real** — a floating or noisy tach line on a Super I/O
+  header (e.g. `nct6793_fan5` at 56784 RPM) was passed through to `GET /api/v1/system`, MCP,
+  Prometheus, MQTT and Home Assistant. Fan readings above `lib.MaxPlausibleRPM` (25000, the limit
+  fan control already uses), negative or not finite are now left out, on both the `sensors -u` and
+  sysfs paths, and each dropped channel is logged once at debug level. The sysfs fallback now reads
+  under the collector's configurable sysfs root.
+  ([#262](https://github.com/tinkerologie/unraid-management-agent/issues/262)).
 - **UPS/NUT readings the UPS does not report were sent as 0** — numeric fields in
   `UPSStatus` (`/ups`, `ups_status_update`) and `NUTStatus` (`/nut`, `nut_status_update`)
   are now nullable and serialised as `null` when apcupsd/NUT does not report the variable

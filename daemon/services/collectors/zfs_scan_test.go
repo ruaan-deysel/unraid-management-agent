@@ -59,6 +59,19 @@ func TestParseScanInfoFormats(t *testing.T) {
 			name: "scrub paused", status: "scrub paused", state: "paused",
 			line: "scan: scrub paused since Thu Sep 17 22:06:13 2026",
 		},
+		{
+			name: "sequential rebuild completed", status: "resilver completed", state: "finished", pct: 100,
+			line:     "scan: resilvered (draid1-0) 2G in 00:10:00 with 0 errors on Thu Sep 17 22:06:13 2026",
+			repaired: 2 << 30, start: end.Add(-10 * time.Minute), end: end,
+		},
+		{
+			name: "sequential rebuild canceled", status: "resilver canceled", state: "canceled",
+			line: "scan: resilver (draid1-0) canceled on Thu Sep 17 22:06:13 2026", end: end,
+		},
+		{
+			name: "sequential rebuild in progress", status: "resilver in progress", state: "scanning",
+			line: "scan: resilver (mirror-1) in progress since Thu Sep 17 22:06:13 2026", start: end,
+		},
 		{name: "none requested", line: "scan: none requested"},
 	}
 	for _, tt := range tests {
