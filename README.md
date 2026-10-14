@@ -132,11 +132,12 @@ More examples: [Quick Start Guide](docs/guides/quick-start.md).
 > before the token crosses a network you do not trust: over plain HTTP anyone on the path can read it.
 > Never forward the port to the internet.
 
-- **Authentication.** Without a token, anyone on your network can read monitoring data and every
-  control action (REST and MCP) is refused. With a token, every request must send
-  `Authorization: Bearer <token>`, except `/api/v1/health` and the Swagger UI. Installs upgraded from a
-  version without a token keep control actions working (`ALLOW_UNAUTHENTICATED_WRITES`) until you set
-  one.
+- **Authentication.** Without a token, anyone on your network can read monitoring data, and on a
+  fresh install every control action (REST and MCP) is refused. With a token, every request must send
+  `Authorization: Bearer <token>`, except `/api/v1/health`, the Swagger UI and the optional MCP
+  connect URL (`/mcp/<secret>`), where the secret in the URL is the credential. Treat that URL like a
+  password. Installs upgraded from a version without a token keep control actions working
+  (`ALLOW_UNAUTHENTICATED_WRITES`) until you set one.
 - **What access allows.** The REST API and MCP can reboot or shut down the server, control containers,
   VMs and the array, spin disks and run User Scripts as `/bin/bash`. MCP read-only mode and per-tool
   policies restrict MCP clients only, not the REST API.
