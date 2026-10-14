@@ -192,8 +192,11 @@ test('a late response from an older check is ignored', async ({ page }) => {
   });
   await expect.poll(() => requests.length).toBe(3);
   await expectReferenceVisibility(page);
+  const oldResponse = page.waitForResponse((response) => response.url().endsWith('/include/diagnostics.php'));
   releaseOld();
-  await page.waitForTimeout(300);
+  await oldResponse;
+  // jQuery decrements $.active only after the request's callbacks have run.
+  await page.waitForFunction(() => window.jQuery.active === 0);
   await expectReferenceVisibility(page);
   await expect(status(page)).toContainText('Detected hardware: GPU, UPS');
 });
