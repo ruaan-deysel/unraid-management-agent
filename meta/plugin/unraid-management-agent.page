@@ -1312,14 +1312,19 @@ function renderCapabilityStatus(message) {
         (unknown ? ' · detection unavailable for some hardware, so its rows stay visible' : '');
 }
 
+// umaCapabilitySeq numbers hardware checks; only the latest may update the page,
+// so an older response that lands late cannot overwrite a newer result.
+var umaCapabilitySeq = 0;
+
 function loadCapabilities(refresh) {
+    var seq = ++umaCapabilitySeq;
     var btn = document.getElementById('uma-hw-recheck-btn');
-    var orig = btn ? btn.value : '';
     if (btn) {
         btn.disabled = true;
-        btn.value = refresh ? 'Checking…' : orig;
+        if (refresh) btn.value = 'Checking…';
     }
     $.post('/plugins/<?=$plugin?>/include/diagnostics.php', {action: 'capabilities', refresh: refresh ? '1' : '0'}, function(data) {
+        if (seq !== umaCapabilitySeq) return;
         var items = (data && Array.isArray(data.items)) ? data.items : null;
         if (!items) {
             umaCapabilities = null;
@@ -1333,14 +1338,14 @@ function loadCapabilities(refresh) {
         }
         applyCapabilityVisibility();
     }, 'json').fail(function() {
+        if (seq !== umaCapabilitySeq) return;
         umaCapabilities = null;
         renderCapabilityStatus('Hardware detection unavailable (is the service running?) — showing all collectors.');
         applyCapabilityVisibility();
     }).always(function() {
-        if (btn) {
-            btn.disabled = !umaServiceRunning;
-            btn.value = orig;
-        }
+        if (seq !== umaCapabilitySeq || !btn) return;
+        btn.disabled = !umaServiceRunning;
+        btn.value = 'Re-check hardware';
     });
 }
 
