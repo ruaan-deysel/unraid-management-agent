@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/digitalocean/go-libvirt"
+
 	"github.com/tinkerologie/unraid-management-agent/daemon/domain"
 	"github.com/tinkerologie/unraid-management-agent/daemon/dto"
 )
@@ -317,5 +319,64 @@ func TestVMCollectorRecordCPUSample(t *testing.T) {
 	c.recordCPUSample("novcpu", 8*30e9, start.Add(30*time.Second), 8, noVCPU)
 	if noVCPU.GuestCPUPercent != 0 || math.Abs(noVCPU.HostCPUPercent-100) > 1e-9 {
 		t.Fatalf("CPUCount 0: guest/host = %v/%v, want 0/100", noVCPU.GuestCPUPercent, noVCPU.HostCPUPercent)
+	}
+}
+
+// fakeLibvirtCPU stands in for the libvirt calls of the CPU path.
+type fakeLibvirtCPU struct {
+	cpus    int32
+	nodeErr error
+	cpuTime uint64
+	infoErr error
+}
+
+func (f *fakeLibvirtCPU) NodeGetInfo() (rModel [32]int8, rMemory uint64, rCpus int32, rMhz int32, rNodes int32, rSockets int32, rCores int32, rThreads int32, err error) {
+	return rModel, 0, f.cpus, 0, 0, 0, 0, 0, f.nodeErr
+}
+
+func (f *fakeLibvirtCPU) DomainGetInfo(libvirt.Domain) (rState uint8, rMaxMem uint64, rMemory uint64, rNrVirtCPU uint16, rCPUTime uint64, err error) {
+	return 1, 0, 0, 4, f.cpuTime, f.infoErr
+}
+
+// TestVMCollectorHostCPUCount checks the libvirt host CPU count and its fallbacks.
+func TestVMCollectorHostCPUCount(t *testing.T) {
+	c := NewVMCollector(&domain.Context{Hub: domain.NewEventBus(10)})
+	if got := c.hostCPUCount(&fakeLibvirtCPU{cpus: 128}); got != 128 {
+		t.Errorf("hostCPUCount = %d, want 128 from NodeGetInfo", got)
+	}
+	orig := numCPU
+	t.Cleanup(func() { numCPU = orig })
+	numCPU = func() int { return 12 }
+	if got := c.hostCPUCount(&fakeLibvirtCPU{nodeErr: errors.New("rpc failed")}); got != 12 {
+		t.Errorf("hostCPUCount on error = %d, want numCPU 12", got)
+	}
+	numCPU = func() int { return 0 }
+	if got := resolveHostCPUCount(0, errors.New("rpc failed")); got != 1 {
+		t.Errorf("last-resort count = %d, want 1", got)
+	}
+}
+
+// TestVMCollectorGetCPUUsage drives getCPUUsage through the libvirt seam: a
+// failed CPU query leaves the history alone, a successful one records a sample.
+func TestVMCollectorGetCPUUsage(t *testing.T) {
+	c := NewVMCollector(&domain.Context{Hub: domain.NewEventBus(10)})
+	dom := libvirt.Domain{Name: "win11"}
+
+	c.getCPUUsage(&fakeLibvirtCPU{infoErr: errors.New("domain gone")}, dom, &dto.VMInfo{CPUCount: 4}, 8)
+	if _, ok := c.previousStats["win11"]; ok {
+		t.Fatal("a failed CPU query must not store history")
+	}
+
+	c.getCPUUsage(&fakeLibvirtCPU{cpuTime: 1e9}, dom, &dto.VMInfo{CPUCount: 4}, 8)
+	prev, ok := c.previousStats["win11"]
+	if !ok || prev.guestCPUTime != 1e9 {
+		t.Fatalf("baseline not stored: %+v", prev)
+	}
+	// Age the baseline so the next sample has elapsed time.
+	prev.timestamp = prev.timestamp.Add(-10 * time.Second)
+	vm := &dto.VMInfo{CPUCount: 4}
+	c.getCPUUsage(&fakeLibvirtCPU{cpuTime: 1e9 + 8*10e9}, dom, vm, 8)
+	if vm.HostCPUPercent < 99 || vm.GuestCPUPercent != 100 {
+		t.Fatalf("guest/host = %v/%v, want 100/~100", vm.GuestCPUPercent, vm.HostCPUPercent)
 	}
 }

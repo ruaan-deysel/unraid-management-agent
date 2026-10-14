@@ -214,10 +214,23 @@ func (c *VMCollector) stateToString(state libvirt.DomainState) string {
 	}
 }
 
+// nodeInfoGetter is the libvirt call hostCPUCount needs; *libvirt.Libvirt implements it.
+type nodeInfoGetter interface {
+	NodeGetInfo() (rModel [32]int8, rMemory uint64, rCpus int32, rMhz int32, rNodes int32, rSockets int32, rCores int32, rThreads int32, err error)
+}
+
+// domainInfoGetter is the libvirt call getCPUUsage needs; *libvirt.Libvirt implements it.
+type domainInfoGetter interface {
+	DomainGetInfo(dom libvirt.Domain) (rState uint8, rMaxMem uint64, rMemory uint64, rNrVirtCPU uint16, rCPUTime uint64, err error)
+}
+
+// numCPU returns the CPUs the agent may run on; replaceable for tests.
+var numCPU = runtime.NumCPU
+
 // hostCPUCount returns the host's logical CPU count from libvirt (#175). It is
 // independent of the agent's CPU affinity, which isolcpus shrinks on hosts
 // that isolate cores for VMs.
-func (c *VMCollector) hostCPUCount(l *libvirt.Libvirt) int {
+func (c *VMCollector) hostCPUCount(l nodeInfoGetter) int {
 	_, _, cpus, _, _, _, _, _, err := l.NodeGetInfo()
 	return resolveHostCPUCount(cpus, err)
 }
@@ -228,7 +241,7 @@ func resolveHostCPUCount(libvirtCPUs int32, err error) int {
 	if err == nil && libvirtCPUs > 0 {
 		return int(libvirtCPUs)
 	}
-	if n := runtime.NumCPU(); n > 0 {
+	if n := numCPU(); n > 0 {
 		return n
 	}
 	return 1
@@ -246,7 +259,7 @@ func cpuPercent(prevCPUTime, curCPUTime uint64, elapsedSeconds float64, divisor 
 }
 
 // getCPUUsage gets CPU usage for a running VM
-func (c *VMCollector) getCPUUsage(l *libvirt.Libvirt, domain libvirt.Domain, vm *dto.VMInfo, hostCPUs int) {
+func (c *VMCollector) getCPUUsage(l domainInfoGetter, domain libvirt.Domain, vm *dto.VMInfo, hostCPUs int) {
 	// Get domain info for CPU time
 	// DomainGetInfo returns: rState, rMaxMem, rMemory, rNrVirtCPU, rCPUTime, err
 	_, _, _, _, cpuTime, err := l.DomainGetInfo(domain)
