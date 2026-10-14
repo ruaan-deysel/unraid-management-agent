@@ -204,9 +204,10 @@ The STDIO transport (`mcp-stdio`) does not go through the HTTP server, so no tok
 `hardware.storage_topology`, `hardware.gpu`, `hardware.ups`, `hardware.nut`,
 `hardware.zfs`, `hardware.fan_control`) with a `state` and a `detail` reason
 (see [Hardware Auto-Detection](../guides/configuration.md#hardware-auto-detection)).
-Collector status includes `auto: true` while a hardware-dependent collector
-follows detection. Using `collector_action` or `update_collector_interval` on
-such a collector ends automatic mode for it until the agent restarts. The tool
+Collector status includes `hardware_gated: true` while a hardware-dependent
+collector follows detection (off while its hardware is absent) and `auto: true`
+in automatic mode. Using `collector_action` or `update_collector_interval` on
+such a collector takes it out of hardware control until the agent restarts. The tool
 list does not change with detected hardware: tools for absent hardware stay
 listed and report that no data is available.
 

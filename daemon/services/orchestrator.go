@@ -216,13 +216,14 @@ func (o *Orchestrator) Run() error {
 		logger.Success("Tuning controller initialized")
 	}
 
-	// Start all enabled collectors
-	enabledCount := o.collectorManager.StartAll()
-
-	// Apply the automatic collector policy to the startup snapshot, then keep
-	// capabilities current in the background.
+	// Apply the hardware policy to the startup snapshot before collectors start,
+	// so a collector whose hardware is absent never runs; then keep capabilities
+	// current in the background.
 	o.startCapabilityRefresher(ctx, &wg, refresher)
 	apiServer.SetCapabilityRefresher(refresher)
+
+	// Start all enabled collectors
+	enabledCount := o.collectorManager.StartAll()
 
 	// Log status
 	status := o.collectorManager.GetAllStatus()
@@ -292,9 +293,10 @@ func (o *Orchestrator) detectCapabilities() *CapabilityRefresher {
 	return refresher
 }
 
-// startCapabilityRefresher applies the automatic collector policy to the
+// startCapabilityRefresher applies the hardware collector policy to the
 // current snapshot, hooks it to every refresh, and starts periodic refreshes.
-// Collectors must be registered and started first.
+// Collectors must be registered first; call it before StartAll so gated
+// collectors whose hardware is absent never start.
 func (o *Orchestrator) startCapabilityRefresher(ctx context.Context, wg *sync.WaitGroup, refresher *CapabilityRefresher) {
 	policy := newCollectorAutoPolicy(o.collectorManager, o.ctx.LowPowerMode)
 	policy.Apply(o.ctx.Platform.Capabilities())
@@ -401,11 +403,11 @@ func (o *Orchestrator) RunMCPStdio() error {
 	<-apiServer.Ready()
 	logger.Success("API server subscriptions ready (cache mode)")
 
-	// Start all enabled collectors so cache gets populated
-	enabledCount := o.collectorManager.StartAll()
-	logger.Success("%d collectors started for MCP STDIO", enabledCount)
+	// Apply the hardware policy, then start all enabled collectors so the cache gets populated
 	o.startCapabilityRefresher(ctx, &wg, refresher)
 	apiServer.SetCapabilityRefresher(refresher)
+	enabledCount := o.collectorManager.StartAll()
+	logger.Success("%d collectors started for MCP STDIO", enabledCount)
 
 	// Initialize MCP server
 	toolPolicyStore := domain.NewToolPolicyStore("", o.ctx.ToolPolicy)

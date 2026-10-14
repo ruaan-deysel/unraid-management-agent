@@ -113,6 +113,7 @@ func TestOrchestrator_Shutdown(t *testing.T) {
 	})
 }
 
+// TestOrchestratorCapabilityWiring checks the startup snapshot and the refresher start and stop.
 func TestOrchestratorCapabilityWiring(t *testing.T) {
 	appCtx := &domain.Context{Hub: domain.NewEventBus(10), Platform: platform.NewRegistry(), AutoCollectors: map[string]bool{"nic": true}}
 	o := CreateOrchestrator(appCtx)

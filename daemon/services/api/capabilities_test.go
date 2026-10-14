@@ -23,6 +23,7 @@ func (f *fakeCapabilityRefresher) Refresh(context.Context) dto.Capabilities {
 	return f.caps
 }
 
+// capabilitiesRequest calls the capabilities handler and decodes a 200 response.
 func capabilitiesRequest(t *testing.T, s *Server, query string) (*httptest.ResponseRecorder, dto.Capabilities) {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/capabilities"+query, nil)
@@ -37,6 +38,7 @@ func capabilitiesRequest(t *testing.T, s *Server, query string) (*httptest.Respo
 	return rec, out
 }
 
+// TestCapabilitiesEndpoint covers the snapshot, refresh=true/false and an invalid refresh value.
 func TestCapabilitiesEndpoint(t *testing.T) {
 	checked := time.Date(2026, 10, 14, 9, 0, 0, 0, time.UTC)
 	reg := platform.NewRegistry()
@@ -74,6 +76,7 @@ func TestCapabilitiesEndpoint(t *testing.T) {
 	}
 }
 
+// TestCapabilitiesEndpointGuards covers a nil registry (503) and a nil refresher (current snapshot).
 func TestCapabilitiesEndpointGuards(t *testing.T) {
 	rec, _ := capabilitiesRequest(t, &Server{ctx: &domain.Context{}}, "?refresh=true")
 	if rec.Code != http.StatusServiceUnavailable {
@@ -88,6 +91,7 @@ func TestCapabilitiesEndpointGuards(t *testing.T) {
 	}
 }
 
+// TestCapabilitiesRouteRegistered checks GET /api/v1/capabilities is routed.
 func TestCapabilitiesRouteRegistered(t *testing.T) {
 	reg := platform.NewRegistry()
 	reg.SetCapabilities(dto.Capabilities{UnraidVersion: "7.3.3"})

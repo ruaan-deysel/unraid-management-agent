@@ -20,6 +20,7 @@ type hwRoot struct {
 	sys  sysfsTree
 }
 
+// newHWRoot creates an empty fake filesystem root.
 func newHWRoot(t *testing.T) hwRoot {
 	t.Helper()
 	root := t.TempDir()
@@ -32,6 +33,7 @@ func (h hwRoot) file(abs, content string) {
 	sysfsTree{t: h.t, root: h.root}.write(abs, content)
 }
 
+// dir creates a directory at an absolute system path below the root.
 func (h hwRoot) dir(abs string) {
 	h.t.Helper()
 	sysfsTree{t: h.t, root: h.root}.mkdir(abs)
@@ -54,16 +56,19 @@ func (h hwRoot) probe(read func(string) (*lib.ModuleEEPROM, error)) (*HardwarePr
 }
 
 // Onboard NICs of the reference server without the hardware (#261).
+// i219v adds an onboard Intel I219-V (e1000e) without sensors.
 func (h hwRoot) i219v() {
 	dev := h.sys.pciFunction("devices/pci0000:00/0000:00:1f.6", "8086", "15bc", "1849", "15bc", "e1000e")
 	h.sys.iface("eth1", dev, up("1000", nil))
 }
 
+// i211 adds an onboard Intel I211 (igb) without sensors.
 func (h hwRoot) i211() {
 	dev := h.sys.pciFunction("devices/pci0000:00/0000:00:1c.0/0000:02:00.0", "8086", "1539", "1849", "1539", "igb")
 	h.sys.iface("eth0", dev, up("1000", nil))
 }
 
+// wifi3168 adds an Intel 3168NGW Wi-Fi card with a hwmon temperature.
 func (h hwRoot) wifi3168() {
 	dev := h.sys.pciFunction("devices/pci0000:00/0000:00:1c.6/0000:03:00.0", "8086", "24fb", "8086", "2110", "iwlwifi")
 	h.sys.iface("wlan0", dev, up("0", map[string]string{"wireless/.keep": ""}))
@@ -71,10 +76,12 @@ func (h hwRoot) wifi3168() {
 	h.sys.hwmon("hwmon3", dev, map[string]string{"name": "iwlwifi_1", "temp1_input": "45000"})
 }
 
+// moduleErr returns a module reader that always fails with err.
 func moduleErr(err error) func(string) (*lib.ModuleEEPROM, error) {
 	return func(string) (*lib.ModuleEEPROM, error) { return nil, err }
 }
 
+// TestCheckNICOptics covers the NIC rule: onboard and Wi-Fi NICs, optics, sensors, caps, errors and cancellation.
 func TestCheckNICOptics(t *testing.T) {
 	ctx := context.Background()
 
@@ -237,6 +244,7 @@ func TestCheckNICOptics(t *testing.T) {
 	})
 }
 
+// TestCheckStorageTopology covers SES devices, enclosures, SAS and RAID controllers and tool detail.
 func TestCheckStorageTopology(t *testing.T) {
 	t.Run("SES devices from the storage topology fixture without sg_ses", func(t *testing.T) {
 		root := t.TempDir()
@@ -285,6 +293,7 @@ func TestCheckStorageTopology(t *testing.T) {
 	})
 }
 
+// TestCheckGPU covers supported GPU drivers, BMC adapters and NVIDIA device nodes.
 func TestCheckGPU(t *testing.T) {
 	gpu := func(t *testing.T, driver string) hwRoot {
 		h := newHWRoot(t)
@@ -314,6 +323,7 @@ func TestCheckGPU(t *testing.T) {
 	})
 }
 
+// TestCheckUPSAndNUT covers apcupsd and NUT detection without contacting a UPS.
 func TestCheckUPSAndNUT(t *testing.T) {
 	t.Run("apcupsd running", func(t *testing.T) {
 		h := newHWRoot(t)
@@ -376,6 +386,7 @@ func TestCheckUPSAndNUT(t *testing.T) {
 	})
 }
 
+// TestCheckZFS covers the ZFS module and imported pool detection.
 func TestCheckZFS(t *testing.T) {
 	t.Run("module not loaded", func(t *testing.T) {
 		p, _ := newHWRoot(t).probe(nil)
@@ -399,6 +410,7 @@ func TestCheckZFS(t *testing.T) {
 	})
 }
 
+// TestCheckFanControl covers PWM outputs and IPMI devices.
 func TestCheckFanControl(t *testing.T) {
 	t.Run("pwm with enable", func(t *testing.T) {
 		h := newHWRoot(t)
@@ -469,6 +481,7 @@ func TestHardwareProbeReferenceServer(t *testing.T) {
 	}
 }
 
+// TestHardwareClasses checks probe defaults and the class-to-collector mapping.
 func TestHardwareClasses(t *testing.T) {
 	p := NewHardwareProbe()
 	if p.Root != "/" || p.ReadModuleFn == nil || p.MaxModulePorts != defaultMaxModulePorts {
@@ -496,6 +509,7 @@ func TestHardwareClasses(t *testing.T) {
 	}
 }
 
+// assertState runs a check and asserts its state and detail.
 func assertState(t *testing.T, check func(context.Context) (dto.CapabilityState, string), want dto.CapabilityState, detail string) {
 	t.Helper()
 	state, got := check(context.Background())

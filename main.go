@@ -322,6 +322,7 @@ func main() {
 		"nut":              cli.IntervalNUT,
 		"zfs":              cli.IntervalZFS,
 	}, fileConfigIntervals)
+	gatedCollectors := hardwareGatedCollectors(disabledCollectors)
 
 	// Helper function to get interval (returns 0 if collector is disabled)
 	// In low power mode, intervals are multiplied by 4 for reduced CPU usage
@@ -405,6 +406,7 @@ func main() {
 		DiagnosticLogger:   diagLogger,
 		LogsDir:            cli.LogsDir,
 		DockerUpdateNotify: cli.DockerUpdateNotify,
+		GatedCollectors:    gatedCollectors,
 		AutoCollectors:     autoCollectors,
 		LowPowerMode:       cli.LowPowerMode,
 		Intervals: domain.Intervals{
@@ -651,7 +653,8 @@ var fileConfigIntervals = map[string]bool{}
 // resolveAutoCollectors parses the automatic-mode collector list (#261). A name
 // must be a hardware-gated collector. A collector stays out of automatic mode
 // when it is in the disabled list, when its interval came from config.yml, or
-// when its configured interval is not 0: explicit settings always win.
+// when its configured interval is not 0: an explicit interval is used instead
+// of the auto interval while the hardware is present.
 func resolveAutoCollectors(csv string, disabled map[string]bool, intervals map[string]int, fromFile map[string]bool) map[string]bool {
 	auto := make(map[string]bool)
 	for name := range strings.SplitSeq(csv, ",") {
@@ -674,6 +677,20 @@ func resolveAutoCollectors(csv string, disabled map[string]bool, intervals map[s
 	return auto
 }
 
+// hardwareGatedCollectors returns the collectors the hardware policy controls:
+// every hardware-gated collector except those in the disabled list. Absent
+// hardware turns them off whatever their configured interval (#261).
+func hardwareGatedCollectors(disabled map[string]bool) map[string]bool {
+	gated := make(map[string]bool)
+	for _, class := range collectors.HardwareClasses {
+		if class.Collector != "" && !disabled[class.Collector] {
+			gated[class.Collector] = true
+		}
+	}
+	return gated
+}
+
+// isHardwareGated reports whether name is a collector gated by a hardware class.
 func isHardwareGated(name string) bool {
 	_, ok := collectors.HardwareClassForCollector(name)
 	return ok

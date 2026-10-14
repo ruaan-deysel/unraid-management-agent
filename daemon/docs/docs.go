@@ -6726,7 +6726,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "auto": {
-                    "description": "Auto is true while the collector is in automatic mode: it runs only while\nits hardware is detected. A manual enable, disable or interval change ends\nautomatic mode until the agent restarts.",
+                    "description": "Auto is true while a hardware-gated collector is in automatic mode: it\nruns at the auto-enable interval while its hardware is present.",
                     "type": "boolean"
                 },
                 "enabled": {
@@ -6734,6 +6734,10 @@ const docTemplate = `{
                 },
                 "error_count": {
                     "type": "integer"
+                },
+                "hardware_gated": {
+                    "description": "HardwareGated is true while the collector follows hardware detection: it\nis off while its hardware is absent. A manual enable, disable or interval\nchange ends this until the agent restarts.",
+                    "type": "boolean"
                 },
                 "interval_seconds": {
                     "description": "0 if disabled",

@@ -9,6 +9,7 @@ import (
 	"github.com/tinkerologie/unraid-management-agent/daemon/dto"
 )
 
+// TestDetectMarksMissingProbes checks a missing path is absent and unavailable.
 func TestDetectMarksMissingProbes(t *testing.T) {
 	caps := Detect([]Probe{{Name: "ghost", Target: "/no/such/path", Kind: ProbePath}})
 	if len(caps.Items) != 1 || caps.Items[0].Available {
@@ -19,6 +20,7 @@ func TestDetectMarksMissingProbes(t *testing.T) {
 	}
 }
 
+// TestDetectPathAndBinaryPresent checks path and binary probes report present and absent.
 func TestDetectPathAndBinaryPresent(t *testing.T) {
 	dir := t.TempDir()
 	caps := Detect([]Probe{
@@ -34,6 +36,7 @@ func TestDetectPathAndBinaryPresent(t *testing.T) {
 	}
 }
 
+// TestDetectContextCheckProbes covers check probe states, invalid states, nil checks, panics and CheckedAt.
 func TestDetectContextCheckProbes(t *testing.T) {
 	fixed := time.Date(2026, 10, 14, 9, 0, 0, 0, time.UTC)
 	orig := now
@@ -83,6 +86,7 @@ func TestDetectContextCheckProbes(t *testing.T) {
 	}
 }
 
+// TestDetectContextCancelled checks a cancelled context skips checks and reports unknown.
 func TestDetectContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -99,6 +103,7 @@ func TestDetectContextCancelled(t *testing.T) {
 	}
 }
 
+// TestDetectContextInterruptedAbsentIsUnknown checks an interrupted check cannot prove absence.
 func TestDetectContextInterruptedAbsentIsUnknown(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	caps := DetectContext(ctx, []Probe{
@@ -123,6 +128,7 @@ func TestDetectContextInterruptedAbsentIsUnknown(t *testing.T) {
 	}
 }
 
+// TestDetectBuildsNewItemsSlice checks snapshots do not share their Items backing array.
 func TestDetectBuildsNewItemsSlice(t *testing.T) {
 	probes := []Probe{{Name: "a", Target: "/no/such", Kind: ProbePath}}
 	first := Detect(probes)

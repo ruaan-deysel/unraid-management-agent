@@ -617,14 +617,19 @@ definitions:
     properties:
       auto:
         description: |-
-          Auto is true while the collector is in automatic mode: it runs only while
-          its hardware is detected. A manual enable, disable or interval change ends
-          automatic mode until the agent restarts.
+          Auto is true while a hardware-gated collector is in automatic mode: it
+          runs at the auto-enable interval while its hardware is present.
         type: boolean
       enabled:
         type: boolean
       error_count:
         type: integer
+      hardware_gated:
+        description: |-
+          HardwareGated is true while the collector follows hardware detection: it
+          is off while its hardware is absent. A manual enable, disable or interval
+          change ends this until the agent restarts.
+        type: boolean
       interval_seconds:
         description: 0 if disabled
         type: integer

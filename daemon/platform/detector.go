@@ -87,6 +87,7 @@ func DetectContext(ctx context.Context, probes []Probe) dto.Capabilities {
 	return caps
 }
 
+// presence maps a path or binary lookup to present or absent.
 func presence(found bool) dto.CapabilityState {
 	if found {
 		return dto.CapabilityPresent

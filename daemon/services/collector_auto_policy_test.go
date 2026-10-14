@@ -15,17 +15,19 @@ import (
 )
 
 // newAutoTestManager registers mock collectors: nic and storage_topology in
-// automatic mode, gpu with an explicit interval, zfs explicitly disabled.
+// automatic mode, gpu gated with an explicit 60 s interval, zfs gated and
+// explicitly disabled, and ups not gated (as if in the disabled list).
 func newAutoTestManager(t *testing.T) (*CollectorManager, map[string]*mockCollector) {
 	t.Helper()
 	ctx := &domain.Context{
-		Hub:            domain.NewEventBus(100),
-		AutoCollectors: map[string]bool{"nic": true, "storage_topology": true, "gpu": true},
+		Hub:             domain.NewEventBus(100),
+		GatedCollectors: map[string]bool{"nic": true, "storage_topology": true, "gpu": true, "zfs": true},
+		AutoCollectors:  map[string]bool{"nic": true, "storage_topology": true, "gpu": true},
 	}
 	var wg sync.WaitGroup
 	cm := NewCollectorManager(ctx, &wg)
 	mocks := map[string]*mockCollector{}
-	for name, interval := range map[string]int{"nic": 0, "storage_topology": 0, "gpu": 60, "zfs": 0} {
+	for name, interval := range map[string]int{"nic": 0, "storage_topology": 0, "gpu": 60, "zfs": 0, "ups": 60} {
 		m := newMockCollector()
 		mocks[name] = m
 		cm.Register(name, func(*domain.Context) Collector { return m }, interval, false)
@@ -37,6 +39,7 @@ func newAutoTestManager(t *testing.T) (*CollectorManager, map[string]*mockCollec
 	return cm, mocks
 }
 
+// snapshot builds a capability snapshot with the given hardware states.
 func snapshot(states map[string]dto.CapabilityState) dto.Capabilities {
 	caps := dto.Capabilities{}
 	for name, state := range states {
@@ -45,6 +48,7 @@ func snapshot(states map[string]dto.CapabilityState) dto.Capabilities {
 	return caps
 }
 
+// status returns a collector's status or fails the test.
 func status(t *testing.T, cm *CollectorManager, name string) *dto.CollectorStatus {
 	t.Helper()
 	s, err := cm.GetStatus(name)
@@ -54,56 +58,80 @@ func status(t *testing.T, cm *CollectorManager, name string) *dto.CollectorStatu
 	return s
 }
 
-func TestCollectorManagerAutoMode(t *testing.T) {
+// TestCollectorManagerHardwareGating covers ApplyHardwareState for auto, explicit, disabled and ungated collectors.
+func TestCollectorManagerHardwareGating(t *testing.T) {
 	cm, mocks := newAutoTestManager(t)
 
-	if s := status(t, cm, "nic"); !s.Auto || s.Enabled || s.Status != "disabled" {
-		t.Fatalf("nic should register as auto and disabled: %+v", s)
+	if s := status(t, cm, "nic"); !s.HardwareGated || !s.Auto || s.Enabled || s.Status != "disabled" {
+		t.Fatalf("nic should register as gated, auto and disabled: %+v", s)
 	}
-	if s := status(t, cm, "gpu"); s.Auto {
-		t.Fatalf("gpu has an explicit interval and must not be auto: %+v", s)
+	if s := status(t, cm, "gpu"); !s.HardwareGated || s.Auto {
+		t.Fatalf("gpu has an explicit interval: gated but not auto: %+v", s)
 	}
-	if s := status(t, cm, "zfs"); s.Auto {
-		t.Fatalf("zfs is not in the auto set: %+v", s)
+	if s := status(t, cm, "ups"); s.HardwareGated || s.Auto {
+		t.Fatalf("ups is not gated: %+v", s)
 	}
-	if n := cm.StartAll(); n != 1 {
-		t.Fatalf("StartAll started %d collectors, want 1 (gpu)", n)
+	if n := cm.StartAll(); n != 2 {
+		t.Fatalf("StartAll started %d collectors, want 2 (gpu, ups)", n)
 	}
-	if s := status(t, cm, "nic"); s.Status == "running" {
-		t.Fatal("auto collector at interval 0 started")
-	}
+	mocks["gpu"].waitStarted(t)
 
-	if !cm.SetAutoInterval("nic", 300) {
-		t.Fatal("SetAutoInterval(nic, 300) reported no change")
+	// Automatic mode: present runs at the auto interval, absent stops it.
+	if !cm.ApplyHardwareState("nic", true, 300) {
+		t.Fatal("nic present reported no change")
 	}
 	mocks["nic"].waitStarted(t)
-	if s := status(t, cm, "nic"); s.Status != "running" || s.Interval != 300 || !s.Enabled || !s.Auto {
-		t.Fatalf("nic after auto-enable: %+v", s)
+	if s := status(t, cm, "nic"); s.Status != "running" || s.Interval != 300 || !s.Enabled {
+		t.Fatalf("nic after detection: %+v", s)
 	}
-	if cm.SetAutoInterval("nic", 300) {
-		t.Error("same interval reported a change")
+	if cm.ApplyHardwareState("nic", true, 300) {
+		t.Error("same state reported a change")
 	}
-	if !cm.SetAutoInterval("nic", 0) {
-		t.Fatal("SetAutoInterval(nic, 0) reported no change")
+	if !cm.ApplyHardwareState("nic", false, 300) {
+		t.Fatal("nic absent reported no change")
 	}
 	mocks["nic"].waitDone(t)
 	if s := status(t, cm, "nic"); s.Status != "disabled" || s.Interval != 0 || s.Enabled || !s.Auto {
-		t.Fatalf("nic after auto-disable: %+v", s)
+		t.Fatalf("nic after removal: %+v", s)
 	}
-	if cm.SetAutoInterval("nic", 0) {
-		t.Error("disabling a stopped collector reported a change")
+	if cm.ApplyHardwareState("nic", false, 300) {
+		t.Error("stopping a stopped collector reported a change")
 	}
 
-	if cm.SetAutoInterval("gpu", 0) || cm.SetAutoInterval("zfs", 300) || cm.SetAutoInterval("missing", 300) {
-		t.Error("SetAutoInterval changed a collector not in automatic mode")
+	// An explicit interval: absent stops it, present restores the saved interval.
+	if !cm.ApplyHardwareState("gpu", false, 300) {
+		t.Fatal("gpu absent reported no change")
+	}
+	mocks["gpu"].waitDone(t)
+	if s := status(t, cm, "gpu"); s.Status != "disabled" || s.Interval != 0 {
+		t.Fatalf("explicit gpu kept running while absent: %+v", s)
+	}
+	if !cm.ApplyHardwareState("gpu", true, 300) {
+		t.Fatal("gpu present reported no change")
+	}
+	mocks["gpu"].waitStarted(t)
+	if s := status(t, cm, "gpu"); s.Interval != 60 || s.Status != "running" {
+		t.Fatalf("gpu did not return to its explicit 60 s: %+v", s)
+	}
+
+	// Explicitly disabled stays off when present; ungated and unknown are left alone.
+	if cm.ApplyHardwareState("zfs", true, 300) {
+		t.Error("explicitly disabled zfs was started")
+	}
+	if cm.ApplyHardwareState("ups", false, 300) || cm.ApplyHardwareState("missing", true, 300) {
+		t.Error("ApplyHardwareState changed a collector that is not gated")
+	}
+	if s := status(t, cm, "ups"); s.Status != "running" {
+		t.Fatalf("ungated ups changed: %+v", s)
 	}
 }
 
-func TestCollectorManagerAutoRestartsAtNewInterval(t *testing.T) {
+// TestCollectorManagerGatedRestartsAtNewInterval checks a running gated collector restarts at a new interval.
+func TestCollectorManagerGatedRestartsAtNewInterval(t *testing.T) {
 	cm, mocks := newAutoTestManager(t)
-	cm.SetAutoInterval("nic", 300)
+	cm.ApplyHardwareState("nic", true, 300)
 	mocks["nic"].waitStarted(t)
-	if !cm.SetAutoInterval("nic", 1200) {
+	if !cm.ApplyHardwareState("nic", true, 1200) {
 		t.Fatal("interval change reported no change")
 	}
 	mocks["nic"].waitStarted(t)
@@ -112,7 +140,8 @@ func TestCollectorManagerAutoRestartsAtNewInterval(t *testing.T) {
 	}
 }
 
-func TestCollectorManagerManualControlEndsAutoMode(t *testing.T) {
+// TestCollectorManagerManualControlEndsGating checks REST/MCP style control takes a collector out of hardware control.
+func TestCollectorManagerManualControlEndsGating(t *testing.T) {
 	tests := []struct {
 		name string
 		act  func(cm *CollectorManager) error
@@ -127,52 +156,58 @@ func TestCollectorManagerManualControlEndsAutoMode(t *testing.T) {
 			if err := tt.act(cm); err != nil {
 				t.Fatal(err)
 			}
-			if status(t, cm, "nic").Auto {
-				t.Fatal("manual control left the collector in automatic mode")
+			if s := status(t, cm, "nic"); s.HardwareGated || s.Auto {
+				t.Fatalf("manual control left the collector gated: %+v", s)
 			}
-			for _, c := range cm.GetAllStatus().Collectors {
-				if c.Name == "storage_topology" && !c.Auto {
-					t.Fatal("manual control of nic cleared another collector's auto flag")
-				}
+			if s := status(t, cm, "storage_topology"); !s.HardwareGated || !s.Auto {
+				t.Fatal("manual control of nic changed another collector")
 			}
-			if cm.SetAutoInterval("nic", 300) {
+			if cm.ApplyHardwareState("nic", false, 300) {
 				t.Fatal("policy changed a manually controlled collector")
 			}
 		})
 	}
 }
 
-func TestCollectorManagerInvalidIntervalKeepsAutoMode(t *testing.T) {
+// TestCollectorManagerInvalidIntervalKeepsGating checks a rejected interval change keeps hardware control.
+func TestCollectorManagerInvalidIntervalKeepsGating(t *testing.T) {
 	cm, _ := newAutoTestManager(t)
 	if err := cm.UpdateInterval("nic", 1); err == nil {
 		t.Fatal("expected invalid interval error")
 	}
-	if !status(t, cm, "nic").Auto {
-		t.Fatal("a rejected interval change ended automatic mode")
+	if s := status(t, cm, "nic"); !s.HardwareGated || !s.Auto {
+		t.Fatal("a rejected interval change ended hardware gating")
 	}
 }
 
+// TestCollectorAutoPolicy walks hardware absent, added, unknown, flaky and removed through the policy.
 func TestCollectorAutoPolicy(t *testing.T) {
 	cm, mocks := newAutoTestManager(t)
+	cm.StartAll()
+	mocks["gpu"].waitStarted(t)
 	policy := newCollectorAutoPolicy(cm, false)
-	nic, storage := collectors.CapabilityNICOptics, collectors.CapabilityStorageTopology
+	nic, storage, gpu := collectors.CapabilityNICOptics, collectors.CapabilityStorageTopology, collectors.CapabilityGPU
 
-	// Reference server: optics and SAS absent. Nothing starts, nothing changes.
-	policy.Apply(snapshot(map[string]dto.CapabilityState{nic: dto.CapabilityAbsent, storage: dto.CapabilityAbsent, collectors.CapabilityGPU: dto.CapabilityAbsent}))
-	for _, name := range []string{"nic", "storage_topology"} {
+	// Reference server: optics, SAS and GPU absent. Never-seen hardware stops at
+	// once, including the explicit gpu interval.
+	policy.Apply(snapshot(map[string]dto.CapabilityState{nic: dto.CapabilityAbsent, storage: dto.CapabilityAbsent, gpu: dto.CapabilityAbsent}))
+	mocks["gpu"].waitDone(t)
+	for _, name := range []string{"nic", "storage_topology", "gpu"} {
 		if s := status(t, cm, name); s.Status == "running" || s.Interval != 0 {
 			t.Fatalf("%s runs although its hardware is absent: %+v", name, s)
 		}
 	}
-	if s := status(t, cm, "gpu"); s.Interval != 60 {
-		t.Fatalf("explicit gpu interval changed: %+v", s)
-	}
 
-	// SAS HBA added: storage topology is enabled at the default interval.
-	policy.Apply(snapshot(map[string]dto.CapabilityState{nic: dto.CapabilityAbsent, storage: dto.CapabilityPresent}))
+	// SAS HBA added: storage topology runs at the auto interval; the GPU
+	// returns to its explicit interval.
+	policy.Apply(snapshot(map[string]dto.CapabilityState{storage: dto.CapabilityPresent, gpu: dto.CapabilityPresent}))
 	mocks["storage_topology"].waitStarted(t)
+	mocks["gpu"].waitStarted(t)
 	if s := status(t, cm, "storage_topology"); s.Interval != constants.IntervalAutoEnable || s.Status != "running" {
 		t.Fatalf("storage_topology after detection: %+v", s)
+	}
+	if s := status(t, cm, "gpu"); s.Interval != 60 {
+		t.Fatalf("gpu after detection: %+v", s)
 	}
 
 	// Unknown and missing results change nothing.
@@ -182,7 +217,7 @@ func TestCollectorAutoPolicy(t *testing.T) {
 		t.Fatalf("unknown result stopped the collector: %+v", s)
 	}
 
-	// One absent result keeps it; an unknown in between resets the count.
+	// Seen hardware: one absent result keeps it; an unknown in between resets the count.
 	policy.Apply(snapshot(map[string]dto.CapabilityState{storage: dto.CapabilityAbsent}))
 	policy.Apply(snapshot(map[string]dto.CapabilityState{storage: dto.CapabilityUnknown}))
 	policy.Apply(snapshot(map[string]dto.CapabilityState{storage: dto.CapabilityAbsent}))
@@ -197,16 +232,17 @@ func TestCollectorAutoPolicy(t *testing.T) {
 		t.Fatalf("storage_topology after removal: %+v", s)
 	}
 
-	// Explicit settings are never touched, even when hardware is present.
-	policy.Apply(snapshot(map[string]dto.CapabilityState{collectors.CapabilityGPU: dto.CapabilityPresent, collectors.CapabilityZFS: dto.CapabilityPresent}))
-	if s := status(t, cm, "gpu"); s.Interval != 60 {
-		t.Fatalf("policy changed explicit gpu interval: %+v", s)
-	}
+	// Explicitly disabled zfs stays off when present; ungated ups is never touched.
+	policy.Apply(snapshot(map[string]dto.CapabilityState{collectors.CapabilityZFS: dto.CapabilityPresent, collectors.CapabilityUPS: dto.CapabilityAbsent}))
 	if s := status(t, cm, "zfs"); s.Status == "running" {
 		t.Fatalf("policy enabled explicitly disabled zfs: %+v", s)
 	}
+	if s := status(t, cm, "ups"); s.Status != "running" {
+		t.Fatalf("policy stopped ungated ups: %+v", s)
+	}
 }
 
+// TestCollectorAutoPolicyLowPower checks the auto interval is multiplied by 4 in low power mode.
 func TestCollectorAutoPolicyLowPower(t *testing.T) {
 	cm, mocks := newAutoTestManager(t)
 	newCollectorAutoPolicy(cm, true).Apply(snapshot(map[string]dto.CapabilityState{collectors.CapabilityNICOptics: dto.CapabilityPresent}))
@@ -216,39 +252,48 @@ func TestCollectorAutoPolicyLowPower(t *testing.T) {
 	}
 }
 
-// TestHiddenSectionsNeverRun asserts the core rule of #261 for the reference
-// server: every hardware class detected as absent leaves its automatic
-// collector disabled.
+// TestHiddenSectionsNeverRun asserts the core rule of #261 on the reference
+// server: every hardware class detected as absent leaves its collector off,
+// whether it is in automatic mode or has an explicit interval, when the
+// policy runs before StartAll as the orchestrator does.
 func TestHiddenSectionsNeverRun(t *testing.T) {
-	auto := map[string]bool{}
-	for _, c := range collectors.HardwareClasses {
-		if c.Collector != "" {
+	gated, auto := map[string]bool{}, map[string]bool{}
+	intervals := map[string]int{}
+	for i, c := range collectors.HardwareClasses {
+		if c.Collector == "" {
+			continue
+		}
+		gated[c.Collector] = true
+		if i%2 == 0 {
 			auto[c.Collector] = true
+		} else {
+			intervals[c.Collector] = 60 // an explicit interval saved before
 		}
 	}
-	ctx := &domain.Context{Hub: domain.NewEventBus(100), AutoCollectors: auto}
+	ctx := &domain.Context{Hub: domain.NewEventBus(100), GatedCollectors: gated, AutoCollectors: auto}
 	var wg sync.WaitGroup
 	cm := NewCollectorManager(ctx, &wg)
-	for name := range auto {
-		cm.Register(name, func(*domain.Context) Collector { return newMockCollector() }, 0, false)
+	for name := range gated {
+		cm.Register(name, func(*domain.Context) Collector { return newMockCollector() }, intervals[name], false)
 	}
 	t.Cleanup(func() { cm.StopAll(); wg.Wait() })
-	cm.StartAll()
 
 	absent := map[string]dto.CapabilityState{}
 	for _, c := range collectors.HardwareClasses {
 		absent[c.Capability] = dto.CapabilityAbsent
 	}
-	policy := newCollectorAutoPolicy(cm, false)
-	policy.Apply(snapshot(absent))
-	policy.Apply(snapshot(absent))
-	for name := range auto {
+	newCollectorAutoPolicy(cm, false).Apply(snapshot(absent))
+	if n := cm.StartAll(); n != 0 {
+		t.Errorf("StartAll started %d collectors with all hardware absent", n)
+	}
+	for name := range gated {
 		if s := status(t, cm, name); s.Status == "running" || s.Enabled || s.Interval != 0 {
 			t.Errorf("%s runs although its hardware is absent: %+v", name, s)
 		}
 	}
 }
 
+// TestCapabilityRefresher covers refresh, rate limiting, the hook, snapshot immutability and detached contexts.
 func TestCapabilityRefresher(t *testing.T) {
 	reg := platform.NewRegistry()
 	var checks atomic.Int32
@@ -303,6 +348,7 @@ func TestCapabilityRefresher(t *testing.T) {
 	}
 }
 
+// TestCapabilityRefresherConcurrentCallers checks concurrent refreshes run the checks once.
 func TestCapabilityRefresherConcurrentCallers(t *testing.T) {
 	reg := platform.NewRegistry()
 	var checks atomic.Int32
@@ -326,6 +372,7 @@ func TestCapabilityRefresherConcurrentCallers(t *testing.T) {
 	}
 }
 
+// TestCapabilityRefresherStart checks periodic refreshes, hook panic recovery and stop on cancel.
 func TestCapabilityRefresherStart(t *testing.T) {
 	reg := platform.NewRegistry()
 	ticks := make(chan struct{}, 10)

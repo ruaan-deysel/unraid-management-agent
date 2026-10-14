@@ -99,32 +99,28 @@ Results are re-checked at startup, every 15 minutes, and on demand with
 `GET /api/v1/capabilities?refresh=true` (at most every 30 seconds) or the
 **Re-check hardware** button on the plugin settings page.
 
-**Automatic mode.** On the plugin settings page the six hardware-dependent
-collectors offer **Auto**, the default. The plugin
-passes those collectors to the agent as `UNRAID_AUTO_COLLECTORS`
-(`--auto-collectors`, `auto_collectors` in `config.yml`). A collector in
-automatic mode:
+**Absent hardware always wins.** While a class is absent, its collector is off
+and its settings row is hidden, whatever interval is saved. The saved value is
+kept and applies again as soon as the hardware is detected:
 
-- stays off (interval `0`) while its hardware is absent, and its settings row
-  is hidden;
-- is enabled at 300 seconds (1200 seconds in low power mode) as soon as its
-  hardware is detected;
-- is turned off again after two consecutive `absent` results, so a single
-  flaky check does not stop it;
-- is left alone on an `unknown` result.
+| Saved setting        | Hardware present                            | Hardware absent |
+| -------------------- | ------------------------------------------- | --------------- |
+| **Auto** (default)   | Runs every 300 s (1200 s in low power mode) | Off, row hidden |
+| An explicit interval | Runs at that interval                       | Off, row hidden |
+| **Disabled** (`0`)   | Off                                         | Off, row hidden |
 
-Explicit settings always win:
-
-- An explicit interval keeps the collector running at that interval even when
-  its hardware is absent; its row stays visible.
-- **Disabled** (`0`) keeps the collector off even when its hardware is
-  present; its row is hidden while the hardware is absent.
-- A collector in `UNRAID_DISABLE_COLLECTORS`, or with an interval in
-  `config.yml`, is never in automatic mode.
+- Hardware that was never detected turns its collector off at once. Hardware
+  that was detected and then disappears turns it off after two consecutive
+  `absent` results, so a single flaky check does not stop it.
+- An `unknown` result changes nothing.
+- The plugin passes **Auto** collectors to the agent as
+  `UNRAID_AUTO_COLLECTORS` (`--auto-collectors`, `auto_collectors` in
+  `config.yml`).
+- A collector in `UNRAID_DISABLE_COLLECTORS` is never turned on by detection.
 - Enabling, disabling or changing a collector's interval at runtime (REST or
-  MCP) ends automatic mode for that collector until the agent restarts.
-  `GET /api/v1/collectors/status` shows `"auto": true` while a collector is in
-  automatic mode.
+  MCP) takes it out of hardware control until the agent restarts.
+  `GET /api/v1/collectors/status` reports `"hardware_gated": true` while a
+  collector follows detection and `"auto": true` while it is in automatic mode.
 
 **Show all collectors** on the settings page only reveals hidden rows; it
 never turns a collector on. If hardware detection is unavailable (for example
@@ -133,9 +129,9 @@ the agent is stopped), the page shows every row.
 **Upgrades.** On the first install of this release, each hardware-dependent
 interval that is missing or still equals a previously shipped default
 (NIC `60` or `0`, Storage Topology `300` or `0`, GPU `60`, UPS `60`, NUT `0`,
-ZFS `0` or `30`) is switched to **Auto**. Any other value is kept. To opt out,
-choose an explicit interval or **Disabled** for that collector and click
-**Apply**.
+ZFS `0` or `30`) is switched to **Auto**. Any other value is kept and applies
+while the hardware is present. To keep a fixed interval, choose it (or
+**Disabled**) for that collector and click **Apply**.
 
 ## Configuration Methods
 

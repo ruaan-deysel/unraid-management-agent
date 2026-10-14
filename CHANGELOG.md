@@ -25,17 +25,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   every 30 s); the capability items gain additive `state` and `checked_at` fields, also in the
   self-test.
   ([#261](https://github.com/tinkerologie/unraid-management-agent/issues/261))
-- **Automatic collector mode** — the NIC, Storage Topology, GPU, UPS, NUT and ZFS interval
-  selects have a new **Auto** choice, passed to the agent as
-  `UNRAID_AUTO_COLLECTORS` (`--auto-collectors`, `auto_collectors` in `config.yml`). An automatic
-  collector stays off while its hardware is absent, starts at 300 s (1200 s in low power mode) once
-  it is detected, and stops after two consecutive absent results. Explicit intervals, **Disabled**,
-  the disabled-collector list, `config.yml` intervals and runtime REST/MCP control always win;
-  `/api/v1/collectors/status` reports `auto`. The settings page hides rows for absent hardware that
-  are set to Auto or Disabled, shows the detection result and last check time, adds a
-  **Re-check hardware** button and a persisted **Show all collectors** toggle
-  (`SHOW_ALL_COLLECTORS`) that only reveals rows. If detection is unavailable the page shows every
-  row. ([#261](https://github.com/tinkerologie/unraid-management-agent/issues/261))
+- **Hardware-gated collectors and Auto mode** — the NIC, Storage Topology, GPU, UPS, NUT and ZFS
+  collectors now follow hardware detection: while their hardware is absent they are off and
+  their settings rows are hidden, whatever interval is saved; the saved value applies again once
+  the hardware is detected (hardware seen before must be absent twice in a row; `unknown` changes
+  nothing). Their interval selects gain an **Auto** choice that runs the collector every 300 s
+  (1200 s in low power mode) while the hardware is present, passed to the agent as
+  `UNRAID_AUTO_COLLECTORS` (`--auto-collectors`, `auto_collectors` in `config.yml`). **Disabled**
+  keeps a collector off even when present. The disabled-collector list and runtime REST/MCP
+  control opt a collector out; `/api/v1/collectors/status` reports `hardware_gated` and `auto`.
+  The settings page shows the detection result and last check time, adds a **Re-check hardware**
+  button and a persisted **Show all collectors** toggle (`SHOW_ALL_COLLECTORS`) that only reveals
+  rows. If detection is unavailable the page shows every row. Playwright UI tests for the
+  settings page now run in CI.
+  ([#261](https://github.com/tinkerologie/unraid-management-agent/issues/261))
 - **ZFS pool member drives with SMART health** — each pool in `/api/v1/zfs/pools`
   (and the `zfs_pools_update` event) now has a `drives` list: every leaf member
   with the whole disk it lives on (resolved through sysfs, including
@@ -231,9 +234,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keys to `auto` when it is missing or still equals a previously shipped default (NIC `60`/`0`,
   Storage Topology `300`/`0`, GPU `60`, UPS `60`, NUT `0`, ZFS `0`/`30`); any other value is kept.
   As a result GPU and UPS polling moves from 60 s to 5 minutes, and ZFS, NUT, NIC and Storage
-  Topology turn on by themselves where the hardware exists. To opt out, choose an explicit interval
-  or **Disabled** and click Apply. Running the daemon directly without `UNRAID_AUTO_COLLECTORS`
-  keeps the previous behaviour.
+  Topology turn on by themselves where the hardware exists. To keep a fixed interval, choose it or
+  **Disabled** and click Apply. Collectors whose hardware is absent are off on every install,
+  including direct daemon runs; list a collector in `UNRAID_DISABLE_COLLECTORS` to keep it off
+  regardless.
   ([#261](https://github.com/tinkerologie/unraid-management-agent/issues/261))
 - **Network Cards & Optics and Storage Topology collectors off by default** — most servers have no
   SFP/QSFP optics or SAS HBAs/enclosures, so the `nic` and `storage_topology` collectors now default

@@ -7,24 +7,29 @@ import (
 	"github.com/tinkerologie/unraid-management-agent/daemon/services/collectors"
 )
 
-// autoDisableAfter is the number of consecutive "absent" results that disable
-// an auto-enabled collector, so one flaky check does not stop it.
+// autoDisableAfter is the number of consecutive "absent" results that stop a
+// collector whose hardware was seen before, so one flaky check does not stop it.
 const autoDisableAfter = 2
 
-// collectorAutoPolicy enables and disables collectors in automatic mode from
-// each capability snapshot (#261): present enables the collector at
-// IntervalAutoEnable (x4 in low power mode), absent twice in a row disables
-// it, and unknown or missing results change nothing. Collectors not in
-// automatic mode (explicit intervals, the disabled list, manual runtime
-// changes) are never touched. Apply is called with refreshes serialised.
+// collectorAutoPolicy turns hardware-gated collectors on and off from each
+// capability snapshot (#261). Absent hardware always wins: the collector is
+// stopped whatever its configured interval — at once if the hardware was never
+// seen, after two consecutive absent results if it was. Present hardware runs
+// it at IntervalAutoEnable (x4 in low power mode) in automatic mode, or at its
+// configured interval (a configured 0, "Disabled", keeps it off). Unknown or
+// missing results change nothing. Collectors that are not gated (the disabled
+// list, manual runtime control) are never touched. Apply is called with
+// refreshes serialised.
 type collectorAutoPolicy struct {
 	cm       *CollectorManager
 	lowPower bool
 	absent   map[string]int
+	seen     map[string]bool
 }
 
+// newCollectorAutoPolicy creates the policy for a collector manager.
 func newCollectorAutoPolicy(cm *CollectorManager, lowPower bool) *collectorAutoPolicy {
-	return &collectorAutoPolicy{cm: cm, lowPower: lowPower, absent: map[string]int{}}
+	return &collectorAutoPolicy{cm: cm, lowPower: lowPower, absent: map[string]int{}, seen: map[string]bool{}}
 }
 
 // Apply applies the policy to one capability snapshot.
@@ -38,7 +43,7 @@ func (p *collectorAutoPolicy) Apply(caps dto.Capabilities) {
 			continue
 		}
 		status, err := p.cm.GetStatus(class.Collector)
-		if err != nil || !status.Auto {
+		if err != nil || !status.HardwareGated {
 			continue
 		}
 		item, ok := caps.Item(class.Capability)
@@ -48,13 +53,15 @@ func (p *collectorAutoPolicy) Apply(caps dto.Capabilities) {
 		switch item.State {
 		case dto.CapabilityPresent:
 			p.absent[class.Collector] = 0
-			if p.cm.SetAutoInterval(class.Collector, interval) {
-				logger.Info("Auto collectors: enabled %s, %s detected (%s)", class.Collector, class.Capability, item.Detail)
+			p.seen[class.Collector] = true
+			if p.cm.ApplyHardwareState(class.Collector, true, interval) {
+				logger.Info("Hardware collectors: %s follows %s, detected (%s)", class.Collector, class.Capability, item.Detail)
 			}
 		case dto.CapabilityAbsent:
 			p.absent[class.Collector]++
-			if p.absent[class.Collector] >= autoDisableAfter && p.cm.SetAutoInterval(class.Collector, 0) {
-				logger.Info("Auto collectors: disabled %s, %s not detected (%s)", class.Collector, class.Capability, item.Detail)
+			if (!p.seen[class.Collector] || p.absent[class.Collector] >= autoDisableAfter) &&
+				p.cm.ApplyHardwareState(class.Collector, false, interval) {
+				logger.Info("Hardware collectors: stopped %s, %s not detected (%s)", class.Collector, class.Capability, item.Detail)
 			}
 		default:
 			p.absent[class.Collector] = 0

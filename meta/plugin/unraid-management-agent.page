@@ -946,19 +946,20 @@ which subsystems are healthy. Both require the service to be running.
     </div>
 
     <div class="uma-power-warning">
-        <strong>⚡ Power Tip:</strong> Defaults follow industry-standard monitoring intervals. Hardware collectors set to <strong>Auto</strong> run every 5 minutes only while the agent detects their hardware, and are hidden when it is absent. Set to <strong>Disabled</strong> to completely stop a collector, or use longer intervals (up to 24 hours) for data that rarely changes. Click <strong>Default</strong> to restore industry-standard settings.
+        <strong>⚡ Power Tip:</strong> Defaults follow industry-standard monitoring intervals. Hardware collectors run only while the agent detects their hardware and are hidden when it is absent; <strong>Auto</strong> runs them every 5 minutes. Set to <strong>Disabled</strong> to completely stop a collector, or use longer intervals (up to 24 hours) for data that rarely changes. Click <strong>Default</strong> to restore industry-standard settings.
     </div>
 </div>
 
 <blockquote class="inline_help">
 Service auto-starts with array. Changes apply after clicking Apply and will restart the service if it is running.
 
-Hardware-dependent collectors (GPU, Network Cards &amp; Optics, UPS, NUT, ZFS, Storage Topology) can be set to
-<strong>Auto</strong>: the agent checks for the hardware at startup, every 15 minutes and on <strong>Re-check hardware</strong>,
-runs the collector every 5 minutes while the hardware is present and keeps it off while it is absent. Rows for absent
-hardware are hidden when set to Auto or Disabled; a row with an explicit interval always stays visible and keeps running.
-<strong>Show all collectors</strong> only reveals hidden rows — it never turns a collector on. If the agent is not running,
-every row is shown.
+Hardware-dependent collectors (GPU, Network Cards &amp; Optics, UPS, NUT, ZFS, Storage Topology) follow hardware
+detection: the agent checks for the hardware at startup, every 15 minutes and on <strong>Re-check hardware</strong>.
+While the hardware is absent the collector is off and its row is hidden, whatever its setting; the setting is kept and
+applies again once the hardware is detected. With the hardware present, <strong>Auto</strong> runs the collector every
+5 minutes, an explicit interval runs it at that interval, and <strong>Disabled</strong> keeps it off.
+<strong>Show all collectors</strong> only reveals hidden rows — it never turns a collector on. If hardware detection is
+unavailable (for example the agent is stopped), every row is shown.
 </blockquote>
 
 <input type="submit" name="#default" value="_(Default)_">
@@ -1272,14 +1273,13 @@ function applyCapabilityVisibility() {
     showAll = showAll && showAll.checked;
     document.querySelectorAll('.uma-interval-row[data-uma-capability]').forEach(function(row) {
         var item = umaCapabilities ? umaCapabilities[row.getAttribute('data-uma-capability')] : null;
-        var select = row.querySelector('select');
-        var value = select ? select.value : '';
         var absent = !!(item && item.state === 'absent');
         row.title = item && item.detail ? (item.state === 'present' ? 'Detected: ' : 'Not detected: ') + item.detail : '';
         row.classList.toggle('uma-hw-absent', absent);
-        // Only hide rows the user has not set to an explicit interval; hidden
-        // inputs keep their values and are still submitted.
-        row.style.display = (!showAll && absent && (value === 'auto' || value === '0')) ? 'none' : '';
+        // Absent hardware hides the row whatever its setting: the agent keeps
+        // the collector off. Hidden inputs keep their values and are still
+        // submitted, so the setting applies again when the hardware returns.
+        row.style.display = (!showAll && absent) ? 'none' : '';
     });
     document.querySelectorAll('.uma-interval-section').forEach(function(section) {
         var rows = Array.prototype.slice.call(section.querySelectorAll('.uma-interval-row'));
@@ -1730,9 +1730,6 @@ $(function() {
     updateDisabledHighlighting();
     document.querySelectorAll('.uma-interval-select').forEach(function(select) {
         select.addEventListener('change', updateDisabledHighlighting);
-    });
-    document.querySelectorAll('.uma-interval-row[data-uma-capability] select').forEach(function(select) {
-        select.addEventListener('change', applyCapabilityVisibility);
     });
     loadCapabilities(false);
     updateTokenButtons();

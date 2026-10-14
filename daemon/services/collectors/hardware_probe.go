@@ -263,6 +263,7 @@ func (p *HardwareProbe) anyExecutable(candidates []string) bool {
 	return false
 }
 
+// foundWord renders a tool lookup for a detail string.
 func foundWord(found bool) string {
 	if found {
 		return "found"
