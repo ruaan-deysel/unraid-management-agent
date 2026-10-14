@@ -1,6 +1,9 @@
 package collectors
 
 import (
+	"errors"
+	"math"
+	"runtime"
 	"testing"
 	"time"
 
@@ -233,4 +236,86 @@ func TestVMCollector_ClearCPUStats(t *testing.T) {
 
 	// Clear non-existent should not panic
 	collector.clearCPUStats("non-existent")
+}
+
+// TestResolveHostCPUCount covers the host CPU count fallbacks (#175).
+func TestResolveHostCPUCount(t *testing.T) {
+	if got := resolveHostCPUCount(128, nil); got != 128 {
+		t.Errorf("libvirt count: got %d, want 128", got)
+	}
+	want := max(runtime.NumCPU(), 1)
+	if got := resolveHostCPUCount(0, nil); got != want {
+		t.Errorf("zero libvirt count: got %d, want runtime.NumCPU() %d", got, want)
+	}
+	if got := resolveHostCPUCount(64, errors.New("rpc failed")); got != want {
+		t.Errorf("libvirt error: got %d, want runtime.NumCPU() %d", got, want)
+	}
+}
+
+// TestCPUPercent covers the shared percentage calculation and its guards.
+func TestCPUPercent(t *testing.T) {
+	tests := []struct {
+		name      string
+		prev, cur uint64
+		elapsed   float64
+		divisor   int
+		want      float64
+		valid     bool
+	}{
+		{"4 vCPUs fully busy", 0, 4 * 30e9, 30, 4, 100, true},
+		{"4 busy vCPUs on a 128-thread host", 0, 4 * 30e9, 30, 128, 3.125, true},
+		{"half busy", 10e9, 25e9, 30, 1, 50, true},
+		{"idle", 5e9, 5e9, 30, 2, 0, true},
+		{"clamped to 100", 0, 90e9, 30, 1, 100, true},
+		{"counter reset", 50e9, 10e9, 30, 2, 0, false},
+		{"no elapsed time", 0, 10e9, 0, 2, 0, false},
+		{"negative elapsed time", 0, 10e9, -1, 2, 0, false},
+		{"no CPUs", 0, 10e9, 30, 0, 0, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, valid := cpuPercent(tt.prev, tt.cur, tt.elapsed, tt.divisor)
+			if valid != tt.valid || math.Abs(got-tt.want) > 1e-9 {
+				t.Errorf("cpuPercent = %v, %v; want %v, %v", got, valid, tt.want, tt.valid)
+			}
+		})
+	}
+}
+
+// TestVMCollectorRecordCPUSample covers the per-VM history: baseline on the
+// first sample, guest and host shares on the next, and a counter reset.
+func TestVMCollectorRecordCPUSample(t *testing.T) {
+	c := NewVMCollector(&domain.Context{Hub: domain.NewEventBus(10)})
+	start := time.Date(2026, 10, 14, 9, 0, 0, 0, time.UTC)
+
+	first := &dto.VMInfo{CPUCount: 4}
+	c.recordCPUSample("win11", 100e9, start, 128, first)
+	if first.GuestCPUPercent != 0 || first.HostCPUPercent != 0 {
+		t.Fatalf("first sample must only store a baseline: %+v", first)
+	}
+
+	second := &dto.VMInfo{CPUCount: 4}
+	c.recordCPUSample("win11", 100e9+4*30e9, start.Add(30*time.Second), 128, second)
+	if math.Abs(second.GuestCPUPercent-100) > 1e-9 || math.Abs(second.HostCPUPercent-3.125) > 1e-9 {
+		t.Fatalf("guest/host = %v/%v, want 100/3.125", second.GuestCPUPercent, second.HostCPUPercent)
+	}
+
+	reset := &dto.VMInfo{CPUCount: 4}
+	c.recordCPUSample("win11", 5e9, start.Add(60*time.Second), 128, reset)
+	if reset.GuestCPUPercent != 0 || reset.HostCPUPercent != 0 {
+		t.Fatalf("counter reset must not report usage: %+v", reset)
+	}
+	after := &dto.VMInfo{CPUCount: 4}
+	c.recordCPUSample("win11", 5e9+2*30e9, start.Add(90*time.Second), 128, after)
+	if math.Abs(after.GuestCPUPercent-50) > 1e-9 {
+		t.Fatalf("after reset the new baseline must be used: guest = %v, want 50", after.GuestCPUPercent)
+	}
+
+	// Unknown vCPU count: no guest share, but the host share is still reported.
+	c.recordCPUSample("novcpu", 0, start, 8, &dto.VMInfo{})
+	noVCPU := &dto.VMInfo{}
+	c.recordCPUSample("novcpu", 8*30e9, start.Add(30*time.Second), 8, noVCPU)
+	if noVCPU.GuestCPUPercent != 0 || math.Abs(noVCPU.HostCPUPercent-100) > 1e-9 {
+		t.Fatalf("CPUCount 0: guest/host = %v/%v, want 0/100", noVCPU.GuestCPUPercent, noVCPU.HostCPUPercent)
+	}
 }
