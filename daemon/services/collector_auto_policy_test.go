@@ -210,6 +210,17 @@ func TestCollectorAutoPolicy(t *testing.T) {
 		t.Fatalf("gpu after detection: %+v", s)
 	}
 
+	// Present again: nothing to change.
+	policy.Apply(snapshot(map[string]dto.CapabilityState{storage: dto.CapabilityPresent, gpu: dto.CapabilityPresent}))
+	if s := status(t, cm, "storage_topology"); s.Interval != constants.IntervalAutoEnable || s.Status != "running" {
+		t.Fatalf("storage_topology after a repeated detection: %+v", s)
+	}
+	select {
+	case <-mocks["storage_topology"].startChan:
+		t.Fatal("a repeated detection restarted storage_topology")
+	case <-time.After(50 * time.Millisecond):
+	}
+
 	// Unknown and missing results change nothing.
 	policy.Apply(snapshot(map[string]dto.CapabilityState{storage: dto.CapabilityUnknown}))
 	policy.Apply(dto.Capabilities{})

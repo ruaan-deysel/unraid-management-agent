@@ -520,3 +520,102 @@ func assertState(t *testing.T, check func(context.Context) (dto.CapabilityState,
 		t.Errorf("detail = %q, want it to contain %q", got, detail)
 	}
 }
+
+// lockDir makes a directory below the root unreadable for the rest of the test.
+func (h hwRoot) lockDir(abs string) {
+	h.t.Helper()
+	if os.Geteuid() == 0 {
+		h.t.Skip("root ignores directory permissions")
+	}
+	dir := filepath.Join(h.root, abs)
+	sysfsTree{t: h.t, root: h.root}.mkdir(abs)
+	if err := os.Chmod(dir, 0); err != nil {
+		h.t.Fatal(err)
+	}
+	h.t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+}
+
+// TestHardwareProbeReadErrors checks that a read error other than "not found"
+// reports unknown, so the policy never acts on it.
+func TestHardwareProbeReadErrors(t *testing.T) {
+	tests := []struct {
+		name   string
+		locked string
+		check  func(*HardwareProbe) func(context.Context) (dto.CapabilityState, string)
+		detail string
+	}{
+		{"storage enclosures", "/sys/class/enclosure", func(p *HardwareProbe) func(context.Context) (dto.CapabilityState, string) {
+			return p.CheckStorageTopology
+		}, "cannot read storage controllers"},
+		{"storage PCI devices", "/sys/bus/pci/devices", func(p *HardwareProbe) func(context.Context) (dto.CapabilityState, string) {
+			return p.CheckStorageTopology
+		}, "cannot read storage controllers"},
+		{"GPU DRM cards", "/sys/class/drm", func(p *HardwareProbe) func(context.Context) (dto.CapabilityState, string) { return p.CheckGPU }, "cannot read GPUs"},
+		{"ZFS module", "/sys/module", func(p *HardwareProbe) func(context.Context) (dto.CapabilityState, string) { return p.CheckZFS }, "cannot read ZFS module"},
+		{"fan hwmon", "/sys/class/hwmon", func(p *HardwareProbe) func(context.Context) (dto.CapabilityState, string) { return p.CheckFanControl }, "cannot read hwmon"},
+		{"NUT plugin", "/usr/local/emhttp/plugins", func(p *HardwareProbe) func(context.Context) (dto.CapabilityState, string) { return p.CheckNUT }, "cannot read NUT plugin"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newHWRoot(t)
+			h.lockDir(tt.locked)
+			p, _ := h.probe(nil)
+			assertState(t, tt.check(p), dto.CapabilityUnknown, tt.detail)
+		})
+	}
+
+	t.Run("ZFS pools", func(t *testing.T) {
+		h := newHWRoot(t)
+		h.dir("/sys/module/zfs")
+		h.lockDir("/proc/spl/kstat/zfs")
+		p, _ := h.probe(nil)
+		assertState(t, p.CheckZFS, dto.CapabilityUnknown, "cannot read ZFS pools")
+	})
+	t.Run("NUT settings", func(t *testing.T) {
+		h := newHWRoot(t)
+		h.dir(constants.NutPluginDir)
+		h.file(constants.NutPluginCfg, `SERVICE="enable"`)
+		if os.Geteuid() == 0 {
+			t.Skip("root ignores file permissions")
+		}
+		if err := os.Chmod(filepath.Join(h.root, constants.NutPluginCfg), 0); err != nil {
+			t.Fatal(err)
+		}
+		p, _ := h.probe(nil)
+		assertState(t, p.CheckNUT, dto.CapabilityUnknown, "cannot read NUT settings")
+	})
+	t.Run("unreadable hwmon chip is skipped", func(t *testing.T) {
+		h := newHWRoot(t)
+		h.lockDir("/sys/class/hwmon/hwmon0")
+		h.sys.hwmon("hwmon1", "", map[string]string{"pwm2": "100", "pwm2_enable": "1"})
+		p, _ := h.probe(nil)
+		assertState(t, p.CheckFanControl, dto.CapabilityPresent, "PWM fan control on hwmon1 (pwm2)")
+	})
+}
+
+// TestHardwareProbeFallbacks covers the module-read cap default, a DRM card
+// without a driver, and a hwmon chip without a name.
+func TestHardwareProbeFallbacks(t *testing.T) {
+	t.Run("zero port cap uses the default", func(t *testing.T) {
+		h := newHWRoot(t)
+		h.i211()
+		p, reads := h.probe(moduleErr(lib.ErrNoModule))
+		p.MaxModulePorts = 0
+		assertState(t, p.CheckNICOptics, dto.CapabilityAbsent, "")
+		if *reads != 1 {
+			t.Errorf("module reads = %d, want 1", *reads)
+		}
+	})
+	t.Run("DRM card without a driver", func(t *testing.T) {
+		h := newHWRoot(t)
+		h.sys.mkdir("class/drm/card0/device")
+		p, _ := h.probe(nil)
+		assertState(t, p.CheckGPU, dto.CapabilityAbsent, "no Intel, AMD or NVIDIA GPU")
+	})
+	t.Run("hwmon chip without a name", func(t *testing.T) {
+		h := newHWRoot(t)
+		h.sys.hwmon("hwmon7", "", map[string]string{"pwm1": "100", "pwm1_enable": "2"})
+		p, _ := h.probe(nil)
+		assertState(t, p.CheckFanControl, dto.CapabilityPresent, "PWM fan control on hwmon7 (pwm1)")
+	})
+}

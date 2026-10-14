@@ -141,6 +141,19 @@ fi
 grep -q '^INTERVAL_NIC=' "${dir}/config.cfg" && fail "readonly: config.cfg changed"
 echo "✓ Unwritable config fails non-zero"
 
+if [ "$(id -u)" -ne 0 ]; then
+    dir=$(new_case unreadable "$base")
+    before=$(cat "${dir}/config.cfg")
+    chmod 0200 "${dir}/config.cfg"
+    if migrate "$dir"; then
+        fail "unreadable: migration succeeded on an unreadable config"
+    fi
+    chmod 0600 "${dir}/config.cfg"
+    [ "$(cat "${dir}/config.cfg")" = "$before" ] || fail "unreadable: config.cfg changed"
+    [ ! -e "${dir}/.auto-intervals-migrated" ] || fail "unreadable: marker created after a failure"
+    echo "✓ Unreadable config fails non-zero without changing it"
+fi
+
 # Start-script translation: auto -> 0 plus a CSV entry; numbers unchanged.
 # shellcheck disable=SC2016 # expansions happen in the child shell
 out=$(bash -c '
