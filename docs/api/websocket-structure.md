@@ -123,6 +123,7 @@ Since events lack a `type` field, clients must inspect the `data` structure to d
 | `network_list_update`   | Has `mac_address` AND `bytes_received`                             |
 | `container_list_update` | Has `image` AND `ports`                                            |
 | `vm_list_update`        | Has `state` AND `vcpus`                                            |
+| `vm_guest_update`       | Has `vm_name` AND `agent_connected`                                |
 | `disk_list_update`      | Has `device` AND `mount_point`                                     |
 | `share_list_update`     | Has `name` AND `path` AND `size_bytes`                             |
 
