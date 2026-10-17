@@ -172,7 +172,7 @@ func (c *Client) Connect(ctx context.Context) error {
 	c.client = pahomqtt.NewClient(opts)
 	c.startTime = time.Now()
 
-	logger.Info("MQTT: Connecting to broker %s...", c.config.Broker)
+	logger.Info("MQTT: Connecting to broker %s as client %q...", c.config.Broker, c.clientID())
 
 	token := c.client.Connect()
 
