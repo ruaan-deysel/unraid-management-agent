@@ -419,6 +419,16 @@ func TestStartReturnsRegistrationErrors(t *testing.T) {
 }
 
 func TestIsLANInterface(t *testing.T) {
+	for _, iface := range []net.Interface{
+		{Name: "br0", Flags: net.FlagUp | net.FlagBroadcast},                         // no multicast
+		{Name: "lo", Flags: net.FlagUp | net.FlagLoopback | net.FlagMulticast},       // loopback
+		{Name: "ppp0", Flags: net.FlagUp | net.FlagPointToPoint | net.FlagMulticast}, // point-to-point
+		{Name: "eth0", Flags: net.FlagBroadcast | net.FlagMulticast},                 // down
+	} {
+		if isLANInterface(iface) {
+			t.Errorf("isLANInterface(%q, %v) = true, want false", iface.Name, iface.Flags)
+		}
+	}
 	for _, name := range []string{"br0", "bond0", "eth0", "enp3s0", "eno1"} {
 		if !isLANInterface(net.Interface{Name: name, Flags: lanFlags}) {
 			t.Errorf("isLANInterface(%q) = false, want true", name)
@@ -629,4 +639,108 @@ func TestSelectAdvertisementOrdersSameRankByName(t *testing.T) {
 	if err != nil || ip.String() != "192.168.20.21" || iface.Name != "eth0" {
 		t.Errorf("selectAdvertisement() = %v on %q, %v; want 192.168.20.21 on eth0", ip, iface.Name, err)
 	}
+}
+
+// fakeAddr is a net.Addr that is not a *net.IPNet.
+type fakeAddr string
+
+func (a fakeAddr) Network() string { return "fake" }
+func (a fakeAddr) String() string  { return string(a) }
+
+func TestSystemInterfacesErrorsAndAddressTypes(t *testing.T) {
+	origIfaces, origAddrs := netInterfaces, interfaceAddrs
+	t.Cleanup(func() { netInterfaces, interfaceAddrs = origIfaces, origAddrs })
+
+	netInterfaces = func() ([]net.Interface, error) { return nil, errors.New("netlink failure") }
+	if _, err := systemInterfaces(); err == nil || !strings.Contains(err.Error(), "netlink failure") {
+		t.Errorf("systemInterfaces() error = %v, want the listing error", err)
+	}
+
+	netInterfaces = func() ([]net.Interface, error) {
+		return []net.Interface{{Index: 2, Name: "eth0"}, {Index: 3, Name: "br0"}}, nil
+	}
+	interfaceAddrs = func(iface net.Interface) ([]net.Addr, error) {
+		if iface.Name == "eth0" {
+			return nil, errors.New("address lookup failed")
+		}
+		return []net.Addr{
+			&net.IPNet{IP: net.ParseIP("192.168.20.21"), Mask: net.CIDRMask(24, 32)},
+			&net.IPAddr{IP: net.ParseIP("192.168.20.99")},
+			fakeAddr("not-an-ip"),
+		}, nil
+	}
+	got, err := systemInterfaces()
+	if err != nil {
+		t.Fatalf("systemInterfaces() error = %v", err)
+	}
+	// eth0 is skipped; only br0's *net.IPNet address is kept.
+	if len(got) != 1 || got[0].iface.Name != "br0" || len(got[0].addrs) != 1 || got[0].addrs[0].String() != "192.168.20.21" {
+		t.Errorf("systemInterfaces() = %+v, want br0 with 192.168.20.21 only", got)
+	}
+}
+
+func TestRetryDoesNotRegisterAfterShutdownWhileWaitingForTheLock(t *testing.T) {
+	shortRetry(t)
+	var up atomic.Bool
+	origList, origRoute := listInterfaces, routeIPv4
+	t.Cleanup(func() { listInterfaces, routeIPv4 = origList, origRoute })
+	routeIPv4 = func() net.IP { return nil }
+	listInterfaces = func() ([]netInterface, error) {
+		if up.Load() {
+			return unraidHost(), nil
+		}
+		return nil, nil
+	}
+	regs, mu, _ := fakeRegister(t)
+
+	s := NewService(domain.DiscoveryConfig{Enabled: true}, "tower", 8043, "2026.06.01", "", false)
+	if err := s.Start(context.Background()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	done := retryDone(t, s)
+	up.Store(true)
+
+	// Hold the lock across several ticks so the retry goroutine is waiting
+	// for it, then stop retries as Shutdown does before releasing it.
+	s.mu.Lock()
+	time.Sleep(10 * retryInterval)
+	close(s.stop)
+	s.stop = nil
+	s.mu.Unlock()
+
+	waitClosed(t, done, "the retry goroutine to exit")
+	mu.Lock()
+	defer mu.Unlock()
+	if len(*regs) != 0 {
+		t.Errorf("registered %d times after retries were stopped", len(*regs))
+	}
+}
+
+func TestRegisterProxyRegistersOnARealInterface(t *testing.T) {
+	ifaces, err := systemInterfaces()
+	if err != nil {
+		t.Skipf("cannot list interfaces: %v", err)
+	}
+	for _, ni := range ifaces {
+		if !isLANInterface(ni.iface) {
+			continue
+		}
+		for _, addr := range ni.addrs {
+			v4 := addr.To4()
+			if v4 == nil || !v4.IsGlobalUnicast() {
+				continue
+			}
+			server, err := registerProxy("uma-discovery-test", "_uma-test._tcp", "local.", 18043, "uma-discovery-test",
+				[]string{v4.String()}, []string{"test=1"}, []net.Interface{ni.iface})
+			if err != nil {
+				t.Skipf("multicast is not available on %s: %v", ni.iface.Name, err)
+			}
+			if server == nil {
+				t.Fatal("registerProxy() returned a nil server without an error")
+			}
+			server.Shutdown()
+			return
+		}
+	}
+	t.Skip("no LAN interface with an IPv4 address")
 }

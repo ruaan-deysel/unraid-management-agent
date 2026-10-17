@@ -54,6 +54,8 @@ type advertiser interface {
 var (
 	listInterfaces = systemInterfaces
 	routeIPv4      = primaryIPv4
+	netInterfaces  = net.Interfaces
+	interfaceAddrs = func(iface net.Interface) ([]net.Addr, error) { return iface.Addrs() }
 	registerProxy  = func(instance, service, domain string, port int, host string, ips, text []string, ifaces []net.Interface) (advertiser, error) {
 		server, err := zeroconf.RegisterProxy(instance, service, domain, port, host, ips, text, ifaces)
 		if err != nil {
@@ -334,13 +336,13 @@ func interfaceRank(name string) int {
 
 // systemInterfaces lists the host's interfaces with their addresses.
 func systemInterfaces() ([]netInterface, error) {
-	ifaces, err := net.Interfaces()
+	ifaces, err := netInterfaces()
 	if err != nil {
 		return nil, err
 	}
 	out := make([]netInterface, 0, len(ifaces))
 	for _, iface := range ifaces {
-		addrs, err := iface.Addrs()
+		addrs, err := interfaceAddrs(iface)
 		if err != nil {
 			continue
 		}
