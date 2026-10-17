@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -716,7 +717,12 @@ func TestRetryDoesNotRegisterAfterShutdownWhileWaitingForTheLock(t *testing.T) {
 	}
 }
 
+// TestRegisterProxyRegistersOnARealInterface sends real mDNS announcements on
+// the host's network, so it only runs with UMA_MDNS_TEST=1.
 func TestRegisterProxyRegistersOnARealInterface(t *testing.T) {
+	if os.Getenv("UMA_MDNS_TEST") != "1" {
+		t.Skip("set UMA_MDNS_TEST=1 to register a test service on the host's network")
+	}
 	ifaces, err := systemInterfaces()
 	if err != nil {
 		t.Skipf("cannot list interfaces: %v", err)
