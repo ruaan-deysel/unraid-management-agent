@@ -102,6 +102,41 @@ func NewClient(config *dto.MQTTConfig, hostname, agentVersion string, domainCtx 
 	}
 }
 
+// DefaultClientID is the default MQTT client ID. ResolveClientID appends the
+// hostname to it so agents on several servers can share a broker.
+const DefaultClientID = "unraid-management-agent"
+
+// clientID returns the client ID sent to the broker. See ResolveClientID.
+func (c *Client) clientID() string {
+	return ResolveClientID(c.config.ClientID, c.hostname)
+}
+
+// ResolveClientID returns the MQTT client ID to use. A broker allows one
+// connection per client ID, so agents on several servers sharing the default
+// ID would keep disconnecting each other. An empty or default ID therefore
+// becomes "unraid-management-agent-<hostname>". Any other configured ID is
+// used as is.
+func ResolveClientID(configured, hostname string) string {
+	configured = strings.TrimSpace(configured)
+	if configured != "" && configured != DefaultClientID {
+		return configured
+	}
+	suffix := strings.Trim(strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '-', r == '_':
+			return r
+		case r >= 'A' && r <= 'Z':
+			return r + ('a' - 'A')
+		default:
+			return '-'
+		}
+	}, hostname), "-")
+	if suffix == "" {
+		return DefaultClientID
+	}
+	return DefaultClientID + "-" + suffix
+}
+
 // Connect establishes a connection to the MQTT broker.
 func (c *Client) Connect(ctx context.Context) error {
 	if !c.config.Enabled {
@@ -113,7 +148,7 @@ func (c *Client) Connect(ctx context.Context) error {
 
 	opts := pahomqtt.NewClientOptions()
 	opts.AddBroker(c.config.Broker)
-	opts.SetClientID(c.config.ClientID)
+	opts.SetClientID(c.clientID())
 	opts.SetCleanSession(c.config.CleanSession)
 	opts.SetAutoReconnect(c.config.AutoReconnect)
 	opts.SetConnectTimeout(time.Duration(c.config.ConnectTimeout) * time.Second)
@@ -301,7 +336,7 @@ func (c *Client) GetStatus() *dto.MQTTStatus {
 		Connected:      c.connected.Load(),
 		Enabled:        c.config.Enabled,
 		Broker:         c.config.Broker,
-		ClientID:       c.config.ClientID,
+		ClientID:       c.clientID(),
 		TopicPrefix:    c.config.TopicPrefix,
 		LastConnected:  c.lastConnect,
 		LastDisconnect: c.lastDisconn,
@@ -735,7 +770,7 @@ func DefaultConfig() *dto.MQTTConfig {
 	return &dto.MQTTConfig{
 		Enabled:           false,
 		Broker:            "tcp://localhost:1883",
-		ClientID:          "unraid-management-agent",
+		ClientID:          DefaultClientID,
 		TopicPrefix:       "unraid",
 		QoS:               1,
 		RetainMessages:    true,

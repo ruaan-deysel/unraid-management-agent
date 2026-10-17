@@ -183,8 +183,8 @@ func TestClientGetStatus(t *testing.T) {
 		t.Errorf("status.Broker = %q, want %q", status.Broker, "tcp://localhost:1883")
 	}
 
-	if status.ClientID != "unraid-management-agent" {
-		t.Errorf("status.ClientID = %q, want %q", status.ClientID, "unraid-management-agent")
+	if status.ClientID != "unraid-management-agent-test-server" {
+		t.Errorf("status.ClientID = %q, want %q", status.ClientID, "unraid-management-agent-test-server")
 	}
 
 	if status.TopicPrefix != "unraid" {
@@ -713,5 +713,34 @@ func TestPublishSystemInfoNilSafe(t *testing.T) {
 	err := client.PublishSystemInfo(nil)
 	if err != nil {
 		t.Errorf("PublishSystemInfo(nil) = %v, want nil", err)
+	}
+}
+
+func TestResolveClientID(t *testing.T) {
+	tests := []struct {
+		name, configured, hostname, want string
+	}{
+		{name: "default ID gets the hostname", configured: "unraid-management-agent", hostname: "Tower", want: "unraid-management-agent-tower"},
+		{name: "empty ID gets the hostname", configured: "", hostname: "tower", want: "unraid-management-agent-tower"},
+		{name: "default ID with spaces", configured: " unraid-management-agent ", hostname: "tower", want: "unraid-management-agent-tower"},
+		{name: "unsafe hostname characters", configured: "", hostname: "My Server.local", want: "unraid-management-agent-my-server-local"},
+		{name: "no usable hostname keeps the default", configured: "", hostname: "", want: "unraid-management-agent"},
+		{name: "custom ID is kept", configured: "unraid-agent-cube", hostname: "tower", want: "unraid-agent-cube"},
+		{name: "custom ID is trimmed", configured: " my-id ", hostname: "tower", want: "my-id"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ResolveClientID(tt.configured, tt.hostname); got != tt.want {
+				t.Errorf("ResolveClientID(%q, %q) = %q, want %q", tt.configured, tt.hostname, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestResolveClientIDDiffersPerHost(t *testing.T) {
+	a := ResolveClientID(DefaultConfig().ClientID, "tower")
+	b := ResolveClientID(DefaultConfig().ClientID, "cube")
+	if a == b {
+		t.Errorf("two hosts with the default config share client ID %q", a)
 	}
 }

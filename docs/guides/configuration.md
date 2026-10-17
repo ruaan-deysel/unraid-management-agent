@@ -439,6 +439,24 @@ DISCOVERY_ENABLED=false
 DISCOVERY_SERVICE_NAME=Main Unraid
 ```
 
+### Advertised address
+
+The agent advertises one IP address, chosen from one LAN interface, and sends
+its announcements on that interface only. Every answer carries only that
+address. The address is chosen in this order:
+
+1. `BIND_ADDRESS`, when set to a specific IP on a LAN interface.
+2. Otherwise the source address of the default route, when it belongs to a LAN
+   interface.
+3. Otherwise the first IPv4 address of `br0`, then `bond*`, then `eth*`, then
+   any other LAN interface.
+
+Docker (`docker0`, `br-*`, `veth*`), libvirt (`virbr*`, `vnet*`, `tap*`),
+Unraid shim (`shim-*`) and VPN or overlay interfaces (`tun*`, `wg*`,
+`tailscale*`, `zt*`) are never used. If no LAN interface has an address yet,
+for example early in boot, the agent logs a warning and retries every 30
+seconds. Set `BIND_ADDRESS` to the server's LAN IP if the warning persists.
+
 ### Notes
 
 - Advertising is **best-effort**: if registration fails (for example, when
