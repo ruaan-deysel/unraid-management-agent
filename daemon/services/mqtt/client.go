@@ -114,27 +114,18 @@ func (c *Client) clientID() string {
 // ResolveClientID returns the MQTT client ID to use. A broker allows one
 // connection per client ID, so agents on several servers sharing the default
 // ID would keep disconnecting each other. An empty or default ID therefore
-// becomes "unraid-management-agent-<hostname>". Any other configured ID is
-// used as is.
+// becomes "unraid-management-agent-<hostname>", with the hostname unchanged
+// so distinct hostnames never map to the same ID. Any other configured ID is
+// used exactly as set.
 func ResolveClientID(configured, hostname string) string {
-	configured = strings.TrimSpace(configured)
-	if configured != "" && configured != DefaultClientID {
+	if trimmed := strings.TrimSpace(configured); trimmed != "" && trimmed != DefaultClientID {
 		return configured
 	}
-	suffix := strings.Trim(strings.Map(func(r rune) rune {
-		switch {
-		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '-', r == '_':
-			return r
-		case r >= 'A' && r <= 'Z':
-			return r + ('a' - 'A')
-		default:
-			return '-'
-		}
-	}, hostname), "-")
-	if suffix == "" {
+	hostname = strings.TrimSpace(hostname)
+	if hostname == "" {
 		return DefaultClientID
 	}
-	return DefaultClientID + "-" + suffix
+	return DefaultClientID + "-" + hostname
 }
 
 // Connect establishes a connection to the MQTT broker.

@@ -29,12 +29,14 @@ var retryInterval = 30 * time.Second
 var errNoLANInterface = errors.New("no LAN interface with a usable address found (docker, VPN and virtual interfaces are ignored)")
 
 // excludedInterfacePrefixes lists interfaces that never face the LAN: Docker
-// bridges and veth pairs, libvirt bridges and VM taps, Unraid's macvlan/ipvlan
+// bridges and veth pairs, LXC, LXD, Incus and Podman bridges, CNI and
+// Kubernetes overlays, libvirt bridges and VM taps, Unraid's macvlan/ipvlan
 // shims, and VPN or overlay tunnels. It combines the MQTT and access-URL
-// filters with tunnel prefixes.
+// filters with container and tunnel prefixes.
 var excludedInterfacePrefixes = []string{
-	"docker", "br-", "br_", "veth", "virbr", "vnet", "vhost", "tap", "macvtap",
-	"shim-", "shim_", "tun", "wg", "tailscale", "zt",
+	"docker", "br-", "br_", "veth", "lxcbr", "lxdbr", "incusbr", "podman",
+	"cni", "flannel", "cali", "cilium", "kube", "virbr", "vnet", "vhost", "tap",
+	"macvtap", "shim-", "shim_", "tun", "wg", "tailscale", "zt",
 }
 
 // netInterface is a network interface with its addresses.
@@ -166,7 +168,7 @@ func (s *Service) Start(ctx context.Context) error {
 		return fmt.Errorf("registering mDNS service: %w", err)
 	}
 
-	logger.Warning("Discovery: %v; retrying every %v. Set BIND_ADDRESS to the server's LAN IP if this persists.", err, retryInterval)
+	logger.Warning("Discovery: %v; retrying every %v. If this persists, set BIND_ADDRESS to the server's LAN IP.", err, retryInterval)
 	s.stop = make(chan struct{})
 	go s.retry(ctx, s.stop, retryInterval)
 	return nil

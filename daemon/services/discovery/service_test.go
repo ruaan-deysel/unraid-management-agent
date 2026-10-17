@@ -260,6 +260,11 @@ func TestSelectAdvertisement(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "no route and br0 without an address skips an LXC bridge",
+			ifaces:  []netInterface{fakeIface(3, "br0", lanFlags), fakeIface(12, "lxcbr0", lanFlags, "10.0.3.1")},
+			wantErr: true,
+		},
+		{
 			name: "only virtual interfaces",
 			ifaces: []netInterface{
 				fakeIface(4, "docker0", lanFlags, "172.17.0.1"),
@@ -418,7 +423,11 @@ func TestIsLANInterface(t *testing.T) {
 			t.Errorf("isLANInterface(%q) = false, want true", name)
 		}
 	}
-	for _, name := range []string{"docker0", "br-3cc0fa14431c", "veth1a2b3c", "virbr0", "vnet0", "shim-br0", "tun0", "tap0", "wg0", "tailscale0", "zt5u4y5n6a", "vhost0"} {
+	for _, name := range []string{
+		"docker0", "br-3cc0fa14431c", "veth1a2b3c", "lxcbr0", "lxdbr0", "incusbr0", "podman0", "cni0",
+		"flannel.1", "cali1234", "cilium_host", "kube-ipvs0", "virbr0", "vnet0", "shim-br0", "tun0",
+		"tap0", "wg0", "tailscale0", "zt5u4y5n6a", "vhost0",
+	} {
 		if isLANInterface(net.Interface{Name: name, Flags: lanFlags}) {
 			t.Errorf("isLANInterface(%q) = true, want false", name)
 		}

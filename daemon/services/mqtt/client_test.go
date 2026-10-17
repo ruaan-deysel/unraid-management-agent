@@ -720,13 +720,13 @@ func TestResolveClientID(t *testing.T) {
 	tests := []struct {
 		name, configured, hostname, want string
 	}{
-		{name: "default ID gets the hostname", configured: "unraid-management-agent", hostname: "Tower", want: "unraid-management-agent-tower"},
+		{name: "default ID gets the hostname", configured: "unraid-management-agent", hostname: "Tower", want: "unraid-management-agent-Tower"},
 		{name: "empty ID gets the hostname", configured: "", hostname: "tower", want: "unraid-management-agent-tower"},
 		{name: "default ID with spaces", configured: " unraid-management-agent ", hostname: "tower", want: "unraid-management-agent-tower"},
-		{name: "unsafe hostname characters", configured: "", hostname: "My Server.local", want: "unraid-management-agent-my-server-local"},
+		{name: "dotted hostname is kept", configured: "", hostname: "node.example", want: "unraid-management-agent-node.example"},
 		{name: "no usable hostname keeps the default", configured: "", hostname: "", want: "unraid-management-agent"},
 		{name: "custom ID is kept", configured: "unraid-agent-cube", hostname: "tower", want: "unraid-agent-cube"},
-		{name: "custom ID is trimmed", configured: " my-id ", hostname: "tower", want: "my-id"},
+		{name: "custom ID is used exactly as set", configured: " my-id ", hostname: "tower", want: " my-id "},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -738,9 +738,11 @@ func TestResolveClientID(t *testing.T) {
 }
 
 func TestResolveClientIDDiffersPerHost(t *testing.T) {
-	a := ResolveClientID(DefaultConfig().ClientID, "tower")
-	b := ResolveClientID(DefaultConfig().ClientID, "cube")
-	if a == b {
-		t.Errorf("two hosts with the default config share client ID %q", a)
+	for _, pair := range [][2]string{{"tower", "cube"}, {"node.example", "node-example"}} {
+		a := ResolveClientID(DefaultConfig().ClientID, pair[0])
+		b := ResolveClientID(DefaultConfig().ClientID, pair[1])
+		if a == b {
+			t.Errorf("hosts %q and %q with the default config share client ID %q", pair[0], pair[1], a)
+		}
 	}
 }

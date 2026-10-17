@@ -451,11 +451,16 @@ address. The address is chosen in this order:
 3. Otherwise the first IPv4 address of `br0`, then `bond*`, then `eth*`, then
    any other LAN interface.
 
-Docker (`docker0`, `br-*`, `veth*`), libvirt (`virbr*`, `vnet*`, `tap*`),
-Unraid shim (`shim-*`) and VPN or overlay interfaces (`tun*`, `wg*`,
-`tailscale*`, `zt*`) are never used. If no LAN interface has an address yet,
-for example early in boot, the agent logs a warning and retries every 30
-seconds. Set `BIND_ADDRESS` to the server's LAN IP if the warning persists.
+Docker (`docker0`, `br-*`, `veth*`), LXC, LXD, Incus and Podman bridges,
+CNI and Kubernetes overlays, libvirt (`virbr*`, `vnet*`, `tap*`), Unraid shim
+(`shim-*`) and VPN or overlay interfaces (`tun*`, `wg*`, `tailscale*`, `zt*`)
+are never used. If no LAN interface has an address yet, for example early in
+boot, the agent logs a warning and retries every 30 seconds.
+
+A `BIND_ADDRESS` that is not on a LAN interface, such as a Docker bridge IP
+or an address the host does not have, does not fall back to steps 2 and 3.
+The agent logs the warning and keeps retrying until that address appears on
+a LAN interface.
 
 ### Notes
 
