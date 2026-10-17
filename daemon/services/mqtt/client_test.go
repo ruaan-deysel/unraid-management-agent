@@ -1,6 +1,7 @@
 package mqtt
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -744,5 +745,39 @@ func TestResolveClientIDDiffersPerHost(t *testing.T) {
 		if a == b {
 			t.Errorf("hosts %q and %q with the default config share client ID %q", pair[0], pair[1], a)
 		}
+	}
+}
+
+func TestConnectSendsResolvedClientID(t *testing.T) {
+	tests := []struct {
+		name, configured, want string
+	}{
+		{name: "default ID gets the hostname", configured: DefaultClientID, want: "unraid-management-agent-tower"},
+		{name: "custom ID is unchanged", configured: "my-agent", want: "my-agent"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := DefaultConfig()
+			config.Enabled = true
+			config.Broker = "tcp://127.0.0.1:1" // refused at once
+			config.ClientID = tt.configured
+			config.ConnectTimeout = 1
+			config.AutoReconnect = false
+			client := NewClient(config, "tower", "1.0.0", nil)
+
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = client.Connect(ctx) // the connection fails; only the options matter
+
+			client.mu.RLock()
+			defer client.mu.RUnlock()
+			if client.client == nil {
+				t.Fatal("Connect() did not create the MQTT client")
+			}
+			opts := client.client.OptionsReader()
+			if got := opts.ClientID(); got != tt.want {
+				t.Errorf("client ID sent to the broker = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }

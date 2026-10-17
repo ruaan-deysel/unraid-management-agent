@@ -389,11 +389,12 @@ func TestShutdownStopsRetries(t *testing.T) {
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start() error = %v", err)
 	}
+	done := retryDone(t, s)
 	s.Shutdown()
 	// Shutdown is idempotent and a later network change registers nothing.
 	s.Shutdown()
+	waitClosed(t, done, "the retry goroutine to exit after Shutdown")
 	up.Store(true)
-	time.Sleep(50 * time.Millisecond)
 	mu.Lock()
 	defer mu.Unlock()
 	if len(*regs) != 0 {
@@ -449,6 +450,27 @@ func TestStartSkipsAdvertisementOnLoopbackBind(t *testing.T) {
 	}
 }
 
+// retryDone returns the channel closed when the service's retry goroutine exits.
+func retryDone(t *testing.T, s *Service) <-chan struct{} {
+	t.Helper()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.retryDone == nil {
+		t.Fatal("no retry goroutine was started")
+	}
+	return s.retryDone
+}
+
+// waitClosed fails the test if ch is not closed within two seconds.
+func waitClosed(t *testing.T, ch <-chan struct{}, what string) {
+	t.Helper()
+	select {
+	case <-ch:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for %s", what)
+	}
+}
+
 // shortRetry makes Start retry every few milliseconds.
 func shortRetry(t *testing.T) {
 	t.Helper()
@@ -481,13 +503,9 @@ func TestRetryStopsWhenContextIsCancelled(t *testing.T) {
 	if lists.Load() < 3 {
 		t.Fatalf("retry checked the interfaces %d times, want at least 3", lists.Load())
 	}
+	done := retryDone(t, s)
 	cancel()
-	time.Sleep(20 * time.Millisecond)
-	settled := lists.Load()
-	time.Sleep(30 * time.Millisecond)
-	if lists.Load() != settled {
-		t.Error("retry kept running after the context was cancelled")
-	}
+	waitClosed(t, done, "the retry goroutine to exit after cancellation")
 	mu.Lock()
 	defer mu.Unlock()
 	if len(*regs) != 0 {
@@ -518,12 +536,9 @@ func TestRetryGivesUpOnRegistrationErrors(t *testing.T) {
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start() error = %v", err)
 	}
+	done := retryDone(t, s)
 	up.Store(true)
-	deadline := time.Now().Add(2 * time.Second)
-	for attempts.Load() == 0 && time.Now().Before(deadline) {
-		time.Sleep(time.Millisecond)
-	}
-	time.Sleep(30 * time.Millisecond)
+	waitClosed(t, done, "the retry goroutine to give up")
 	if n := attempts.Load(); n != 1 {
 		t.Errorf("registration attempts = %d, want 1 (a non-interface error ends the retries)", n)
 	}
@@ -574,5 +589,44 @@ func TestRegisterProxyReturnsLibraryErrors(t *testing.T) {
 	server, err := registerProxy("tower", "_unraid-mgmt-agent._tcp", "local.", 0, "tower", []string{"192.168.20.21"}, nil, nil)
 	if err == nil || server != nil {
 		t.Errorf("registerProxy() = %v, %v; want a nil server and an error", server, err)
+	}
+}
+
+func TestStartWhileRetryingIsANoOp(t *testing.T) {
+	shortRetry(t)
+	var lists atomic.Int32
+	origList, origRoute := listInterfaces, routeIPv4
+	t.Cleanup(func() { listInterfaces, routeIPv4 = origList, origRoute })
+	routeIPv4 = func() net.IP { return nil }
+	listInterfaces = func() ([]netInterface, error) {
+		lists.Add(1)
+		return nil, nil
+	}
+	fakeRegister(t)
+
+	s := NewService(domain.DiscoveryConfig{Enabled: true}, "tower", 8043, "2026.06.01", "", false)
+	if err := s.Start(context.Background()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	first := retryDone(t, s)
+	if err := s.Start(context.Background()); err != nil {
+		t.Fatalf("second Start() error = %v", err)
+	}
+	if retryDone(t, s) != first {
+		t.Error("second Start() started another retry goroutine")
+	}
+	s.Shutdown()
+	waitClosed(t, first, "the retry goroutine to exit after Shutdown")
+}
+
+func TestSelectAdvertisementOrdersSameRankByName(t *testing.T) {
+	fakeNetwork(t, []netInterface{
+		fakeIface(3, "eth1", lanFlags, "192.168.30.5"),
+		fakeIface(2, "eth0", lanFlags, "192.168.20.21"),
+	}, "")
+	s := NewService(domain.DiscoveryConfig{Enabled: true}, "tower", 8043, "2026.06.01", "", false)
+	ip, iface, err := s.selectAdvertisement()
+	if err != nil || ip.String() != "192.168.20.21" || iface.Name != "eth0" {
+		t.Errorf("selectAdvertisement() = %v on %q, %v; want 192.168.20.21 on eth0", ip, iface.Name, err)
 	}
 }

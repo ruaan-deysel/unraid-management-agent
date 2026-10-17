@@ -80,6 +80,8 @@ type Service struct {
 	mu     sync.Mutex
 	server advertiser
 	stop   chan struct{} // closed by Shutdown to end retries
+
+	retryDone chan struct{} // closed when the retry goroutine returns
 }
 
 // NewService creates a discovery service that will advertise the given metadata.
@@ -170,12 +172,14 @@ func (s *Service) Start(ctx context.Context) error {
 
 	logger.Warning("Discovery: %v; retrying every %v. If this persists, set BIND_ADDRESS to the server's LAN IP.", err, retryInterval)
 	s.stop = make(chan struct{})
-	go s.retry(ctx, s.stop, retryInterval)
+	s.retryDone = make(chan struct{})
+	go s.retry(ctx, s.stop, s.retryDone, retryInterval)
 	return nil
 }
 
 // retry registers the service once a LAN interface appears.
-func (s *Service) retry(ctx context.Context, stop <-chan struct{}, interval time.Duration) {
+func (s *Service) retry(ctx context.Context, stop <-chan struct{}, done chan<- struct{}, interval time.Duration) {
+	defer close(done)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
