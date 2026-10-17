@@ -448,3 +448,131 @@ func TestStartSkipsAdvertisementOnLoopbackBind(t *testing.T) {
 		})
 	}
 }
+
+// shortRetry makes Start retry every few milliseconds.
+func shortRetry(t *testing.T) {
+	t.Helper()
+	orig := retryInterval
+	retryInterval = 5 * time.Millisecond
+	t.Cleanup(func() { retryInterval = orig })
+}
+
+func TestRetryStopsWhenContextIsCancelled(t *testing.T) {
+	shortRetry(t)
+	var lists atomic.Int32
+	origList, origRoute := listInterfaces, routeIPv4
+	t.Cleanup(func() { listInterfaces, routeIPv4 = origList, origRoute })
+	routeIPv4 = func() net.IP { return nil }
+	listInterfaces = func() ([]netInterface, error) {
+		lists.Add(1)
+		return []netInterface{fakeIface(4, "docker0", lanFlags, "172.17.0.1")}, nil
+	}
+	regs, mu, _ := fakeRegister(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	s := NewService(domain.DiscoveryConfig{Enabled: true}, "tower", 8043, "2026.06.01", "", false)
+	if err := s.Start(ctx); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for lists.Load() < 3 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if lists.Load() < 3 {
+		t.Fatalf("retry checked the interfaces %d times, want at least 3", lists.Load())
+	}
+	cancel()
+	time.Sleep(20 * time.Millisecond)
+	settled := lists.Load()
+	time.Sleep(30 * time.Millisecond)
+	if lists.Load() != settled {
+		t.Error("retry kept running after the context was cancelled")
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(*regs) != 0 {
+		t.Errorf("registered %d times with only virtual interfaces", len(*regs))
+	}
+	s.Shutdown()
+}
+
+func TestRetryGivesUpOnRegistrationErrors(t *testing.T) {
+	shortRetry(t)
+	var up atomic.Bool
+	var attempts atomic.Int32
+	origList, origRoute, origReg := listInterfaces, routeIPv4, registerProxy
+	t.Cleanup(func() { listInterfaces, routeIPv4, registerProxy = origList, origRoute, origReg })
+	routeIPv4 = func() net.IP { return nil }
+	listInterfaces = func() ([]netInterface, error) {
+		if up.Load() {
+			return unraidHost(), nil
+		}
+		return nil, nil
+	}
+	registerProxy = func(string, string, string, int, string, []string, []string, []net.Interface) (advertiser, error) {
+		attempts.Add(1)
+		return nil, errors.New("socket failure")
+	}
+
+	s := NewService(domain.DiscoveryConfig{Enabled: true}, "tower", 8043, "2026.06.01", "", false)
+	if err := s.Start(context.Background()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	up.Store(true)
+	deadline := time.Now().Add(2 * time.Second)
+	for attempts.Load() == 0 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	time.Sleep(30 * time.Millisecond)
+	if n := attempts.Load(); n != 1 {
+		t.Errorf("registration attempts = %d, want 1 (a non-interface error ends the retries)", n)
+	}
+	s.Shutdown()
+}
+
+func TestSelectAdvertisementInterfaceListError(t *testing.T) {
+	origList := listInterfaces
+	t.Cleanup(func() { listInterfaces = origList })
+	listInterfaces = func() ([]netInterface, error) { return nil, errors.New("netlink failure") }
+
+	s := NewService(domain.DiscoveryConfig{Enabled: true}, "tower", 8043, "2026.06.01", "", false)
+	if _, _, err := s.selectAdvertisement(); err == nil || errors.Is(err, errNoLANInterface) || !strings.Contains(err.Error(), "netlink failure") {
+		t.Errorf("selectAdvertisement() error = %v, want the listing error", err)
+	}
+}
+
+func TestInterfaceRank(t *testing.T) {
+	names := []string{"enp3s0", "eth1", "bond0", "br0"}
+	slices.SortStableFunc(names, func(a, b string) int { return interfaceRank(a) - interfaceRank(b) })
+	if want := []string{"br0", "bond0", "eth1", "enp3s0"}; !slices.Equal(names, want) {
+		t.Errorf("interface order = %v, want %v", names, want)
+	}
+}
+
+func TestSystemHelpers(t *testing.T) {
+	ifaces, err := systemInterfaces()
+	if err != nil {
+		t.Fatalf("systemInterfaces() error = %v", err)
+	}
+	foundLoopback := false
+	for _, ni := range ifaces {
+		if ni.iface.Flags&net.FlagLoopback != 0 {
+			foundLoopback = true
+		}
+	}
+	if !foundLoopback {
+		t.Error("systemInterfaces() did not list a loopback interface")
+	}
+	// The route lookup may find nothing in CI; any result must be a usable IPv4.
+	if ip := primaryIPv4(); ip != nil && (ip.To4() == nil || ip.IsLoopback() || ip.IsUnspecified()) {
+		t.Errorf("primaryIPv4() = %v, want nil or a routable IPv4", ip)
+	}
+}
+
+func TestRegisterProxyReturnsLibraryErrors(t *testing.T) {
+	// Port 0 is rejected before any socket is opened.
+	server, err := registerProxy("tower", "_unraid-mgmt-agent._tcp", "local.", 0, "tower", []string{"192.168.20.21"}, nil, nil)
+	if err == nil || server != nil {
+		t.Errorf("registerProxy() = %v, %v; want a nil server and an error", server, err)
+	}
+}
