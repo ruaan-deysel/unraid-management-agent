@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -38,10 +39,17 @@ type Freshness struct {
 // recordDemand also marks the collectors as read, which runs them at their
 // active rate for the read window; /metrics scrapes pass false. In Manual
 // mode it only reports the data's age.
-func (s *Server) EnsureFresh(ctx context.Context, recordDemand bool, collectors ...string) Freshness {
+//
+// A source is a collector name, whose freshness is its first topic's, or
+// "collector:topic" for data served from another of its topics.
+func (s *Server) EnsureFresh(ctx context.Context, recordDemand bool, sources ...string) Freshness {
 	dc := s.dynamic
 	if dc != nil && recordDemand {
-		dc.Demand().RecordRead(collectors...)
+		names := make([]string, len(sources))
+		for i, src := range sources {
+			names[i], _, _ = strings.Cut(src, ":")
+		}
+		dc.Demand().RecordRead(names...)
 	}
 	ctx, cancel := context.WithTimeout(ctx, freshnessTimeout)
 	defer cancel()
@@ -51,13 +59,17 @@ func (s *Server) EnsureFresh(ctx context.Context, recordDemand bool, collectors 
 		out Freshness
 		wg  sync.WaitGroup
 	)
-	for _, name := range collectors {
+	for _, src := range sources {
+		name, topic, _ := strings.Cut(src, ":")
 		policy, ok := scheduler.PolicyFor(name)
 		if !ok {
 			continue
 		}
+		if topic == "" {
+			topic = policy.Topics[0]
+		}
 		wg.Go(func() {
-			at, stale := s.freshen(ctx, dc, name, policy)
+			at, stale := s.freshen(ctx, dc, name, topic, policy)
 			mu.Lock()
 			defer mu.Unlock()
 			if !at.IsZero() && (out.UpdatedAt.IsZero() || at.Before(out.UpdatedAt)) {
@@ -70,10 +82,9 @@ func (s *Server) EnsureFresh(ctx context.Context, recordDemand bool, collectors 
 	return out
 }
 
-// freshen refreshes one collector if its data is stale and returns the time
-// its data reached the cache and whether it is still stale.
-func (s *Server) freshen(ctx context.Context, dc dynamicCollectors, name string, policy scheduler.Policy) (time.Time, bool) {
-	topic := policy.Topics[0]
+// freshen refreshes one collector if its data on topic is stale and returns
+// the time that data reached the cache and whether it is still stale.
+func (s *Server) freshen(ctx context.Context, dc dynamicCollectors, name, topic string, policy scheduler.Policy) (time.Time, bool) {
 	gen, at := s.CacheInstalled(topic)
 	if dc == nil || !policy.RefreshOnRead || (!at.IsZero() && time.Since(at) <= policy.Staleness) {
 		return at, false
@@ -143,7 +154,7 @@ func (s *Server) freshnessMiddleware(next http.Handler) http.Handler {
 }
 
 // routeCollectors maps each GET route that serves cached collector data to
-// those collectors. TestRouteCollectorsCoverGETRoutes makes every new GET
+// its EnsureFresh sources. TestRouteCollectorsCoverGETRoutes makes every new GET
 // route choose between this table and the test's routesWithoutCollectors.
 var routeCollectors = map[string][]string{
 	"/metrics":                         {"system", "array", "disk", "shares", "docker", "docker_update", "vm", "ups", "gpu", "fancontrol"},
@@ -161,7 +172,7 @@ var routeCollectors = map[string][]string{
 	"/api/v1/docker/updates":           {"docker_update"},
 	"/api/v1/vm":                       {"vm"},
 	"/api/v1/vm/{id}":                  {"vm"},
-	"/api/v1/vm/guest":                 {"vm"},
+	"/api/v1/vm/guest":                 {"vm:vm_guest_update"},
 	"/api/v1/ups":                      {"ups"},
 	"/api/v1/nut":                      {"nut"},
 	"/api/v1/gpu":                      {"gpu"},
@@ -169,9 +180,9 @@ var routeCollectors = map[string][]string{
 	"/api/v1/network/cards":            {"nic"},
 	"/api/v1/zfs/pools":                {"zfs"},
 	"/api/v1/zfs/pools/{name}":         {"zfs"},
-	"/api/v1/zfs/datasets":             {"zfs"},
-	"/api/v1/zfs/snapshots":            {"zfs"},
-	"/api/v1/zfs/arc":                  {"zfs"},
+	"/api/v1/zfs/datasets":             {"zfs:zfs_datasets_update"},
+	"/api/v1/zfs/snapshots":            {"zfs:zfs_snapshots_update"},
+	"/api/v1/zfs/arc":                  {"zfs:zfs_arc_stats_update"},
 	"/api/v1/hardware/full":            {"hardware"},
 	"/api/v1/hardware/bios":            {"hardware"},
 	"/api/v1/hardware/baseboard":       {"hardware"},

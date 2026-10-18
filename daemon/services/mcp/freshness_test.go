@@ -93,9 +93,13 @@ func TestReadCollectorsCoverReadTools(t *testing.T) {
 		if !names[name] {
 			t.Errorf("readCollectors has unknown tool, prompt or resource %s", name)
 		}
-		for _, c := range collectors {
-			if _, ok := scheduler.PolicyFor(c); !ok {
-				t.Errorf("%s names collector %q without a policy", name, c)
+		for _, src := range collectors {
+			name, topic, _ := strings.Cut(src, ":")
+			p, ok := scheduler.PolicyFor(name)
+			if !ok {
+				t.Errorf("%s names collector %q without a policy", name, src)
+			} else if topic != "" && !slices.Contains(p.Topics, topic) {
+				t.Errorf("%s: collector %s does not publish %s", name, src, topic)
 			}
 		}
 	}

@@ -5,8 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -302,6 +305,26 @@ func TestEnsureFresh(t *testing.T) {
 		}
 	})
 
+	t.Run("a collector:topic source judges freshness on that topic", func(t *testing.T) {
+		s, fake := newDynamicServer(t)
+		now, old := time.Now(), time.Now().Add(-time.Hour)
+		s.markInstalled(constants.TopicZFSPoolsUpdate.Name, old)
+		s.markInstalled(constants.TopicZFSDatasetsUpdate.Name, now)
+		f := s.EnsureFresh(t.Context(), true, "zfs:"+constants.TopicZFSDatasetsUpdate.Name)
+		if fake.runs.Load() != 0 || f.Stale || !f.UpdatedAt.Equal(now) {
+			t.Errorf("fresh datasets: runs = %d, freshness = %+v; want no run, fresh at %v", fake.runs.Load(), f, now)
+		}
+		if !fake.demand.Active("zfs") {
+			t.Error("a collector:topic read should record demand for the collector")
+		}
+
+		s.markInstalled(constants.TopicZFSDatasetsUpdate.Name, old)
+		s.EnsureFresh(t.Context(), false, "zfs:"+constants.TopicZFSDatasetsUpdate.Name)
+		if fake.runs.Load() != 1 {
+			t.Errorf("stale datasets: runs = %d, want 1", fake.runs.Load())
+		}
+	})
+
 	t.Run("stopped collector is not stale", func(t *testing.T) {
 		s, fake := newDynamicServer(t)
 		fake.stopped = true
@@ -454,9 +477,9 @@ func TestRouteCollectorsCoverGETRoutes(t *testing.T) {
 		if !routes[tmpl] {
 			t.Errorf("routeCollectors has unknown route %s", tmpl)
 		}
-		for _, name := range names {
-			if _, ok := scheduler.PolicyFor(name); !ok {
-				t.Errorf("route %s names collector %q without a policy", tmpl, name)
+		for _, src := range names {
+			if err := checkSource(src); err != nil {
+				t.Errorf("route %s: %v", tmpl, err)
 			}
 		}
 	}
@@ -690,4 +713,18 @@ var routesWithoutCollectors = map[string]bool{
 	"/api/v1/fans/sensors":                true,
 	"/api/v1/mcp/tool-policy":             true,
 	"/api/v1/ws":                          true,
+}
+
+// checkSource reports an EnsureFresh source whose collector has no policy or
+// does not publish the named topic.
+func checkSource(src string) error {
+	name, topic, _ := strings.Cut(src, ":")
+	p, ok := scheduler.PolicyFor(name)
+	if !ok {
+		return fmt.Errorf("collector %q has no policy", name)
+	}
+	if topic != "" && !slices.Contains(p.Topics, topic) {
+		return fmt.Errorf("collector %s does not publish %s", name, topic)
+	}
+	return nil
 }
