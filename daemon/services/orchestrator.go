@@ -666,9 +666,8 @@ func (o *Orchestrator) subscribeMQTTEvents(ctx context.Context, _ *api.Server) {
 	// In Dynamic mode the collectors MQTT publishes are active while the
 	// broker is connected.
 	if o.collectorManager != nil && o.collectorManager.Dynamic() {
-		handler := mqttDemand(o.collectorManager.Demand(), bound)
-		o.mqttClient.SetConnectionStateHandler(handler)
-		handler(o.mqttClient.IsConnected())
+		// Registration delivers the current state, ordered with later changes.
+		o.mqttClient.SetConnectionStateHandler(mqttDemand(o.collectorManager.Demand(), bound))
 	}
 
 	ch := o.ctx.Hub.Sub(topics...)

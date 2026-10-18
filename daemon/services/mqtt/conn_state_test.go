@@ -44,7 +44,8 @@ func TestConnectionStateHandler(t *testing.T) {
 
 	mu.Lock()
 	defer mu.Unlock()
-	if want := []bool{true, false, false}; !slices.Equal(states, want) {
+	// Registration delivers the current (disconnected) state first.
+	if want := []bool{false, true, false, false}; !slices.Equal(states, want) {
 		t.Errorf("states = %v, want %v", states, want)
 	}
 }
@@ -73,9 +74,22 @@ func TestDisconnectWhileNotConnectedSkipsHandler(t *testing.T) {
 		}
 		called := false
 		client.SetConnectionStateHandler(func(bool) { called = true })
+		called = false // ignore the registration call
 		client.Disconnect()
 		if called {
 			t.Errorf("%s: handler called by Disconnect without a connection", name)
 		}
+	}
+}
+
+func TestSetConnectionStateHandlerDeliversLiveState(t *testing.T) {
+	client := NewClient(DefaultConfig(), "test-server", "1.0.0", nil)
+	client.connected.Store(true)
+	var got []bool
+	client.SetConnectionStateHandler(func(connected bool) { got = append(got, connected) })
+	client.SetConnectionStateHandler(nil) // clearing is allowed and calls nothing
+	client.handleDisconnect(nil)
+	if want := []bool{true}; !slices.Equal(got, want) {
+		t.Errorf("states = %v, want %v", got, want)
 	}
 }
