@@ -269,13 +269,8 @@ function intervalOptions($selected, $type = 'standard', $auto = false) {
     color: var(--text-secondary, #666);
     margin-top: 6px;
 }
-.uma-interval-row.uma-hw-absent .uma-interval-label,
-.uma-summary-row.uma-hw-absent {
+.uma-interval-row.uma-hw-absent .uma-interval-label {
     opacity: 0.6;
-}
-.uma-summary-row {
-    font-size: 13px;
-    padding: 3px 0;
 }
 .uma-interval-section {
     margin-top: 8px;
@@ -822,6 +817,8 @@ which subsystems are healthy. Both require the service to be running.
         <div class="uma-hw-status">Recommended: the agent decides when each collector runs, from change events and connected clients. Turn off to set every interval yourself.</div>
     </div>
 
+    <!-- Hidden, never disabled, in dynamic mode: every interval is still submitted. -->
+    <div id="uma-manual-intervals"<?= ($collection_mode === 'dynamic') ? ' style="display: none;"' : '' ?>>
     <p style="font-size: 12px; color: var(--text-secondary, #666); margin-bottom: 10px;">
         How often data is collected. Lower = faster updates but higher power usage.
     </p>
@@ -837,10 +834,6 @@ which subsystems are healthy. Both require the service to be running.
         <div id="uma-hw-status" class="uma-hw-status">Checking detected hardware…</div>
     </div>
 
-    <div id="uma-collector-summary"<?= ($collection_mode === 'dynamic') ? '' : ' style="display: none;"' ?>></div>
-
-    <!-- Hidden, never disabled, in dynamic mode: every interval is still submitted. -->
-    <div id="uma-interval-grid"<?= ($collection_mode === 'dynamic') ? ' style="display: none;"' : '' ?>>
     <div class="uma-interval-section">
         <div class="uma-section-header">System Monitoring</div>
         <div class="uma-interval-grid">
@@ -1014,10 +1007,10 @@ which subsystems are healthy. Both require the service to be running.
             </div>
         </div>
     </div>
-    </div>
 
     <div class="uma-power-warning">
         <strong>⚡ Power Tip:</strong> Defaults follow industry-standard monitoring intervals. Hardware collectors run only while the agent detects their hardware and are hidden when it is absent; <strong>Auto</strong> runs them every 5 minutes. Set to <strong>Disabled</strong> to completely stop a collector, or use longer intervals (up to 24 hours) for data that rarely changes. Click <strong>Default</strong> to restore industry-standard settings.
+    </div>
     </div>
 </div>
 
@@ -1025,8 +1018,9 @@ which subsystems are healthy. Both require the service to be running.
 Service auto-starts with array. Changes apply after clicking Apply and will restart the service if it is running.
 
 <strong>Dynamic collection</strong> lets the agent decide when each collector runs: on change events where the source
-has them, faster while a client is consuming the data, and slowly otherwise. The summary shows what each collector does
-right now. Turn it off to use the intervals below; your saved intervals are kept in both modes.
+has them, faster while a client is consuming the data, and slowly otherwise. Turn it off to set the intervals below
+yourself; your saved intervals are kept in both modes. <code>GET /api/v1/collectors/status</code> shows what each
+collector does right now.
 
 Hardware-dependent collectors (GPU, Network Cards &amp; Optics, UPS, NUT, ZFS, Storage Topology) follow hardware
 detection: the agent checks for the hardware at startup, every 15 minutes and on <strong>Re-check hardware</strong>.
@@ -1087,7 +1081,6 @@ function updateServiceStatus(running) {
     if (hwBtn) hwBtn.disabled = !running;
     // Re-read hardware detection: rows fail open while the agent is stopped.
     loadCapabilities(false);
-    loadCollectorStatus();
 
     if (running) {
         statusOrb.className = 'fa fa-circle green-orb';
@@ -1347,8 +1340,7 @@ var umaCapabilities = null;
 function applyCapabilityVisibility() {
     var showAll = document.getElementById('show_all_collectors');
     showAll = showAll && showAll.checked;
-    renderCollectorSummary();
-    document.querySelectorAll('.uma-interval-row[data-uma-capability], .uma-summary-row[data-uma-capability]').forEach(function(row) {
+    document.querySelectorAll('.uma-interval-row[data-uma-capability]').forEach(function(row) {
         var item = umaCapabilities ? umaCapabilities[row.getAttribute('data-uma-capability')] : null;
         var absent = !!(item && item.state === 'absent');
         row.title = item && item.detail ? (item.state === 'present' ? 'Detected: ' : 'Not detected: ') + item.detail : '';
@@ -1426,108 +1418,13 @@ function loadCapabilities(refresh) {
     });
 }
 
-// Collection mode (#280). Dynamic hides the interval grid with style.display,
-// never by disabling it, so every INTERVAL_* value is still submitted and the
-// saved intervals are shown again when the toggle is turned off.
+// Collection mode (#280). Dynamic hides the interval settings with
+// style.display, never by disabling them, so every INTERVAL_* value is still
+// submitted and the saved intervals are shown again when the toggle is off.
 function updateCollectionMode() {
     var dynamic = document.getElementById('collection_mode').checked;
     document.getElementById('collection_mode_val').value = dynamic ? 'dynamic' : 'manual';
-    document.getElementById('uma-interval-grid').style.display = dynamic ? 'none' : '';
-    document.getElementById('uma-collector-summary').style.display = dynamic ? '' : 'none';
-    loadCollectorStatus();
-}
-
-// Summary rows in grid order: collector name, label and hardware capability.
-var umaCollectorRows = [
-    ['system', 'System Metrics'], ['array', 'Array Status'], ['disk', 'Disk Health'], ['network', 'Network'],
-    ['docker', 'Docker'], ['vm', 'Virtual Machines'], ['docker_update', 'Docker Update Checks'],
-    ['docker_networks', 'Docker Networks'], ['gpu', 'GPU Metrics', 'hardware.gpu'], ['fancontrol', 'Fan Control'],
-    ['nic', 'Network Cards & Optics', 'hardware.nic_optics'], ['ups', 'UPS Status', 'hardware.ups'],
-    ['nut', 'NUT Plugin', 'hardware.nut'], ['hardware', 'Hardware Info'], ['shares', 'User Shares'],
-    ['zfs', 'ZFS Pools', 'hardware.zfs'], ['unassigned', 'Unassigned Devices'], ['mover', 'Mover Status'],
-    ['storage_topology', 'Storage Topology (SAS/SES)', 'hardware.storage_topology'], ['notification', 'Notifications'],
-    ['registration', 'License Info'], ['tuning', 'Tuning Parameters'], ['plugin_update', 'Plugin Update Checks'],
-    ['os_update', 'OS Update Checks']
-];
-
-// Last /collectors/status response, or null while loading or unavailable.
-var umaCollectorStatus = null;
-var umaCollectorStatusError = '';
-var umaCollectorStatusSeq = 0;
-
-function umaFormatSeconds(secs) {
-    return (secs >= 3600 && secs % 3600 === 0) ? (secs / 3600) + ' h' : secs + ' s';
-}
-
-// What collector c does right now, e.g. "on change (events) · 300 s safety poll".
-function umaDescribeCollector(c, absent) {
-    var secs = Number(c.effective_interval_seconds) || 0;
-    if (c.status !== 'running' || secs <= 0) return absent ? 'not detected' : 'off';
-    var every = umaFormatSeconds(secs);
-    var events = 'on change (events) · ';
-    switch (c.reason) {
-        case 'event': return events + every + ' safety poll';
-        case 'active': return (c.event_driven ? events : '') + every + ' while a client uses the data';
-        case 'idle': return (c.event_driven ? events : '') + every + ' (idle)';
-        case 'floor': return (c.event_driven ? events : '') + every + ' (required by alert rules)';
-        default: return 'every ' + every;
-    }
-}
-
-function renderCollectorSummary() {
-    var box = document.getElementById('uma-collector-summary');
-    if (!box || box.style.display === 'none') return;
-    if (!umaServiceRunning) {
-        box.innerHTML = '<div class="uma-hw-status">The service is not running. Start it to see what each collector does; your collection mode applies when it starts.</div>';
-        return;
-    }
-    if (!umaCollectorStatus) {
-        box.innerHTML = '<div class="uma-hw-status">' + umaEscapeHtml(umaCollectorStatusError || 'Loading collector status…') + '</div>';
-        return;
-    }
-    var byName = {};
-    umaCollectorStatus.collectors.forEach(function(c) {
-        if (c && typeof c.name === 'string') byName[c.name] = c;
-    });
-    var known = umaCollectorRows.map(function(r) { return r[0]; });
-    var rows = umaCollectorRows.filter(function(r) { return byName[r[0]]; }).concat(
-        Object.keys(byName).filter(function(n) { return known.indexOf(n) < 0; }).sort().map(function(n) { return [n, n]; }));
-    var html = '';
-    rows.forEach(function(r) {
-        var item = (r[2] && umaCapabilities) ? umaCapabilities[r[2]] : null;
-        var absent = !!(item && item.state === 'absent');
-        html += '<div class="uma-summary-row" data-uma-collector="' + umaEscapeHtml(r[0]) + '"' +
-            (r[2] ? ' data-uma-capability="' + umaEscapeHtml(r[2]) + '"' : '') + '>' +
-            umaEscapeHtml(r[1] + ' — ' + umaDescribeCollector(byName[r[0]], absent)) + '</div>';
-    });
-    var note = umaCollectorStatus.mode === 'dynamic' ? '' :
-        '<div class="uma-hw-status">The agent still uses the manual intervals. Click Apply to switch to dynamic collection.</div>';
-    box.innerHTML = note + '<div class="uma-interval-grid">' + html + '</div>';
-}
-
-function loadCollectorStatus() {
-    var seq = ++umaCollectorStatusSeq;
-    var box = document.getElementById('uma-collector-summary');
-    if (!box || box.style.display === 'none' || !umaServiceRunning) {
-        applyCapabilityVisibility();
-        return;
-    }
-    $.post('/plugins/<?=$plugin?>/include/diagnostics.php', {action: 'collectors_status'}, function(data) {
-        if (seq !== umaCollectorStatusSeq) return;
-        if (data && Array.isArray(data.collectors)) {
-            umaCollectorStatus = data;
-            umaCollectorStatusError = '';
-        } else {
-            umaCollectorStatus = null;
-            umaCollectorStatusError = 'Collector status unavailable.';
-        }
-        applyCapabilityVisibility();
-    }, 'json').fail(function() {
-        if (seq !== umaCollectorStatusSeq) return;
-        umaCollectorStatus = null;
-        umaCollectorStatusError = 'Collector status unavailable (is the service running?).';
-        applyCapabilityVisibility();
-    });
+    document.getElementById('uma-manual-intervals').style.display = dynamic ? 'none' : '';
 }
 
 // Highlight disabled interval selects
@@ -1913,7 +1810,6 @@ $(function() {
         select.addEventListener('change', updateDisabledHighlighting);
     });
     loadCapabilities(false);
-    loadCollectorStatus();
     updateTokenButtons();
     updateMcpOnboardingUI();
 });

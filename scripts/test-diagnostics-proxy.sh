@@ -1,7 +1,6 @@
 #!/bin/bash
-# Tests the settings page's capabilities and collector status proxies
-# (action=capabilities and action=collectors_status in
-# meta/plugin/include/diagnostics.php, #261, #280) with a fake curl on PATH.
+# Tests the settings page's capabilities proxy (action=capabilities in
+# meta/plugin/include/diagnostics.php, #261) with a fake curl on PATH.
 # Run by `make test-packaging`.
 #
 # Usage: bash scripts/test-diagnostics-proxy.sh
@@ -84,19 +83,3 @@ body="${out#*|}"
 # shellcheck disable=SC2016 # PHP code, not shell expansions
 php -r 'exit(isset(json_decode($argv[1], true)["error"]) ? 0 : 1);' -- "$body" || fail "curl failure: body '$body' has no JSON error"
 echo "✓ An unreachable agent returns HTTP 502 with a JSON error"
-
-BODY='{"mode":"dynamic","collectors":[{"name":"docker","reason":"event","effective_interval_seconds":300}]}'
-out=$(FAKE_CURL_BODY="$BODY" run_proxy action=collectors_status)
-[ "$out" = "200|$BODY" ] || fail "collectors_status: got '$out'"
-url=$(tail -n1 "$WORK/args")
-[ "$url" = "http://127.0.0.1:8043/api/v1/collectors/status" ] || fail "collectors_status: curl URL '$url'"
-grep -qx -- '-m' "$WORK/args" || fail "collectors_status: curl has no timeout"
-echo "✓ collectors_status passes the agent's JSON through from /api/v1/collectors/status"
-
-out=$(FAKE_CURL_FAIL=1 FAKE_CURL_BODY="" run_proxy action=collectors_status)
-status="${out%%|*}"
-body="${out#*|}"
-[ "$status" = "502" ] || fail "collectors_status curl failure: status '$status', want 502"
-# shellcheck disable=SC2016 # PHP code, not shell expansions
-php -r 'exit(isset(json_decode($argv[1], true)["error"]) ? 0 : 1);' -- "$body" || fail "collectors_status curl failure: body '$body' has no JSON error"
-echo "✓ collectors_status returns HTTP 502 with a JSON error when the agent is unreachable"

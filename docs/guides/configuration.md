@@ -50,8 +50,10 @@ decides when collectors run. Precedence is the usual: flag, then environment, th
 **Plugin installs.** Fresh installs start in `dynamic`. On upgrade the plugin runs a one-time
 migration: if every `INTERVAL_*` value is still a shipped default (or `auto`), the install
 moves to `dynamic`; if any value was changed, it stays on `manual` so the tuning is kept. The
-"Dynamic collection" toggle at the top of the Collection Intervals section switches modes;
-saved intervals survive the switch and apply again in Manual mode.
+"Dynamic collection" toggle at the top of the Collection Intervals section switches modes. In
+Dynamic mode the interval settings under it are hidden; saved intervals survive the switch and
+apply again in Manual mode. `GET /api/v1/collectors/status` shows what each collector does right
+now.
 
 **What Dynamic mode does.** Each collector has a built-in _active_ and _idle_ interval:
 
@@ -170,7 +172,7 @@ expose cages.
 Each class is `present`, `absent` or `unknown` (a read error or timeout).
 Results are re-checked at startup, every 15 minutes, and on demand with
 `GET /api/v1/capabilities?refresh=true` (at most every 30 seconds) or the
-**Re-check hardware** button on the plugin settings page.
+**Re-check hardware** button on the plugin settings page (shown in Manual collection mode).
 
 **Absent hardware always wins.** While a class is absent, its collector is off
 and its settings row is hidden, whatever interval is saved. The saved value is

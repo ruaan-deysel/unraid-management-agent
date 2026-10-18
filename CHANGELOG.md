@@ -35,9 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `active`, `idle`, `floor` or `manual`), `event_driven` and `publish_count`. In Dynamic mode
     `PATCH /collectors/{name}/interval` (and the MCP `update_collector_interval` tool) returns a
     conflict.
-- **"Dynamic collection" toggle** on the plugin settings page. When it is on, the interval grid is
-  replaced by a summary of what each collector does right now; saved intervals are kept and apply
-  again in Manual mode. Hardware detection and "Re-check hardware" work in both modes.
+- **"Dynamic collection" toggle** on the plugin settings page. When it is on, the interval settings
+  below it (the interval grid, Show all collectors, Re-check hardware and the power tip) are hidden;
+  saved intervals are kept and apply again in Manual mode. Hardware detection keeps gating the
+  hardware collectors in both modes.
 
 ### Changed
 
