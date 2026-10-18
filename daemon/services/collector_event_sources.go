@@ -34,7 +34,7 @@ func defaultEventSources(name string) []eventSource {
 			disksIniChanges(),
 		}
 	case "shares":
-		return []eventSource{collectors.NewFileEventSource(fileEventDebounce, constants.SharesIni)}
+		return []eventSource{iniChanges(constants.SharesIni, sharesIniVolatileKeys...)}
 	case "mover":
 		return []eventSource{collectors.NewFileEventSource(fileEventDebounce, constants.VarIni)}
 	case "notification":
@@ -62,18 +62,26 @@ func defaultEventSources(name string) []eventSource {
 	}
 }
 
-// disksIniVolatileKeys are the disks.ini keys emhttp updates every few
-// seconds. Changes to them alone do not trigger a collection; the active and
+// The keys emhttp rewrites disks.ini (every few seconds) and shares.ini
+// (about every 30 s) to update: I/O counters, temperatures and space usage.
+// Changes to them alone do not trigger a collection; the active and
 // safety-net polls pick them up.
-var disksIniVolatileKeys = []string{"numReads", "numWrites", "temp"}
+var (
+	disksIniVolatileKeys  = []string{"numReads", "numWrites", "temp", "fsFree", "fsUsed"}
+	sharesIniVolatileKeys = []string{"free", "used"}
+)
 
-// disksIniChanges triggers on disks.ini changes other than its I/O counters
-// and temperatures: emhttp rewrites the file every few seconds to update them.
+// disksIniChanges triggers on disks.ini state changes, not its counters.
 func disksIniChanges() eventSource {
+	return iniChanges(constants.DisksIni, disksIniVolatileKeys...)
+}
+
+// iniChanges triggers when the INI file changes in any key but the ignored ones.
+func iniChanges(file string, ignore ...string) eventSource {
 	return &contentChanges{
-		src:    collectors.NewFileEventSource(fileEventDebounce, constants.DisksIni),
-		file:   constants.DisksIni,
-		ignore: disksIniVolatileKeys,
+		src:    collectors.NewFileEventSource(fileEventDebounce, file),
+		file:   file,
+		ignore: ignore,
 	}
 }
 

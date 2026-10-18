@@ -64,7 +64,9 @@ saved intervals survive the switch and apply again in Manual mode.
 - **Change events** run a collector right away: Docker container events (`docker`), libvirt
   domain lifecycle events (`vm`), file changes under `/var/local/emhttp` and `/boot/config`
   (`array`, `disk`, `shares`, `notification`, `mover`, `unassigned`, `plugin_update`) and kernel
-  hotplug uevents (`unassigned`, `hardware`).
+  hotplug uevents (`unassigned`, `hardware`). Rewrites of `disks.ini` and `shares.ini` that only
+  update I/O counters, temperatures or space usage, which emhttp writes every few seconds, do
+  not count as changes; the polls pick those values up.
 - **Refresh on read.** A REST, MCP or `/metrics` read whose data is older than the collector's
   staleness limit (its active interval) triggers one collection, shared by concurrent reads, and
   waits up to 2 seconds for it. If the collection fails or is late, the read returns the cached
