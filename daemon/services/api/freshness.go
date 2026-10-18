@@ -118,15 +118,22 @@ func (s *Server) freshen(ctx context.Context, dc dynamicCollectors, name, topic 
 	return at, false
 }
 
-// guestDataStale reports VM guest data older than two guest-poller intervals.
-// The poller publishes on its own cadence and a VM refresh does not produce
-// guest data, so a read can only report its age.
+// guestDataStale reports VM guest data older than two guest-poller intervals,
+// or still missing while guest VMs are configured. The poller publishes on
+// its own cadence and a VM refresh does not produce guest data, so a read can
+// only report its age.
 func (s *Server) guestDataStale(at time.Time) bool {
+	if s.ctx == nil || len(s.ctx.VMGuest.VMs) == 0 {
+		return false
+	}
+	if at.IsZero() {
+		return true
+	}
 	interval := defaultGuestInterval
-	if s.ctx != nil && s.ctx.VMGuest.Interval > 0 {
+	if s.ctx.VMGuest.Interval > 0 {
 		interval = time.Duration(s.ctx.VMGuest.Interval) * time.Second
 	}
-	return !at.IsZero() && time.Since(at) > 2*interval
+	return time.Since(at) > 2*interval
 }
 
 // defaultGuestInterval is the guest poller's interval when none is configured.

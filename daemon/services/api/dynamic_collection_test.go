@@ -328,6 +328,13 @@ func TestEnsureFresh(t *testing.T) {
 	t.Run("VM guest data is never refreshed, only aged", func(t *testing.T) {
 		s, fake := newDynamicServer(t)
 		guest := "vm:" + constants.TopicVMGuestUpdate.Name
+		if f := s.EnsureFresh(t.Context(), true, guest); f.Stale {
+			t.Errorf("no guest VMs configured: freshness = %+v, want not stale", f)
+		}
+		s.ctx.VMGuest.VMs = []string{"Home Assistant"}
+		if f := s.EnsureFresh(t.Context(), true, guest); !f.Stale {
+			t.Errorf("configured guest VMs without data yet: freshness = %+v, want stale", f)
+		}
 		recent, old := time.Now().Add(-10*time.Second), time.Now().Add(-2*time.Minute)
 		s.markInstalled(constants.TopicVMGuestUpdate.Name, recent)
 		if f := s.EnsureFresh(t.Context(), true, guest); f.Stale || !f.UpdatedAt.Equal(recent) {
