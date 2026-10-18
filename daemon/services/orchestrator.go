@@ -23,6 +23,7 @@ import (
 	"github.com/tinkerologie/unraid-management-agent/daemon/services/discovery"
 	"github.com/tinkerologie/unraid-management-agent/daemon/services/mcp"
 	"github.com/tinkerologie/unraid-management-agent/daemon/services/mqtt"
+	"github.com/tinkerologie/unraid-management-agent/daemon/services/scheduler"
 	"github.com/tinkerologie/unraid-management-agent/daemon/services/watchdog"
 )
 
@@ -129,6 +130,7 @@ func (o *Orchestrator) Run() error {
 	// reads of the hub field don't race with a later SetEventBus write.
 	// Publishing to agent_wake with no subscriber (agent disabled) is a no-op.
 	alertEngine.SetEventBus(o.ctx.Hub)
+	o.applyAlertFloors(alertEngine)
 	wg.Go(func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -272,6 +274,14 @@ func (o *Orchestrator) Run() error {
 	o.shutdown(apiServer, &wg)
 
 	return nil
+}
+
+// applyAlertFloors keeps, in Dynamic mode, the collectors enabled alert
+// rules read at their Manual default rate or faster (#280).
+func (o *Orchestrator) applyAlertFloors(engine *alerting.Engine) {
+	if o.collectorManager.Dynamic() {
+		engine.SetFloorListener(o.collectorManager.SetFloors)
+	}
 }
 
 // detectCapabilities takes the startup capability snapshot and wires the
@@ -435,6 +445,7 @@ func (o *Orchestrator) RunMCPStdio() error {
 	alertEngine := alerting.NewEngine(alertStore, apiServer)
 	apiServer.SetAlertEngine(alertEngine, alertStore)
 	mcpServer.SetAlertEngine(alertEngine, alertStore)
+	o.applyAlertFloors(alertEngine)
 	wg.Go(func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -637,9 +648,21 @@ func (o *Orchestrator) subscribeMQTTEvents(ctx context.Context, _ *api.Server) {
 
 	topics := make([]string, len(bindings))
 	dispatch := make(map[reflect.Type]func(any), len(bindings))
+	bound := map[string]bool{}
 	for i, b := range bindings {
 		topics[i] = b.topicName
 		dispatch[b.msgType] = b.handle
+		if name, ok := scheduler.CollectorForTopic(b.topicName); ok {
+			bound[name] = true
+		}
+	}
+
+	// In Dynamic mode the collectors MQTT publishes are active while the
+	// broker is connected.
+	if o.collectorManager != nil && o.collectorManager.Dynamic() {
+		demand := o.collectorManager.Demand()
+		o.mqttClient.SetConnectionStateHandler(func(connected bool) { demand.SetMQTT(connected, bound) })
+		demand.SetMQTT(o.mqttClient.IsConnected(), bound)
 	}
 
 	ch := o.ctx.Hub.Sub(topics...)

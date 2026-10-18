@@ -12,6 +12,8 @@
  *   action=download  (GET)   -> streams the diagnostics ZIP as an attachment
  *   action=capabilities (GET/POST, optional refresh=1)
  *                            -> returns the agent's detected capabilities JSON
+ *   action=collectors_status (GET/POST)
+ *                            -> returns the agent's collector status JSON
  *
  * Authentication and CSRF are handled by Unraid's local_prepend.php auto-prepend.
  */
@@ -73,6 +75,23 @@ switch ($action) {
             http_response_code(502);
             echo json_encode([
                 'error' => 'Could not reach the agent capabilities endpoint — is the service running?',
+                'rc'    => $rc,
+            ]);
+            exit;
+        }
+        echo implode("\n", $out);
+        break;
+
+    case 'collectors_status':
+        // What each collector does right now, for the dynamic collection
+        // summary on the settings page (#280).
+        header('Content-Type: application/json');
+        $url = "$base/api/v1/collectors/status";
+        exec("curl -fsS -m 10 $auth_header " . escapeshellarg($url) . ' 2>/dev/null', $out, $rc);
+        if ($rc !== 0) {
+            http_response_code(502);
+            echo json_encode([
+                'error' => 'Could not reach the agent collector status endpoint — is the service running?',
                 'rc'    => $rc,
             ]);
             exit;

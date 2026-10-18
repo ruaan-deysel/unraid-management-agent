@@ -47,6 +47,8 @@ type Client struct {
 	// connectCancel cancels the context for goroutines spawned by handleConnect.
 	// Protected by mu.
 	connectCancel context.CancelFunc
+	// onConnState receives every connection state change. Protected by mu.
+	onConnState func(connected bool)
 
 	// remoteShareSources maps a sanitized remote-share ID (used in MQTT switch
 	// command topics) back to the share's source identifier so incoming
@@ -211,6 +213,7 @@ func (c *Client) handleConnect() {
 	now := time.Now()
 	c.lastConnect = &now
 	c.lastError = ""
+	c.notifyConnState(true)
 
 	logger.Success("MQTT: Connected to broker %s", c.config.Broker)
 
@@ -249,6 +252,7 @@ func (c *Client) handleDisconnect(err error) {
 	c.connected.Store(false)
 	now := time.Now()
 	c.lastDisconn = &now
+	c.notifyConnState(false)
 
 	// Cancel any in-flight connect goroutines.
 	c.mu.Lock()
@@ -269,7 +273,14 @@ func (c *Client) handleDisconnect(err error) {
 // Disconnect closes the MQTT connection gracefully.
 func (c *Client) Disconnect() {
 	c.mu.Lock()
-	defer c.mu.Unlock()
+	disconnected := false
+	defer func() {
+		fn := c.onConnState
+		c.mu.Unlock()
+		if disconnected && fn != nil {
+			fn(false)
+		}
+	}()
 
 	// Cancel any in-flight connect goroutines.
 	if c.connectCancel != nil {
@@ -284,7 +295,26 @@ func (c *Client) Disconnect() {
 
 		c.client.Disconnect(250)
 		c.connected.Store(false)
+		disconnected = true
 		logger.Info("MQTT: Disconnected from broker")
+	}
+}
+
+// SetConnectionStateHandler registers fn to receive every connection state
+// change. Dynamic collection mode uses it to run the published collectors at
+// their active rate while the broker is connected (#280).
+func (c *Client) SetConnectionStateHandler(fn func(connected bool)) {
+	c.mu.Lock()
+	c.onConnState = fn
+	c.mu.Unlock()
+}
+
+func (c *Client) notifyConnState(connected bool) {
+	c.mu.RLock()
+	fn := c.onConnState
+	c.mu.RUnlock()
+	if fn != nil {
+		fn(connected)
 	}
 }
 

@@ -36,9 +36,79 @@ This file is created automatically after the first installation and persists acr
 | `--discovery-enabled`            | `true`   | Advertise the agent via mDNS for auto-discovery                                                                                                                        |
 | `--discovery-service-name`       | -        | Override the advertised mDNS instance name                                                                                                                             |
 
+### Collection Mode
+
+`--collection-mode` (env `COLLECTION_MODE`, `collection_mode` in `config.yml`) chooses who
+decides when collectors run. Precedence is the usual: flag, then environment, then
+`config.yml`, then the default. An invalid `config.yml` value is logged and ignored.
+
+| Mode      | Behaviour                                                                                                              |
+| --------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `dynamic` | The agent decides, from change events, active consumers and safety floors. `INTERVAL_*` values are kept but not used.  |
+| `manual`  | Every collector runs at its configured `INTERVAL_*` value, as before. Default of the daemon binary outside the plugin. |
+
+**Plugin installs.** Fresh installs start in `dynamic`. On upgrade the plugin runs a one-time
+migration: if every `INTERVAL_*` value is still a shipped default (or `auto`), the install
+moves to `dynamic`; if any value was changed, it stays on `manual` so the tuning is kept. The
+"Dynamic collection" toggle at the top of the Collection Intervals section switches modes;
+saved intervals survive the switch and apply again in Manual mode.
+
+**What Dynamic mode does.** Each collector has a built-in _active_ and _idle_ interval:
+
+- **Active** while something consumes its data: a WebSocket client subscribed to one of its
+  topics (a client without a topic filter receives, and so activates, every topic), the MQTT
+  client while connected (for the collectors MQTT publishes), or a REST or MCP read of its data
+  in the last 5 minutes. Clients subscribed only to other topics do not speed it up.
+- **Idle** otherwise. Event-driven collectors poll at a slow safety-net rate instead, because
+  events can be missed. Low power mode multiplies idle and safety-net intervals by 4.
+- **Change events** run a collector right away: Docker container events (`docker`), libvirt
+  domain lifecycle events (`vm`), file changes under `/var/local/emhttp` and `/boot/config`
+  (`array`, `disk`, `shares`, `notification`, `mover`, `unassigned`, `plugin_update`) and kernel
+  hotplug uevents (`unassigned`, `hardware`).
+- **Refresh on read.** A REST, MCP or `/metrics` read whose data is older than the collector's
+  staleness limit (its active interval) triggers one collection, shared by concurrent reads, and
+  waits up to 2 seconds for it. If the collection fails or is late, the read returns the cached
+  data; REST responses carry `X-Cache-Updated-At` and, in that case, `X-Cache-Stale: true`. A
+  `/metrics` scrape refreshes stale data but does not count as demand, so the scrape interval
+  drives the rate.
+- **Safety floors.** While an enabled alert rule reads a collector's data, that collector never
+  runs slower than its Manual default. The built-in rules need no collector data, so they set
+  no floors. Watchdog health checks and fan control read their own sources and are unaffected.
+- Slow-changing collectors (`hardware`, `registration`, `tuning`, `docker_update`,
+  `plugin_update`, `os_update`) keep long fixed schedules.
+
+| Collector           | Active | Idle / safety net | Events                                                |
+| ------------------- | ------ | ----------------- | ----------------------------------------------------- |
+| `system`            | 15s    | 60s               |                                                       |
+| `array`             | 60s    | 600s              | `var.ini`, `disks.ini`                                |
+| `disk`              | 300s   | 1800s             | `var.ini`, `disks.ini`                                |
+| `docker`            | 30s    | 300s              | Docker events                                         |
+| `vm`                | 60s    | 600s              | libvirt lifecycle                                     |
+| `ups`, `nut`, `gpu` | 60s    | 300s              |                                                       |
+| `shares`            | 60s    | 600s              | `shares.ini`                                          |
+| `network`           | 60s    | 300s              |                                                       |
+| `zfs`               | 300s   | 900s              |                                                       |
+| `notification`      | 30s    | 300s              | notification folders                                  |
+| `unassigned`        | 60s    | 600s              | `disks.ini`, Unassigned Devices config, block uevents |
+| `fancontrol`, `nic` | 60s    | 300s              |                                                       |
+| `docker_networks`   | 60s    | 600s              |                                                       |
+| `mover`             | 30s    | 300s              | `var.ini`                                             |
+| `storage_topology`  | 300s   | 900s              |                                                       |
+| `hardware`          | 600s   | 600s              | device uevents                                        |
+| `registration`      | 600s   | 600s              |                                                       |
+| `tuning`            | 120s   | 120s              |                                                       |
+| `docker_update`     | 6h     | 6h                |                                                       |
+| `plugin_update`     | 1h     | 1h                | `*.plg` installs                                      |
+| `os_update`         | 24h    | 24h               |                                                       |
+
+In Dynamic mode `UNRAID_DISABLE_COLLECTORS` and the runtime enable/disable endpoints still turn
+collectors off, hardware detection still gates the hardware collectors, and
+`PATCH /collectors/{name}/interval` returns `409 Conflict`. `GET /collectors/status` reports
+each collector's `mode`, `effective_interval_seconds` and `reason`.
+
 ### Collection Intervals
 
-Control how often data is collected (in seconds):
+Control how often data is collected in Manual mode (in seconds):
 
 | Collector          | Flag                          | Default                         | Min | Max    |
 | ------------------ | ----------------------------- | ------------------------------- | --- | ------ |
