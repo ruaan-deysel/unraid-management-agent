@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/tinkerologie/unraid-management-agent/daemon/constants"
 	"github.com/tinkerologie/unraid-management-agent/daemon/services/scheduler"
 )
 
@@ -86,6 +87,9 @@ func (s *Server) EnsureFresh(ctx context.Context, recordDemand bool, sources ...
 // the time that data reached the cache and whether it is still stale.
 func (s *Server) freshen(ctx context.Context, dc dynamicCollectors, name, topic string, policy scheduler.Policy) (time.Time, bool) {
 	gen, at := s.CacheInstalled(topic)
+	if topic == constants.TopicVMGuestUpdate.Name {
+		return at, dc != nil && s.guestDataStale(at)
+	}
 	if dc == nil || !policy.RefreshOnRead || (!at.IsZero() && time.Since(at) <= policy.Staleness) {
 		return at, false
 	}
@@ -113,6 +117,20 @@ func (s *Server) freshen(ctx context.Context, dc dynamicCollectors, name, topic 
 	_, at = s.CacheInstalled(topic)
 	return at, false
 }
+
+// guestDataStale reports VM guest data older than two guest-poller intervals.
+// The poller publishes on its own cadence and a VM refresh does not produce
+// guest data, so a read can only report its age.
+func (s *Server) guestDataStale(at time.Time) bool {
+	interval := defaultGuestInterval
+	if s.ctx != nil && s.ctx.VMGuest.Interval > 0 {
+		interval = time.Duration(s.ctx.VMGuest.Interval) * time.Second
+	}
+	return !at.IsZero() && time.Since(at) > 2*interval
+}
+
+// defaultGuestInterval is the guest poller's interval when none is configured.
+const defaultGuestInterval = 30 * time.Second
 
 // publishCount returns how many updates were published to topic.
 func (s *Server) publishCount(topic string) uint64 {

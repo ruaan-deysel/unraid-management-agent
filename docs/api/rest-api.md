@@ -2551,7 +2551,8 @@ up to 2 seconds. They set `X-Cache-Updated-At` (RFC 3339, the oldest of the coll
 the endpoint) and, when the refresh failed or timed out and cached data is returned,
 `X-Cache-Stale: true`. Collectors on long fixed schedules (`hardware`, `registration`, `tuning`,
 `docker_update`, `plugin_update`, `os_update`) are never refreshed by a read and never marked
-stale; their data is as old as their last scheduled run.
+stale; their data is as old as their last scheduled run. `GET /vm/guest` is never refreshed either: the guest
+poller updates it on its own interval, and it is marked stale once it is older than two intervals.
 
 **Response**:
 

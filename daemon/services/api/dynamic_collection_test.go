@@ -325,6 +325,30 @@ func TestEnsureFresh(t *testing.T) {
 		}
 	})
 
+	t.Run("VM guest data is never refreshed, only aged", func(t *testing.T) {
+		s, fake := newDynamicServer(t)
+		guest := "vm:" + constants.TopicVMGuestUpdate.Name
+		recent, old := time.Now().Add(-10*time.Second), time.Now().Add(-2*time.Minute)
+		s.markInstalled(constants.TopicVMGuestUpdate.Name, recent)
+		if f := s.EnsureFresh(t.Context(), true, guest); f.Stale || !f.UpdatedAt.Equal(recent) {
+			t.Errorf("recent guest data: freshness = %+v, want fresh at %v", f, recent)
+		}
+		s.markInstalled(constants.TopicVMGuestUpdate.Name, old)
+		if f := s.EnsureFresh(t.Context(), true, guest); !f.Stale || !f.UpdatedAt.Equal(old) {
+			t.Errorf("guest data older than two polls: freshness = %+v, want stale at %v", f, old)
+		}
+		s.ctx.VMGuest.Interval = 120 // two polls = 4 min
+		if f := s.EnsureFresh(t.Context(), true, guest); f.Stale {
+			t.Errorf("guest data within two configured polls: freshness = %+v, want fresh", f)
+		}
+		if fake.runs.Load() != 0 {
+			t.Errorf("runs = %d, want 0: a VM refresh does not produce guest data", fake.runs.Load())
+		}
+		if !fake.demand.Active("vm") {
+			t.Error("a guest read should record demand for the vm collector")
+		}
+	})
+
 	t.Run("stopped collector is not stale", func(t *testing.T) {
 		s, fake := newDynamicServer(t)
 		fake.stopped = true
