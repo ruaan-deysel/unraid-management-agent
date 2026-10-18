@@ -759,3 +759,11 @@ func checkSource(src string) error {
 	}
 	return nil
 }
+
+func TestPublishCountWithoutHub(t *testing.T) {
+	for _, s := range []*Server{{}, {ctx: &domain.Context{}}} {
+		if got := s.publishCount(constants.TopicSystemUpdate.Name); got != 0 {
+			t.Errorf("publishCount = %d, want 0 without an event bus", got)
+		}
+	}
+}

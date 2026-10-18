@@ -603,6 +603,12 @@ func mqttBind[T any](topic domain.Topic[T], fn func(T) error) mqttBinding {
 	}
 }
 
+// mqttDemand returns the MQTT connection-state handler of Dynamic mode: the
+// collectors MQTT publishes are active while the broker is connected.
+func mqttDemand(demand *scheduler.Demand, bound map[string]bool) func(connected bool) {
+	return func(connected bool) { demand.SetMQTT(connected, bound) }
+}
+
 // subscribeMQTTEvents subscribes to collector events and publishes them via MQTT.
 func (o *Orchestrator) subscribeMQTTEvents(ctx context.Context, _ *api.Server) {
 	if o.mqttClient == nil {
@@ -660,9 +666,9 @@ func (o *Orchestrator) subscribeMQTTEvents(ctx context.Context, _ *api.Server) {
 	// In Dynamic mode the collectors MQTT publishes are active while the
 	// broker is connected.
 	if o.collectorManager != nil && o.collectorManager.Dynamic() {
-		demand := o.collectorManager.Demand()
-		o.mqttClient.SetConnectionStateHandler(func(connected bool) { demand.SetMQTT(connected, bound) })
-		demand.SetMQTT(o.mqttClient.IsConnected(), bound)
+		handler := mqttDemand(o.collectorManager.Demand(), bound)
+		o.mqttClient.SetConnectionStateHandler(handler)
+		handler(o.mqttClient.IsConnected())
 	}
 
 	ch := o.ctx.Hub.Sub(topics...)

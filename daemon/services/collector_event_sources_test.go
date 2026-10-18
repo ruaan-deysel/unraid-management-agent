@@ -99,3 +99,38 @@ func TestContentChangesIgnoresVolatileKeys(t *testing.T) {
 	cancel()
 	<-done
 }
+
+func TestSharesIniChangesIgnoreSpaceUsage(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "shares.ini")
+	write := func(s string) {
+		t.Helper()
+		if err := os.WriteFile(file, []byte(s), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("[\"appdata\"]\nfree=\"100\"\nused=\"5\"\nuseCache=\"yes\"\n")
+	src := fakeFileSource{fire: make(chan chan struct{})}
+	c := iniChanges(file, sharesIniVolatileKeys...).(*contentChanges)
+	c.src = src
+	triggered := make(chan struct{}, 10)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		c.Run(ctx, func() { triggered <- struct{}{} })
+	}()
+	src.fireAndWait()
+
+	write("[\"appdata\"]\nfree=\"90\"\nused=\"15\"\nuseCache=\"yes\"\n")
+	src.fireAndWait()
+	if len(triggered) > 0 {
+		t.Error("a free/used rewrite should not trigger")
+	}
+	write("[\"appdata\"]\nfree=\"90\"\nused=\"15\"\nuseCache=\"no\"\n")
+	src.fireAndWait()
+	if len(triggered) != 1 {
+		t.Errorf("a share setting change triggered %d times, want 1", len(triggered))
+	}
+	cancel()
+	<-done
+}

@@ -161,9 +161,10 @@ func (s *Server) freshnessMiddleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		tmpl, err := route.GetPathTemplate()
+		// Every route here has a path; a route without one maps to nothing.
+		tmpl, _ := route.GetPathTemplate()
 		names, ok := routeCollectors[tmpl]
-		if err != nil || !ok {
+		if !ok {
 			next.ServeHTTP(w, r)
 			return
 		}

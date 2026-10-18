@@ -42,12 +42,15 @@ func NewDirEventSource(debounce time.Duration, dir, glob string) EventSource {
 	})
 }
 
+// newFileWatcher creates the file event sources' watchers; tests replace it.
+var newFileWatcher = NewFileWatcher
+
 // newFSEventSource watches dirs and reports the events that match accepts. A
 // missing directory is retried with backoff, and a session ends when one of
 // dirs is removed so it is watched again once it reappears.
 func newFSEventSource(name string, debounce time.Duration, dirs []string, accepts func(abs string, op fsnotify.Op) bool) *sessionSource {
 	return newSessionSource(name, debounce, func(ctx context.Context, connected, changed func()) error {
-		fw, err := NewFileWatcher(0)
+		fw, err := newFileWatcher(0)
 		if err != nil {
 			return fmt.Errorf("creating watcher: %w", err)
 		}

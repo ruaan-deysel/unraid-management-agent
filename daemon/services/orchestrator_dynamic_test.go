@@ -10,6 +10,7 @@ import (
 	"github.com/tinkerologie/unraid-management-agent/daemon/dto"
 	"github.com/tinkerologie/unraid-management-agent/daemon/services/alerting"
 	"github.com/tinkerologie/unraid-management-agent/daemon/services/mqtt"
+	"github.com/tinkerologie/unraid-management-agent/daemon/services/scheduler"
 )
 
 func newModeOrchestrator(mode string) *Orchestrator {
@@ -68,5 +69,18 @@ func runMQTTSubscription(t *testing.T, mode string) {
 	// The broker is not connected, so MQTT makes no collector active.
 	if o.collectorManager.Demand().Active("system") {
 		t.Error("disconnected MQTT made system active")
+	}
+}
+
+func TestMQTTDemandFollowsConnection(t *testing.T) {
+	demand := scheduler.NewDemand(scheduler.RealClock{})
+	handler := mqttDemand(demand, map[string]bool{"system": true})
+	handler(true)
+	if !demand.Active("system") || demand.Active("docker") {
+		t.Errorf("connected: system active = %v, docker active = %v; want true, false", demand.Active("system"), demand.Active("docker"))
+	}
+	handler(false)
+	if demand.Active("system") {
+		t.Error("disconnected MQTT kept system active")
 	}
 }

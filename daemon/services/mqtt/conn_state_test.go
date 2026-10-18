@@ -2,9 +2,12 @@ package mqtt
 
 import (
 	"errors"
+
 	"slices"
 	"sync"
 	"testing"
+
+	pahomqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 // connectedClient is a broker connection that is open until Disconnect.
@@ -52,5 +55,27 @@ func TestDisconnectWithoutHandler(t *testing.T) {
 	client.Disconnect()
 	if client.IsConnected() {
 		t.Error("client connected after Disconnect")
+	}
+}
+
+// closedClient is a broker connection that is not open.
+type closedClient struct{ pahomqtt.Client }
+
+func (*closedClient) IsConnected() bool { return false }
+
+// Disconnect without an open broker connection changes no state, so the
+// handler is not called.
+func TestDisconnectWhileNotConnectedSkipsHandler(t *testing.T) {
+	for name, c := range map[string]pahomqtt.Client{"no client": nil, "closed connection": &closedClient{}} {
+		client := NewClient(DefaultConfig(), "test-server", "1.0.0", nil)
+		if c != nil {
+			client.client = c
+		}
+		called := false
+		client.SetConnectionStateHandler(func(bool) { called = true })
+		client.Disconnect()
+		if called {
+			t.Errorf("%s: handler called by Disconnect without a connection", name)
+		}
 	}
 }
