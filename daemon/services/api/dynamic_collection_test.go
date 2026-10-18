@@ -32,8 +32,10 @@ type fakeDynamic struct {
 	err     error
 	// block, when set, keeps refreshes from completing.
 	block bool
-	// noInstall makes the refresh succeed without installing new data.
+	// noInstall makes the refresh publish without the data reaching the cache.
 	noInstall bool
+	// noPublish makes the refresh succeed without publishing anything.
+	noPublish bool
 	// release, when set, holds runs until it is closed.
 	release chan struct{}
 
@@ -79,8 +81,12 @@ func (f *fakeDynamic) run(name string) {
 		<-f.release
 	}
 	p, _ := scheduler.PolicyFor(name)
-	if f.err == nil && !f.noInstall {
-		f.server.markInstalled(p.Topics[0], time.Now())
+	if f.err == nil && !f.noPublish {
+		// A collector publishes; the cache subscription then installs it.
+		f.server.ctx.Hub.Pub(struct{}{}, p.Topics[0])
+		if !f.noInstall {
+			f.server.markInstalled(p.Topics[0], time.Now())
+		}
 	}
 	f.mu.Lock()
 	waiters := f.inflight[name]
@@ -282,6 +288,17 @@ func TestEnsureFresh(t *testing.T) {
 		defer cancel()
 		if f := s.EnsureFresh(ctx, false, "system"); !f.Stale {
 			t.Errorf("freshness = %+v, want stale", f)
+		}
+	})
+
+	t.Run("refresh that publishes nothing returns the cached data at once", func(t *testing.T) {
+		s, fake := newDynamicServer(t)
+		fake.noPublish = true
+		old := time.Now().Add(-time.Hour)
+		s.markInstalled(constants.TopicSystemUpdate.Name, old)
+		f := s.EnsureFresh(t.Context(), false, "system")
+		if fake.runs.Load() != 1 || f.Stale || !f.UpdatedAt.Equal(old) {
+			t.Errorf("runs = %d, freshness = %+v; want 1 run, not stale, at %v", fake.runs.Load(), f, old)
 		}
 	})
 
@@ -586,6 +603,7 @@ func TestHandleCollectorsStatus_LegacyFallbackMode(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			server, _ := setupTestServer()
 			server.ctx.CollectionMode = mode
+			server.ctx.Intervals.System = 15 // one running collector
 			rr := httptest.NewRecorder()
 			server.router.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/v1/collectors/status", nil))
 			var status dto.CollectorsStatusResponse
@@ -595,10 +613,25 @@ func TestHandleCollectorsStatus_LegacyFallbackMode(t *testing.T) {
 			if status.Mode != mode {
 				t.Errorf("mode = %q, want %q", status.Mode, mode)
 			}
+			running := 0
 			for _, c := range status.Collectors {
+				if c.Status == "running" {
+					running++
+				}
 				if c.Mode != mode {
 					t.Errorf("%s mode = %q, want %q", c.Name, c.Mode, mode)
 				}
+				// Only Manual mode knows the schedule: running collectors report it.
+				wantEff, wantReason := 0, ""
+				if mode == domain.CollectionModeManual && c.Status == "running" {
+					wantEff, wantReason = c.Interval, "manual"
+				}
+				if c.EffectiveInterval != wantEff || c.Reason != wantReason {
+					t.Errorf("%s effective/reason = %d/%q, want %d/%q", c.Name, c.EffectiveInterval, c.Reason, wantEff, wantReason)
+				}
+			}
+			if running != 1 {
+				t.Errorf("running collectors = %d, want 1", running)
 			}
 		})
 	}

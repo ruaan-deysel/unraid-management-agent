@@ -35,11 +35,16 @@ var errRunnerStopped = errors.New("collector stopped")
 // collectFunc adapts a Collect method that needs no setup or teardown.
 type collectFunc func(ctx context.Context)
 
+// Open does nothing: the adapted collector needs no setup.
 func (f collectFunc) Open(context.Context) error { return nil }
+
+// Refresh runs the adapted Collect once.
 func (f collectFunc) Refresh(ctx context.Context) error {
 	f(ctx)
 	return nil
 }
+
+// Close does nothing: the adapted collector needs no teardown.
 func (f collectFunc) Close() {}
 
 // dynamicCollectorFor returns the Dynamic-mode contract of a collector.
@@ -96,6 +101,7 @@ type runnerState struct {
 	errorCount  int
 }
 
+// newCollectorRunner returns a runner for one collector, inactive and with no floor until set.
 func newCollectorRunner(name string, policy scheduler.Policy, coll DynamicCollector, clock scheduler.Clock) *collectorRunner {
 	return &collectorRunner{
 		name:    name,
@@ -190,9 +196,9 @@ func (r *collectorRunner) run(ctx context.Context) {
 		case <-timer.C():
 			r.collect(ctx)
 		case <-r.trigger:
-			r.setPending()
+			r.setPending(false)
 		case <-r.refresh:
-			r.setPending()
+			r.setPending(true)
 		case <-r.wake:
 		}
 		r.mu.Lock()
@@ -203,9 +209,14 @@ func (r *collectorRunner) run(ctx context.Context) {
 	}
 }
 
-func (r *collectorRunner) setPending() {
+// setPending records a waiting change event or refresh request. Change
+// events before the first run are dropped: the first run reads the source
+// anyway, and InitialDelay keeps its startup stagger.
+func (r *collectorRunner) setPending(request bool) {
 	r.mu.Lock()
-	r.pending = true
+	if request || !r.lastAttempt.IsZero() {
+		r.pending = true
+	}
 	r.mu.Unlock()
 }
 

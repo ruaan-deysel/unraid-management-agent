@@ -37,6 +37,7 @@ func NewDockerEventSource() EventSource {
 	})
 }
 
+// newDockerEventSource builds the Docker source on an injectable client factory.
 func newDockerEventSource(newClient func() (dockerEventsClient, error)) *sessionSource {
 	return newSessionSource("Docker event source", dockerEventsDebounce, func(ctx context.Context, connected, changed func()) error {
 		cli, err := newClient()

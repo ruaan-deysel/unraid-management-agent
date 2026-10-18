@@ -71,12 +71,11 @@ func (c *DockerCollector) Refresh(context.Context) error {
 	return nil
 }
 
-// Close closes the Docker client, as Start does on exit.
+// Close closes the Docker client, as Start does on exit. The SDK's Close
+// only drops idle connections and never fails.
 func (c *DockerCollector) Close() {
 	if c.dockerClient != nil {
-		if err := c.dockerClient.Close(); err != nil {
-			logger.Debug("Docker: Error closing client: %v", err)
-		}
+		_ = c.dockerClient.Close()
 	}
 }
 

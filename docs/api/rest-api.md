@@ -2549,7 +2549,9 @@ Reading this endpoint never triggers a collection.
 `/metrics`) refresh data older than the collector's staleness limit before responding, waiting
 up to 2 seconds. They set `X-Cache-Updated-At` (RFC 3339, the oldest of the collectors behind
 the endpoint) and, when the refresh failed or timed out and cached data is returned,
-`X-Cache-Stale: true`.
+`X-Cache-Stale: true`. Collectors on long fixed schedules (`hardware`, `registration`, `tuning`,
+`docker_update`, `plugin_update`, `os_update`) are never refreshed by a read and never marked
+stale; their data is as old as their last scheduled run.
 
 **Response**:
 

@@ -44,6 +44,7 @@ func (d *Demand) Active(collector string) bool {
 	return d.activeLocked(collector)
 }
 
+// activeLocked is Active with d.mu held.
 func (d *Demand) activeLocked(collector string) bool {
 	if d.wsAll > 0 || (d.mqtt && d.mqttFor[collector]) {
 		return true
@@ -66,6 +67,7 @@ func (d *Demand) WSAdd(topics map[string]bool) { d.ws(topics, 1) }
 // WSRemove forgets a WebSocket client with the given topic filter.
 func (d *Demand) WSRemove(topics map[string]bool) { d.ws(topics, -1) }
 
+// ws adds delta clients with the given topic filter.
 func (d *Demand) ws(topics map[string]bool, delta int) {
 	var affected []string
 	if topics == nil {

@@ -31,6 +31,7 @@ func (RealClock) NewTimer(d time.Duration) Timer { return realTimer{time.NewTime
 
 type realTimer struct{ t *time.Timer }
 
+// C, Stop and Reset delegate to the wrapped *time.Timer.
 func (r realTimer) C() <-chan time.Time        { return r.t.C }
 func (r realTimer) Stop() bool                 { return r.t.Stop() }
 func (r realTimer) Reset(d time.Duration) bool { return r.t.Reset(d) }
@@ -133,8 +134,10 @@ func (t *fakeTimer) armLocked(d time.Duration) {
 	}
 }
 
+// C returns the channel the timer fires on.
 func (t *fakeTimer) C() <-chan time.Time { return t.ch }
 
+// Stop disarms the timer and reports whether it was armed.
 func (t *fakeTimer) Stop() bool {
 	t.clock.mu.Lock()
 	defer t.clock.mu.Unlock()
@@ -143,6 +146,7 @@ func (t *fakeTimer) Stop() bool {
 	return was
 }
 
+// Reset re-arms the timer d from the fake now and reports whether it was armed.
 func (t *fakeTimer) Reset(d time.Duration) bool {
 	t.clock.mu.Lock()
 	defer t.clock.mu.Unlock()

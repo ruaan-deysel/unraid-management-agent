@@ -78,6 +78,7 @@ func (s *Server) freshen(ctx context.Context, dc dynamicCollectors, name string,
 	if dc == nil || !policy.RefreshOnRead || (!at.IsZero() && time.Since(at) <= policy.Staleness) {
 		return at, false
 	}
+	published := s.publishCount(topic)
 	done, running := dc.RequestRefresh(name)
 	if !running {
 		return at, false // stopped collectors have no fresh data to wait for
@@ -90,11 +91,24 @@ func (s *Server) freshen(ctx context.Context, dc dynamicCollectors, name string,
 	case <-ctx.Done():
 		return at, true
 	}
+	// A run that published nothing (no data, or unchanged data a collector
+	// does not republish) leaves the cache as current as it gets.
+	if s.publishCount(topic) == published {
+		return at, false
+	}
 	if !s.waitInstalled(ctx, topic, gen) {
 		return at, true
 	}
 	_, at = s.CacheInstalled(topic)
 	return at, false
+}
+
+// publishCount returns how many updates were published to topic.
+func (s *Server) publishCount(topic string) uint64 {
+	if s.ctx == nil || s.ctx.Hub == nil {
+		return 0
+	}
+	return s.ctx.Hub.PublishCount(topic)
 }
 
 // freshnessMiddleware runs EnsureFresh for GET routes that serve collector

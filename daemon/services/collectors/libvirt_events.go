@@ -29,6 +29,7 @@ func NewLibvirtEventSource() EventSource {
 	})
 }
 
+// newLibvirtEventSource builds the libvirt source on an injectable connection factory.
 func newLibvirtEventSource(connect func() (libvirtEventsConn, error)) *sessionSource {
 	return newSessionSource("libvirt event source", libvirtEventsDebounce, func(ctx context.Context, connected, changed func()) error {
 		l, err := connect()

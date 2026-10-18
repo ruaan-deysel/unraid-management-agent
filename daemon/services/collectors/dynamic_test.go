@@ -40,6 +40,22 @@ func TestNotificationDynamicContract(t *testing.T) {
 	c.Close()
 }
 
+func TestNotificationOpenSurvivesMkdirFailure(t *testing.T) {
+	old, oldArchive := notificationsDir, notificationsArchiveDir
+	defer func() { notificationsDir, notificationsArchiveDir = old, oldArchive }()
+	// A regular file where a parent directory should be makes MkdirAll fail.
+	blocker := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(blocker, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	notificationsDir, notificationsArchiveDir = filepath.Join(blocker, "unread"), filepath.Join(blocker, "archive")
+	c := &NotificationCollector{ctx: &domain.Context{Hub: domain.NewEventBus(1)}}
+	// Open logs the failure and still succeeds: the collector polls whatever it can read.
+	if err := c.Open(context.Background()); err != nil {
+		t.Fatalf("Open = %v, want nil", err)
+	}
+}
+
 func TestNotificationOpenResolvesDefaultDirs(t *testing.T) {
 	old, oldArchive := notificationsDir, notificationsArchiveDir
 	defer func() { notificationsDir, notificationsArchiveDir = old, oldArchive }()

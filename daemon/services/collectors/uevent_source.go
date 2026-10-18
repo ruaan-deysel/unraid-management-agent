@@ -35,6 +35,7 @@ func HardwareDeviceUevent(e lib.Uevent) bool {
 	return slices.Contains(hardwareUeventSubsystems, e.Subsystem) && isAddOrRemove(e.Action)
 }
 
+// isAddOrRemove reports a device add or remove action.
 func isAddOrRemove(action string) bool {
 	return action == "add" || action == "remove"
 }
@@ -45,6 +46,7 @@ func NewUeventSource(match func(lib.Uevent) bool) EventSource {
 	return newUeventSource(lib.OpenUevents, match)
 }
 
+// newUeventSource builds the uevent source on an injectable socket opener.
 func newUeventSource(open func() (io.ReadCloser, error), match func(lib.Uevent) bool) *sessionSource {
 	return newSessionSource("Uevent source", ueventDebounce, func(ctx context.Context, connected, changed func()) error {
 		conn, err := open()

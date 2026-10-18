@@ -69,7 +69,8 @@ now.
   hotplug uevents (`unassigned`, `hardware`). Rewrites of `disks.ini` and `shares.ini` that only
   update I/O counters, temperatures or space usage, which emhttp writes every few seconds, do
   not count as changes; the polls pick those values up.
-- **Refresh on read.** A REST, MCP or `/metrics` read whose data is older than the collector's
+- **Refresh on read.** For collectors that follow demand (not the fixed-schedule ones listed
+  below), a REST, MCP or `/metrics` read whose data is older than the collector's
   staleness limit (its active interval) triggers one collection, shared by concurrent reads, and
   waits up to 2 seconds for it. If the collection fails or is late, the read returns the cached
   data; REST responses carry `X-Cache-Updated-At` and, in that case, `X-Cache-Stale: true`. A
@@ -79,7 +80,8 @@ now.
   runs slower than its Manual default. The built-in rules need no collector data, so they set
   no floors. Watchdog health checks and fan control read their own sources and are unaffected.
 - Slow-changing collectors (`hardware`, `registration`, `tuning`, `docker_update`,
-  `plugin_update`, `os_update`) keep long fixed schedules.
+  `plugin_update`, `os_update`) keep long fixed schedules. Reads of their data never trigger a
+  collection and never set `X-Cache-Stale`; their data is as old as their last scheduled run.
 
 | Collector           | Active | Idle / safety net | Events                                                |
 | ------------------- | ------ | ----------------- | ----------------------------------------------------- |
@@ -116,20 +118,20 @@ Control how often data is collected in Manual mode (in seconds):
 
 | Collector          | Flag                          | Default                         | Min | Max    |
 | ------------------ | ----------------------------- | ------------------------------- | --- | ------ |
-| System             | `--interval-system`           | 5s                              | 1s  | 3600s  |
-| Array              | `--interval-array`            | 10s                             | 5s  | 3600s  |
-| Disks              | `--interval-disk`             | 30s                             | 10s | 3600s  |
-| Docker             | `--interval-docker`           | 10s                             | 5s  | 3600s  |
-| VMs                | `--interval-vm`               | 10s                             | 5s  | 3600s  |
-| UPS                | `--interval-ups`              | 10s                             | 5s  | 3600s  |
-| NUT                | `--interval-nut`              | 10s                             | 5s  | 3600s  |
-| GPU                | `--interval-gpu`              | 10s                             | 5s  | 3600s  |
+| System             | `--interval-system`           | 15s                             | 1s  | 3600s  |
+| Array              | `--interval-array`            | 60s                             | 5s  | 3600s  |
+| Disks              | `--interval-disk`             | 300s                            | 10s | 3600s  |
+| Docker             | `--interval-docker`           | 30s                             | 5s  | 3600s  |
+| VMs                | `--interval-vm`               | 60s                             | 5s  | 3600s  |
+| UPS                | `--interval-ups`              | 60s                             | 5s  | 3600s  |
+| NUT                | `--interval-nut`              | 0s (disabled)                   | 5s  | 3600s  |
+| GPU                | `--interval-gpu`              | 60s                             | 5s  | 3600s  |
 | Shares             | `--interval-shares`           | 60s                             | 30s | 3600s  |
-| Network            | `--interval-network`          | 15s                             | 5s  | 3600s  |
-| Hardware           | `--interval-hardware`         | 60s                             | 30s | 3600s  |
-| ZFS                | `--interval-zfs`              | 30s                             | 10s | 3600s  |
+| Network            | `--interval-network`          | 60s                             | 5s  | 3600s  |
+| Hardware           | `--interval-hardware`         | 600s                            | 30s | 3600s  |
+| ZFS                | `--interval-zfs`              | 300s                            | 10s | 3600s  |
 | Notifications      | `--interval-notification`     | 30s                             | 10s | 3600s  |
-| Registration       | `--interval-registration`     | 300s                            | 60s | 3600s  |
+| Registration       | `--interval-registration`     | 600s                            | 60s | 3600s  |
 | Unassigned Devices | `--interval-unassigned`       | 60s                             | 30s | 3600s  |
 | Storage Topology   | `--interval-storage-topology` | 0s (disabled; 300s recommended) | 0s  | 86400s |
 | Network Cards      | `--interval-nic`              | 0s (disabled; 60s recommended)  | 0s  | 86400s |

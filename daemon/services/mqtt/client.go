@@ -309,6 +309,7 @@ func (c *Client) SetConnectionStateHandler(fn func(connected bool)) {
 	c.mu.Unlock()
 }
 
+// notifyConnState calls the connection-state handler without holding c.mu.
 func (c *Client) notifyConnState(connected bool) {
 	c.mu.RLock()
 	fn := c.onConnState

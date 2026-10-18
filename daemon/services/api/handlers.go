@@ -2536,13 +2536,19 @@ func (s *Server) handleCollectorsStatus(w http.ResponseWriter, _ *http.Request) 
 			enabledCount++
 		}
 
-		statuses = append(statuses, dto.CollectorStatus{
+		st := dto.CollectorStatus{
 			Name:     c.name,
 			Enabled:  enabled,
 			Interval: c.interval,
 			Status:   status,
 			Mode:     mode,
-		})
+		}
+		// Without a manager only Manual mode's schedule is known: the configured interval.
+		if enabled && mode == domain.CollectionModeManual {
+			st.EffectiveInterval = c.interval
+			st.Reason = "manual"
+		}
+		statuses = append(statuses, st)
 	}
 
 	respondJSON(w, http.StatusOK, dto.CollectorsStatusResponse{

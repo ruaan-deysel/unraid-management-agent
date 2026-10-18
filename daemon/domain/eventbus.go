@@ -67,6 +67,7 @@ func (bus *EventBus) PublishCount(topic string) uint64 {
 	return bus.counter(topic).Load()
 }
 
+// counter returns the topic's publish counter, creating it.
 func (bus *EventBus) counter(topic string) *atomic.Uint64 {
 	if c, ok := bus.published.Load(topic); ok {
 		return c.(*atomic.Uint64)

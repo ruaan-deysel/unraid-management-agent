@@ -40,6 +40,7 @@ type sessionSource struct {
 	session    sessionFunc
 }
 
+// newSessionSource returns a source that runs session with reconnect backoff and debounced triggers.
 func newSessionSource(name string, debounce time.Duration, session sessionFunc) *sessionSource {
 	return &sessionSource{
 		name:       name,
@@ -95,6 +96,7 @@ type debouncer struct {
 	stopped bool
 }
 
+// poke records a change; the trigger fires once at the end of the window.
 func (d *debouncer) poke() {
 	d.mu.Lock()
 	defer d.mu.Unlock()

@@ -138,6 +138,7 @@ func (cm *CollectorManager) SetFloors(required map[string]bool) {
 	cm.wakeRunners(changed)
 }
 
+// floorRequired reports whether an enabled alert rule reads the collector.
 func (cm *CollectorManager) floorRequired(name string) bool {
 	f := cm.floors.Load()
 	return f != nil && (*f)[name]

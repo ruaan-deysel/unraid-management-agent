@@ -40,7 +40,17 @@ func TestApplyAlertFloors(t *testing.T) {
 }
 
 func TestSubscribeMQTTEvents_DynamicRegistersDemand(t *testing.T) {
-	o := newModeOrchestrator(domain.CollectionModeDynamic)
+	runMQTTSubscription(t, domain.CollectionModeDynamic)
+}
+
+// Manual mode installs no MQTT demand: collector cadence ignores consumers.
+func TestSubscribeMQTTEvents_ManualSkipsDemand(t *testing.T) {
+	runMQTTSubscription(t, domain.CollectionModeManual)
+}
+
+func runMQTTSubscription(t *testing.T, mode string) {
+	t.Helper()
+	o := newModeOrchestrator(mode)
 	o.mqttClient = mqtt.NewClient(&dto.MQTTConfig{Broker: "tcp://localhost:1883"}, "test-host", "1.0.0", o.ctx)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)

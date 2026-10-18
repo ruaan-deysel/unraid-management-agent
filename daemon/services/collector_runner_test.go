@@ -303,9 +303,16 @@ func TestRunnerPanicRecovered(t *testing.T) {
 type fakeSource struct {
 	orderMu *sync.Mutex
 	order   *[]string
+	fire    chan struct{} // trigger when it receives; nil triggers at once
 }
 
 func (s fakeSource) Run(ctx context.Context, trigger func()) {
+	if s.fire != nil {
+		select {
+		case <-s.fire:
+		case <-ctx.Done():
+		}
+	}
 	trigger()
 	<-ctx.Done()
 	s.orderMu.Lock()
@@ -325,10 +332,19 @@ func TestRunnerEventSourcesAndStopOrder(t *testing.T) {
 	coll.orderMu, coll.order = &mu, &order
 	coll.openErr = errors.New("open failed")
 
+	fire := make(chan struct{})
 	h := startRunner(t, testPolicy, coll, func(r *collectorRunner) {
-		r.sources = []eventSource{fakeSource{orderMu: &mu, order: &order}, panicSource{}}
+		r.sources = []eventSource{fakeSource{orderMu: &mu, order: &order, fire: fire}, panicSource{}}
 	})
-	// The source's trigger runs the collector despite the Open error.
+	// A change event before the first run keeps the initial delay.
+	rearmed := h.clock.Changed()
+	fire <- struct{}{}
+	waitChan(t, rearmed, "timer re-armed after the event")
+	if got := h.clock.Pending(); len(got) != 1 || got[0] != time.Hour {
+		t.Fatalf("pending timers after an early event = %v, want [1h]", got)
+	}
+	// The scheduled first run happens despite the Open error.
+	h.clock.Advance(time.Hour)
 	coll.waitCall(t)
 	h.idleWith(t, 1, 60*time.Second)
 

@@ -24,10 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     subscribed to one of its topics, MQTT is connected, or its data was read over REST or MCP in
     the last 5 minutes, and drops to its idle rate otherwise. Clients subscribed only to other
     topics do not speed it up.
-  - **Refresh on read**: a REST, MCP or `/metrics` read of data older than the collector's
-    staleness limit triggers one shared collection and waits up to 2 s for it. If the collection
-    fails or is late the cached data is returned; REST responses carry `X-Cache-Updated-At` and
-    `X-Cache-Stale`.
+  - **Refresh on read**: for demand-following collectors, a REST, MCP or `/metrics` read of data
+    older than the collector's staleness limit triggers one shared collection and waits up to
+    2 s for it. If the collection fails or is late the cached data is returned; REST responses
+    carry `X-Cache-Updated-At` and `X-Cache-Stale`. Collectors on long fixed schedules (update
+    checks, license, tuning, hardware info) are not refreshed by reads.
   - **Safety floors**: while an enabled alert rule reads a collector's data, it never runs slower
     than its Manual default. The 15 s alert evaluation, health checks and fan control are
     unchanged.

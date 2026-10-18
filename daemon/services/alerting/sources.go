@@ -16,6 +16,7 @@ import (
 // its source tag. Fields tagged source:"-" are absent.
 var envSources = buildEnvSources()
 
+// buildEnvSources maps each AlertEnv expression name to the collectors in its source tag.
 func buildEnvSources() map[string][]string {
 	t := reflect.TypeFor[dto.AlertEnv]()
 	sources := make(map[string][]string, t.NumField())
@@ -47,6 +48,7 @@ func allAlertSources() map[string]bool {
 // Unknown identifiers (functions, let variables) are ignored.
 type sourceVisitor map[string]bool
 
+// Visit records each identifier the expression references.
 func (v sourceVisitor) Visit(node *ast.Node) {
 	if id, ok := (*node).(*ast.IdentifierNode); ok {
 		for _, c := range envSources[id.Value] {
