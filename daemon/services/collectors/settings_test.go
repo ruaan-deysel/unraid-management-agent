@@ -487,6 +487,42 @@ cron="0 3 * * 0"
 			wantWeekOfMonth: "",
 			wantLastDay:     false,
 		},
+		{
+			name: "Repeated dotm entries numeric then week selector",
+			cfg: `[parity]
+mode="5"
+dotm="15"
+dotm="W2"
+`,
+			wantMode:        "custom",
+			wantDayOfMonth:  0,
+			wantWeekOfMonth: "W2",
+			wantLastDay:     false,
+		},
+		{
+			name: "Repeated dotm entries week selector then numeric",
+			cfg: `[parity]
+mode="3"
+dotm="W2"
+dotm="15"
+`,
+			wantMode:        "monthly",
+			wantDayOfMonth:  15,
+			wantWeekOfMonth: "",
+			wantLastDay:     false,
+		},
+		{
+			name: "Repeated dotm entries numeric then last-day selector",
+			cfg: `[parity]
+mode="3"
+dotm="15"
+dotm="28-31"
+`,
+			wantMode:        "monthly",
+			wantDayOfMonth:  0,
+			wantWeekOfMonth: "",
+			wantLastDay:     true,
+		},
 	}
 
 	for _, tt := range tests {
