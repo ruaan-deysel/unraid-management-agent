@@ -364,6 +364,7 @@ func (c *SettingsCollector) parseParityScheduleFromDynamix(schedule *dto.ParityS
 func parseParityScheduleSection(r io.Reader, schedule *dto.ParitySchedule) error {
 	scanner := bufio.NewScanner(r)
 	inParitySection := false
+	rawDotm := ""
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -427,6 +428,7 @@ func parseParityScheduleSection(r io.Reader, schedule *dto.ParitySchedule) error
 				}
 			}
 		case "dotm":
+			rawDotm = strings.TrimSpace(value)
 			if dotm, err := strconv.Atoi(value); err == nil {
 				schedule.DayOfMonth = dotm
 			}
@@ -454,7 +456,29 @@ func parseParityScheduleSection(r io.Reader, schedule *dto.ParitySchedule) error
 		}
 	}
 
+	applyParityScheduleDotm(schedule, rawDotm)
+
 	return scanner.Err()
+}
+
+// applyParityScheduleDotm applies week_of_month or last_day_of_month selectors
+// based on the final resolved mode and the raw dotm configuration value (Issue #281).
+func applyParityScheduleDotm(schedule *dto.ParitySchedule, rawDotm string) {
+	schedule.WeekOfMonth = ""
+	schedule.LastDayOfMonth = false
+
+	switch schedule.Mode {
+	case "custom":
+		upper := strings.ToUpper(rawDotm)
+		switch upper {
+		case "W1", "W2", "W3", "W4", "WL", "*":
+			schedule.WeekOfMonth = upper
+		}
+	case "monthly", "yearly":
+		if rawDotm == "28-31" {
+			schedule.LastDayOfMonth = true
+		}
+	}
 }
 
 // parseParityCheckCron reads the scheduled check entry and pause/resume times
