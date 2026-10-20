@@ -3283,7 +3283,6 @@ Get parity check schedule configuration.
   "correcting": true,
   "check_cron": "0 22 * * 5",
   "pause_hour": 6,
-  "resume_hour": 0,
   "timestamp": "2026-10-20T14:30:00+10:00"
 }
 ```
@@ -3342,7 +3341,7 @@ _Monthly - Last Day of Month (`dotm="28-31"`)_:
 | `duration_hours`    | int    | Max duration in hours (0 = unlimited)                                                                                                                                                                               |
 | `cumulative`        | bool   | Resume paused checks                                                                                                                                                                                                |
 | `correcting`        | bool   | Correcting (`true`) vs non-correcting (`false`) check                                                                                                                                                               |
-| `cron`              | string | _(Optional)_ Raw cron expression configured in `dynamix.cfg` for custom mode; omitted for other modes                                                                                                               |
+| `cron`              | string | _(Optional, Custom mode only)_ Raw cron expression configured in `dynamix.cfg` for custom mode; cleared and omitted for other modes                                                                                 |
 | `check_cron`        | string | _(Optional)_ Authoritative five-field cron spec from `parity-check.cron`. Note: excludes Unraid shell date guards (e.g. `[[ $(date +%e) ... ]]`); combine with `week_of_month` or `last_day_of_month` for exact run |
 | `pause_hour`        | int    | _(Optional)_ Hour to pause check if scheduled                                                                                                                                                                       |
 | `resume_hour`       | int    | _(Optional)_ Hour to resume check if scheduled                                                                                                                                                                      |

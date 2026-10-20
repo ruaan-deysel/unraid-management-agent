@@ -476,6 +476,17 @@ mode="5"
 			wantWeekOfMonth: "W4",
 			wantLastDay:     false,
 		},
+		{
+			name: "Stale cron in Daily mode cleared",
+			cfg: `[parity]
+mode="1"
+cron="0 3 * * 0"
+`,
+			wantMode:        "daily",
+			wantDayOfMonth:  0,
+			wantWeekOfMonth: "",
+			wantLastDay:     false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -501,6 +512,9 @@ mode="5"
 			}
 			if tt.wantMonth != 0 && schedule.Month != tt.wantMonth {
 				t.Errorf("Month = %d, want %d", schedule.Month, tt.wantMonth)
+			}
+			if tt.wantMode != "custom" && schedule.Cron != "" {
+				t.Errorf("Cron = %q, want empty for non-custom mode", schedule.Cron)
 			}
 		})
 	}

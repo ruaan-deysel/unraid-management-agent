@@ -463,9 +463,13 @@ func parseParityScheduleSection(r io.Reader, schedule *dto.ParitySchedule) error
 
 // applyParityScheduleDotm applies week_of_month or last_day_of_month selectors
 // based on the final resolved mode and the raw dotm configuration value (Issue #281).
+// It also clears custom-only fields when the final mode is not custom.
 func applyParityScheduleDotm(schedule *dto.ParitySchedule, rawDotm string) {
 	schedule.WeekOfMonth = ""
 	schedule.LastDayOfMonth = false
+	if schedule.Mode != "custom" {
+		schedule.Cron = ""
+	}
 
 	switch schedule.Mode {
 	case "custom":
