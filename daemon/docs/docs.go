@@ -10542,7 +10542,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "week_of_month": {
-                    "description": "WeekOfMonth is the week selector for custom mode schedules (Issue #281).\nValues are \"W1\" (days 1-7), \"W2\" (8-14), \"W3\" (15-21), \"W4\" (22-28),\n\"WL\" (last 7 days of month), or \"*\" (every week without a week guard).\nQualifies day and the weekday in check_cron. Omitted for other modes.",
+                    "description": "WeekOfMonth is the week selector for weekday-based parity schedules (Issue #281).\nValues are \"W1\" (days 1-7), \"W2\" (8-14), \"W3\" (15-21), \"W4\" (22-28),\n\"WL\" (last 7 days of month), or \"*\" (every week in custom mode).\nQualifies day and the weekday in check_cron. Omitted when not applicable.",
                     "type": "string",
                     "example": "W2"
                 }

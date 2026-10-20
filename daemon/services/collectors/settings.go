@@ -472,16 +472,20 @@ func applyParityScheduleDotm(schedule *dto.ParitySchedule, rawDotm string) {
 		schedule.Cron = ""
 	}
 
+	upper := strings.ToUpper(rawDotm)
 	switch schedule.Mode {
 	case "custom":
-		upper := strings.ToUpper(rawDotm)
 		switch upper {
 		case "W1", "W2", "W3", "W4", "WL", "*":
 			schedule.WeekOfMonth = upper
 			schedule.DayOfMonth = 0
 		}
 	case "monthly", "yearly":
-		if rawDotm == "28-31" {
+		switch upper {
+		case "W1", "W2", "W3", "W4", "WL":
+			schedule.WeekOfMonth = upper
+			schedule.DayOfMonth = 0
+		case "28-31":
 			schedule.LastDayOfMonth = true
 			schedule.DayOfMonth = 0
 		}

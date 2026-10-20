@@ -404,15 +404,28 @@ dotm="W2"
 			wantLastDay:     false,
 		},
 		{
-			name: "Stale W2 in Monthly mode",
+			name: "W2 in Monthly mode",
 			cfg: `[parity]
 mode="3"
 dotm="W2"
 `,
 			wantMode:        "monthly",
 			wantDayOfMonth:  0,
-			wantWeekOfMonth: "",
+			wantWeekOfMonth: "W2",
 			wantLastDay:     false,
+		},
+		{
+			name: "W1 in Yearly mode",
+			cfg: `[parity]
+mode="4"
+dotm="W1"
+month="3"
+`,
+			wantMode:        "yearly",
+			wantDayOfMonth:  0,
+			wantWeekOfMonth: "W1",
+			wantLastDay:     false,
+			wantMonth:       3,
 		},
 		{
 			name: "Stale 28-31 in Daily mode",
@@ -603,6 +616,19 @@ dotm="28-31"
 			wantWeekOfMonth: "",
 			wantLastDay:     true,
 			wantCheckCron:   "0 22 28-31 * *",
+		},
+		{
+			name: "Monthly second week with guard",
+			cfg: `[parity]
+mode="3"
+day="5"
+dotm="W2"
+`,
+			cron:            "0 22 * * 5 [[ $(date +%e -d -7days) -le 7 ]] && /usr/local/sbin/mdcmd check NOCORRECT &> /dev/null || :\n",
+			wantMode:        "monthly",
+			wantWeekOfMonth: "W2",
+			wantLastDay:     false,
+			wantCheckCron:   "0 22 * * 5",
 		},
 		{
 			name: "Stale Daily W2 with daily line",

@@ -51,10 +51,10 @@ type ParitySchedule struct {
 	Hour       int    `json:"hour" example:"0"`         // Hour to run (0-23). dynamix.cfg stores "minute hour"; only the hour part is exposed here — use check_cron for the exact time
 	DayOfMonth int    `json:"day_of_month" example:"1"` // Day of month (1-31) for monthly/yearly schedule; 0 when week_of_month or last_day_of_month is set
 
-	// WeekOfMonth is the week selector for custom mode schedules (Issue #281).
+	// WeekOfMonth is the week selector for weekday-based parity schedules (Issue #281).
 	// Values are "W1" (days 1-7), "W2" (8-14), "W3" (15-21), "W4" (22-28),
-	// "WL" (last 7 days of month), or "*" (every week without a week guard).
-	// Qualifies day and the weekday in check_cron. Omitted for other modes.
+	// "WL" (last 7 days of month), or "*" (every week in custom mode).
+	// Qualifies day and the weekday in check_cron. Omitted when not applicable.
 	WeekOfMonth string `json:"week_of_month,omitempty" example:"W2"`
 
 	// LastDayOfMonth is true when a monthly or yearly schedule is set to run on
